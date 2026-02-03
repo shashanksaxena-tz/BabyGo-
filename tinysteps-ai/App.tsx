@@ -1,163 +1,293 @@
-import React, { useState } from 'react';
-import { Upload, FileVideo, FileImage, Baby, AlertCircle } from 'lucide-react';
-import { AppStep, AnalysisResult } from './types';
+import React, { useState, useEffect } from 'react';
+import { AppStep, ChildProfile, AnalysisResult } from './types';
+import { getCurrentChild, isOnboardingComplete, setOnboardingComplete, saveAnalysis, getAnalysisById } from './services/storageService';
 import { analyzeDevelopment } from './services/geminiService';
+
+// Components
+import ProfileSetup from './components/ProfileSetup';
+import HomeDashboard from './components/HomeDashboard';
+import MediaUploader from './components/MediaUploader';
 import AnalysisView from './components/AnalysisView';
 import ResultsView from './components/ResultsView';
+import TimelineView from './components/TimelineView';
+import BedtimeStories from './components/BedtimeStories';
+
+import {
+  Baby,
+  AlertCircle,
+  ArrowLeft,
+  Mic,
+  Loader2,
+} from 'lucide-react';
 import RecordButton from './components/RecordButton';
 
 const App: React.FC = () => {
-  const [step, setStep] = useState<AppStep>(AppStep.UPLOAD);
-  const [file, setFile] = useState<File | null>(null);
-  const [age, setAge] = useState<string>('');
-  const [notes, setNotes] = useState<string>('');
+  const [step, setStep] = useState<AppStep>(AppStep.ONBOARDING);
+  const [currentChild, setCurrentChild] = useState<ChildProfile | null>(null);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
-      setError(null);
+  // Upload state
+  const [mediaFiles, setMediaFiles] = useState<File[]>([]);
+  const [babyAudio, setBabyAudio] = useState<Blob | undefined>();
+  const [contextNotes, setContextNotes] = useState('');
+
+  // Navigation data
+  const [navData, setNavData] = useState<any>(null);
+
+  useEffect(() => {
+    // Check if onboarding is complete and load current child
+    const child = getCurrentChild();
+    if (child && isOnboardingComplete()) {
+      setCurrentChild(child);
+      setStep(AppStep.HOME);
+    } else {
+      setStep(AppStep.ONBOARDING);
     }
+  }, []);
+
+  const handleProfileComplete = (child: ChildProfile) => {
+    setCurrentChild(child);
+    setOnboardingComplete();
+    setStep(AppStep.HOME);
+  };
+
+  const handleMediaChange = (files: File[], audio?: Blob) => {
+    setMediaFiles(files);
+    setBabyAudio(audio);
   };
 
   const handleTranscription = (text: string) => {
-    setNotes((prev) => prev ? `${prev} ${text}` : text);
+    setContextNotes(prev => prev ? `${prev} ${text}` : text);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!file || !age) {
-      setError("Please provide both media and child's age.");
+  const handleStartAnalysis = async () => {
+    if (!currentChild || mediaFiles.length === 0) {
+      setError('Please upload at least one photo or video.');
       return;
     }
 
     setStep(AppStep.ANALYZING);
+    setError(null);
+
     try {
-      const data = await analyzeDevelopment(file, age, notes);
-      setResult(data);
+      const analysisResult = await analyzeDevelopment(
+        mediaFiles,
+        currentChild,
+        contextNotes,
+        babyAudio
+      );
+
+      const savedAnalysis = saveAnalysis(analysisResult);
+      setResult(savedAnalysis);
       setStep(AppStep.RESULTS);
     } catch (err) {
-      console.error(err);
-      setError("Something went wrong during analysis. Please try again.");
+      console.error('Analysis failed:', err);
+      setError('Analysis failed. Please try again.');
       setStep(AppStep.UPLOAD);
     }
   };
 
   const handleReset = () => {
-    setFile(null);
-    setAge('');
-    setNotes('');
+    setMediaFiles([]);
+    setBabyAudio(undefined);
+    setContextNotes('');
     setResult(null);
-    setStep(AppStep.UPLOAD);
     setError(null);
+    setStep(AppStep.HOME);
   };
 
-  if (step === AppStep.ANALYZING) {
-    return <AnalysisView />;
+  const handleNavigate = (screen: string, data?: any) => {
+    setNavData(data);
+    switch (screen) {
+      case 'home':
+        setStep(AppStep.HOME);
+        break;
+      case 'upload':
+        setStep(AppStep.UPLOAD);
+        break;
+      case 'timeline':
+        setStep(AppStep.TIMELINE);
+        break;
+      case 'stories':
+        setStep(AppStep.STORIES);
+        break;
+      case 'recommendations':
+        setStep(AppStep.RECOMMENDATIONS);
+        break;
+      case 'results':
+        if (data?.analysisId) {
+          const analysis = getAnalysisById(data.analysisId);
+          if (analysis) {
+            setResult(analysis);
+            setStep(AppStep.RESULTS);
+          }
+        }
+        break;
+      default:
+        break;
+    }
+  };
+
+  // Onboarding / Profile Setup
+  if (step === AppStep.ONBOARDING || step === AppStep.PROFILE_SETUP) {
+    return (
+      <ProfileSetup
+        onComplete={handleProfileComplete}
+      />
+    );
   }
 
-  if (step === AppStep.RESULTS && result) {
-    return <ResultsView result={result} onReset={handleReset} />;
+  // Home Dashboard
+  if (step === AppStep.HOME && currentChild) {
+    return (
+      <HomeDashboard
+        child={currentChild}
+        onNavigate={handleNavigate}
+        onStartAnalysis={() => setStep(AppStep.UPLOAD)}
+      />
+    );
   }
 
-  return (
-    <div className="min-h-screen bg-[#f0fdf4] text-gray-800 font-sans">
-      <div className="max-w-md mx-auto min-h-screen flex flex-col p-6">
-        
-        {/* Header */}
-        <div className="flex items-center justify-center gap-2 mb-8 mt-4">
-           <div className="bg-emerald-500 p-2 rounded-xl shadow-lg shadow-emerald-200">
-             <Baby className="w-8 h-8 text-white" />
-           </div>
-           <h1 className="text-2xl font-bold tracking-tight text-emerald-900">TinySteps AI</h1>
-        </div>
-
-        {/* Upload Form */}
-        <div className="flex-1 bg-white rounded-3xl shadow-xl p-8 border border-emerald-50/50">
-          <h2 className="text-xl font-bold mb-1">New Analysis</h2>
-          <p className="text-gray-500 text-sm mb-6">Upload a photo or video to get started.</p>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            
-            {/* File Input */}
-            <div className="group relative">
-              <input 
-                type="file" 
-                id="media-upload" 
-                className="hidden" 
-                accept="image/*,video/*"
-                onChange={handleFileChange}
-              />
-              <label 
-                htmlFor="media-upload" 
-                className={`block w-full border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all duration-300 ${
-                  file ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 hover:border-emerald-300 hover:bg-gray-50'
-                }`}
-              >
-                {file ? (
-                   <div className="flex flex-col items-center text-emerald-700">
-                      {file.type.startsWith('video') ? <FileVideo className="w-10 h-10 mb-2" /> : <FileImage className="w-10 h-10 mb-2" />}
-                      <span className="font-semibold truncate w-full px-4">{file.name}</span>
-                      <span className="text-xs opacity-70 mt-1">Tap to change</span>
-                   </div>
-                ) : (
-                  <div className="flex flex-col items-center text-gray-400 group-hover:text-emerald-500">
-                    <Upload className="w-10 h-10 mb-2 transition-transform group-hover:-translate-y-1" />
-                    <span className="font-medium">Upload Photo/Video</span>
-                  </div>
-                )}
-              </label>
-            </div>
-
-            {/* Age Input */}
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">Child's Age</label>
-              <input
-                type="text"
-                value={age}
-                onChange={(e) => setAge(e.target.value)}
-                placeholder="e.g. 18 months"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all"
-              />
-            </div>
-
-            {/* Context/Notes Input */}
-            <div>
-               <label className="block text-sm font-bold text-gray-700 mb-2">
-                 Any Context? <span className="text-gray-400 font-normal">(Optional)</span>
-               </label>
-               <textarea 
-                 value={notes}
-                 onChange={(e) => setNotes(e.target.value)}
-                 className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all resize-none text-sm"
-                 placeholder="e.g. Trying to walk but wobbles..."
-                 rows={3}
-               />
-               <RecordButton onTranscription={handleTranscription} />
-            </div>
-
-            {error && (
-              <div className="flex items-center gap-2 text-red-500 bg-red-50 p-3 rounded-xl text-sm">
-                <AlertCircle className="w-4 h-4" />
-                {error}
-              </div>
-            )}
-
+  // Upload Screen
+  if (step === AppStep.UPLOAD && currentChild) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50">
+        <div className="max-w-lg mx-auto px-4 py-8">
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-8">
             <button
-              type="submit"
-              disabled={!file || !age}
-              className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg shadow-emerald-200 transition-all transform hover:scale-[1.02] ${
-                !file || !age 
-                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none' 
-                  : 'bg-emerald-500 text-white hover:bg-emerald-600'
-              }`}
+              onClick={() => setStep(AppStep.HOME)}
+              className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center hover:bg-gray-200 transition-colors"
             >
-              Start Analysis
+              <ArrowLeft className="w-5 h-5 text-gray-600" />
             </button>
+            <div>
+              <h1 className="text-xl font-bold text-gray-800">New Analysis</h1>
+              <p className="text-sm text-gray-500">Upload media of {currentChild.name}</p>
+            </div>
+          </div>
 
-          </form>
+          {/* Media Uploader */}
+          <div className="bg-white rounded-3xl shadow-xl p-6 mb-6">
+            <MediaUploader
+              onMediaChange={handleMediaChange}
+              ageMonths={currentChild.ageMonths}
+              childName={currentChild.name}
+            />
+          </div>
+
+          {/* Context Notes */}
+          <div className="bg-white rounded-3xl shadow-xl p-6 mb-6">
+            <h3 className="font-semibold text-gray-800 mb-3">Add Context (Optional)</h3>
+            <textarea
+              value={contextNotes}
+              onChange={(e) => setContextNotes(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all resize-none text-sm"
+              placeholder={`What is ${currentChild.name} doing? Any concerns?`}
+              rows={3}
+            />
+            <RecordButton onTranscription={handleTranscription} />
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div className="flex items-center gap-2 text-red-500 bg-red-50 p-4 rounded-xl mb-6">
+              <AlertCircle className="w-5 h-5" />
+              {error}
+            </div>
+          )}
+
+          {/* Submit Button */}
+          <button
+            onClick={handleStartAnalysis}
+            disabled={mediaFiles.length === 0}
+            className={`w-full py-4 rounded-xl font-bold text-lg transition-all ${
+              mediaFiles.length === 0
+                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:shadow-lg hover:shadow-emerald-200 transform hover:scale-[1.02]'
+            }`}
+          >
+            Analyze {currentChild.name}'s Development
+          </button>
         </div>
+      </div>
+    );
+  }
+
+  // Analyzing
+  if (step === AppStep.ANALYZING) {
+    return <AnalysisView childName={currentChild?.name} />;
+  }
+
+  // Results
+  if (step === AppStep.RESULTS && result && currentChild) {
+    return (
+      <ResultsView
+        result={result}
+        child={currentChild}
+        onReset={handleReset}
+        onNavigate={handleNavigate}
+      />
+    );
+  }
+
+  // Timeline
+  if (step === AppStep.TIMELINE && currentChild) {
+    return (
+      <TimelineView
+        child={currentChild}
+        onBack={() => setStep(AppStep.HOME)}
+        onNavigate={handleNavigate}
+      />
+    );
+  }
+
+  // Bedtime Stories
+  if (step === AppStep.STORIES && currentChild) {
+    return (
+      <BedtimeStories
+        child={currentChild}
+        onBack={() => setStep(AppStep.HOME)}
+      />
+    );
+  }
+
+  // Recommendations Placeholder
+  if (step === AppStep.RECOMMENDATIONS && currentChild) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 p-6">
+        <div className="flex items-center gap-3 mb-8">
+          <button
+            onClick={() => setStep(AppStep.HOME)}
+            className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm"
+          >
+            <ArrowLeft className="w-5 h-5 text-gray-600" />
+          </button>
+          <h1 className="text-xl font-bold text-gray-800">Recommendations</h1>
+        </div>
+        <div className="bg-white rounded-3xl shadow-xl p-8 text-center">
+          <div className="w-20 h-20 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <span className="text-4xl">🎁</span>
+          </div>
+          <h2 className="text-xl font-bold text-gray-800 mb-2">Coming Soon!</h2>
+          <p className="text-gray-500">
+            Personalized product recommendations for {currentChild.name} based on their age and interests.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Fallback loading
+  return (
+    <div className="min-h-screen bg-emerald-50 flex items-center justify-center">
+      <div className="text-center">
+        <div className="w-16 h-16 bg-emerald-500 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse">
+          <Baby className="w-8 h-8 text-white" />
+        </div>
+        <h1 className="text-xl font-bold text-emerald-900">TinySteps AI</h1>
+        <p className="text-emerald-600 mt-2">Loading...</p>
       </div>
     </div>
   );
