@@ -1,0 +1,8 @@
+{
+  "name": "TinySteps AI",
+  "description": "Instant developmental insights for parents using AI analysis of photos and videos.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
