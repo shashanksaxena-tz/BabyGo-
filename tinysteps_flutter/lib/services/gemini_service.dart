@@ -602,4 +602,429 @@ Respond in JSON format:
       createdAt: DateTime.now(),
     );
   }
+
+  /// Generate story illustration using AI
+  Future<String?> generateStoryIllustration({
+    required String prompt,
+    required String childName,
+    String? childPhotoUrl,
+    required StoryTheme theme,
+  }) async {
+    if (!_isInitialized) {
+      throw Exception('GeminiService not initialized');
+    }
+
+    // For now, we generate a descriptive illustration prompt
+    // In production, this would call Gemini Imagen API
+    final illustrationPrompt = '''
+Create a whimsical children's book illustration for this scene:
+$prompt
+
+Style guidelines:
+- Warm, inviting children's book illustration style
+- ${theme.name} theme with ${theme.colorHex} as accent color
+- Main character is a child named $childName
+- Soft, rounded shapes and friendly expressions
+- Suitable for bedtime - calming colors
+- No text in the image
+''';
+
+    try {
+      // Note: When Gemini Imagen is available, replace with actual image generation
+      // For now, return null to use placeholder
+      // final response = await _model.generateImage(illustrationPrompt);
+      // return response.imageUrl;
+      return null;
+    } catch (e) {
+      print('Error generating illustration: $e');
+      return null;
+    }
+  }
+
+  /// Generate activity recommendations for development
+  Future<List<Activity>> generateActivityRecommendations({
+    required ChildProfile child,
+  }) async {
+    if (!_isInitialized) {
+      throw Exception('GeminiService not initialized');
+    }
+
+    final milestones = WHODataService.getMilestonesForAge(child.ageInMonths);
+
+    final prompt = '''
+Create 8 age-appropriate developmental activities for a ${child.ageInMonths}-month-old child named ${child.name}.
+
+Child's interests: ${child.interests.join(', ')}
+
+WHO Milestones for this age:
+${milestones.take(10).map((m) => '- ${m.title} (${m.domain.name}): ${m.description}').join('\n')}
+
+For each activity, include:
+- Activities that support current WHO milestones
+- Mix of all 4 domains: motor, language, cognitive, social
+- Indoor and outdoor activities
+- Activities using common household items
+
+Respond in JSON format:
+{
+  "activities": [
+    {
+      "name": "Activity Name",
+      "emoji": "🎯",
+      "domain": "motor|language|cognitive|social",
+      "description": "Brief engaging description",
+      "duration": "10-15 min",
+      "materials": ["item1", "item2"],
+      "skills": ["skill1", "skill2"],
+      "steps": ["step1", "step2", "step3"],
+      "milestoneSupported": "milestone_id"
+    }
+  ]
+}
+''';
+
+    try {
+      final content = [Content.text(prompt)];
+      final response = await _model.generateContent(content);
+      final responseText = response.text ?? '{}';
+
+      final jsonMatch = RegExp(r'\{[\s\S]*\}').firstMatch(responseText);
+      if (jsonMatch != null) {
+        final data = json.decode(jsonMatch.group(0)!);
+        final activities = (data['activities'] as List?) ?? [];
+        return activities.map((a) => Activity(
+          name: a['name'] ?? '',
+          emoji: a['emoji'] ?? '🎯',
+          domain: a['domain'] ?? 'general',
+          description: a['description'] ?? '',
+          duration: a['duration'] ?? '10 min',
+          materials: List<String>.from(a['materials'] ?? []),
+          skills: List<String>.from(a['skills'] ?? []),
+          steps: List<String>.from(a['steps'] ?? []),
+        )).toList();
+      }
+
+      return [];
+    } catch (e) {
+      print('Error generating activities: $e');
+      return [];
+    }
+  }
+
+  /// Generate parenting tips with expert sources
+  Future<List<ParentingTip>> generateParentingTipsWithSources({
+    required ChildProfile child,
+    String? focusArea,
+  }) async {
+    if (!_isInitialized) {
+      throw Exception('GeminiService not initialized');
+    }
+
+    final focusText = focusArea != null
+        ? 'Focus on: $focusArea'
+        : 'Cover various aspects of parenting';
+
+    final prompt = '''
+Provide 6 evidence-based parenting tips for a ${child.ageInMonths}-month-old child.
+
+$focusText
+
+Child's interests: ${child.interests.join(', ')}
+Child's region: ${child.region.name}
+
+Tips should be:
+- Based on WHO guidelines and pediatric research
+- Culturally sensitive
+- Practical and actionable
+- Specific to this age
+
+Respond in JSON format:
+{
+  "tips": [
+    {
+      "title": "Tip Title",
+      "emoji": "💡",
+      "category": "Sleep|Feeding|Play|Safety|Development|Bonding",
+      "content": "Detailed tip content...",
+      "source": "WHO Nurturing Care Framework"
+    }
+  ]
+}
+''';
+
+    try {
+      final content = [Content.text(prompt)];
+      final response = await _model.generateContent(content);
+      final responseText = response.text ?? '{}';
+
+      final jsonMatch = RegExp(r'\{[\s\S]*\}').firstMatch(responseText);
+      if (jsonMatch != null) {
+        final data = json.decode(jsonMatch.group(0)!);
+        final tips = (data['tips'] as List?) ?? [];
+        return tips.map((t) => ParentingTip(
+          title: t['title'] ?? '',
+          emoji: t['emoji'] ?? '💡',
+          category: t['category'] ?? 'General',
+          content: t['content'] ?? '',
+          source: t['source'],
+        )).toList();
+      }
+
+      return [];
+    } catch (e) {
+      print('Error generating tips: $e');
+      return [];
+    }
+  }
+
+  /// Generate enhanced recipes with full nutrition info
+  Future<List<EnhancedRecipe>> generateEnhancedRecipes({
+    required ChildProfile child,
+    int count = 6,
+    String? category,
+  }) async {
+    if (!_isInitialized) {
+      throw Exception('GeminiService not initialized');
+    }
+
+    final categoryFilter = category != null && category != 'all'
+        ? 'Category: $category'
+        : 'Mix of breakfast, lunch, dinner, and snacks';
+
+    final prompt = '''
+Create $count age-appropriate recipes for a ${child.ageInMonths}-month-old child.
+
+$categoryFilter
+
+Requirements based on WHO feeding guidelines:
+- Appropriate textures for age (${child.ageInMonths < 6 ? 'breast milk/formula only' : child.ageInMonths < 8 ? 'smooth purees' : child.ageInMonths < 10 ? 'mashed foods' : 'finger foods and small pieces'})
+- Iron-rich foods (important for this age)
+- No added salt or sugar
+- No honey if under 12 months
+- Variety of food groups
+
+Respond in JSON format:
+{
+  "recipes": [
+    {
+      "name": "Recipe Name",
+      "emoji": "🥣",
+      "category": "breakfast|lunch|dinner|snacks|smoothies",
+      "description": "Brief appetizing description",
+      "prepTime": 15,
+      "servings": "2 servings",
+      "calories": 150,
+      "protein": 5,
+      "fiber": 2,
+      "iron": "high|medium|low",
+      "ingredients": ["1/2 cup ingredient1", "1 tbsp ingredient2"],
+      "steps": ["Step 1 instruction", "Step 2 instruction"],
+      "tips": ["Storage tip", "Variation idea"],
+      "allergens": ["dairy", "eggs"]
+    }
+  ]
+}
+''';
+
+    try {
+      final content = [Content.text(prompt)];
+      final response = await _model.generateContent(content);
+      final responseText = response.text ?? '{}';
+
+      final jsonMatch = RegExp(r'\{[\s\S]*\}').firstMatch(responseText);
+      if (jsonMatch != null) {
+        final data = json.decode(jsonMatch.group(0)!);
+        final recipes = (data['recipes'] as List?) ?? [];
+        return recipes.map((r) => EnhancedRecipe(
+          name: r['name'] ?? '',
+          emoji: r['emoji'] ?? '🍽️',
+          category: r['category'] ?? 'meal',
+          description: r['description'] ?? '',
+          prepTime: r['prepTime'] ?? 15,
+          servings: r['servings'] ?? '1 serving',
+          calories: r['calories'] ?? 0,
+          protein: r['protein'] ?? 0,
+          fiber: r['fiber'] ?? 0,
+          iron: r['iron'] ?? 'low',
+          ingredients: List<String>.from(r['ingredients'] ?? []),
+          steps: List<String>.from(r['steps'] ?? []),
+          tips: List<String>.from(r['tips'] ?? []),
+          allergens: List<String>.from(r['allergens'] ?? []),
+        )).toList();
+      }
+
+      return [];
+    } catch (e) {
+      print('Error generating recipes: $e');
+      return [];
+    }
+  }
+
+  /// Generate product recommendations with more details
+  Future<List<EnhancedProductRecommendation>> generateEnhancedProductRecommendations({
+    required ChildProfile child,
+    required List<String> categories,
+  }) async {
+    if (!_isInitialized) {
+      throw Exception('GeminiService not initialized');
+    }
+
+    final prompt = '''
+Recommend 8 age-appropriate products for a ${child.ageInMonths}-month-old child.
+
+Categories to include: ${categories.join(', ')}
+
+Child's interests: ${child.interests.join(', ')}
+Favorite characters: ${child.favoriteCharacters.join(', ')}
+
+Focus on products that:
+- Support WHO developmental milestones
+- Are safe for this age
+- Provide educational value
+- Are engaging and fun
+
+Respond in JSON format:
+{
+  "products": [
+    {
+      "name": "Product Name",
+      "emoji": "🧸",
+      "category": "toys|books|educational|safety|outdoor|sensory",
+      "description": "Why this product is great",
+      "ageRange": "${child.ageInMonths}+ months",
+      "developmentAreas": ["motor", "cognitive"],
+      "whyRecommended": "Specific developmental benefits",
+      "priceRange": "\$10-\$20"
+    }
+  ]
+}
+''';
+
+    try {
+      final content = [Content.text(prompt)];
+      final response = await _model.generateContent(content);
+      final responseText = response.text ?? '{}';
+
+      final jsonMatch = RegExp(r'\{[\s\S]*\}').firstMatch(responseText);
+      if (jsonMatch != null) {
+        final data = json.decode(jsonMatch.group(0)!);
+        final products = (data['products'] as List?) ?? [];
+        return products.map((p) => EnhancedProductRecommendation(
+          name: p['name'] ?? '',
+          emoji: p['emoji'] ?? '🧸',
+          category: p['category'] ?? 'toys',
+          description: p['description'] ?? '',
+          ageRange: p['ageRange'] ?? '${child.ageInMonths}+ months',
+          developmentAreas: List<String>.from(p['developmentAreas'] ?? []),
+          whyRecommended: p['whyRecommended'] ?? '',
+          priceRange: p['priceRange'],
+        )).toList();
+      }
+
+      return [];
+    } catch (e) {
+      print('Error generating product recommendations: $e');
+      return [];
+    }
+  }
+}
+
+/// Enhanced Recipe model with nutrition
+class EnhancedRecipe {
+  final String name;
+  final String emoji;
+  final String category;
+  final String description;
+  final int prepTime;
+  final String servings;
+  final int calories;
+  final int protein;
+  final int fiber;
+  final String iron;
+  final List<String> ingredients;
+  final List<String> steps;
+  final List<String> tips;
+  final List<String> allergens;
+
+  const EnhancedRecipe({
+    required this.name,
+    required this.emoji,
+    required this.category,
+    required this.description,
+    required this.prepTime,
+    required this.servings,
+    required this.calories,
+    required this.protein,
+    required this.fiber,
+    required this.iron,
+    required this.ingredients,
+    required this.steps,
+    this.tips = const [],
+    this.allergens = const [],
+  });
+}
+
+/// Activity model for recommendations
+class Activity {
+  final String name;
+  final String emoji;
+  final String domain;
+  final String description;
+  final String duration;
+  final List<String> materials;
+  final List<String> skills;
+  final List<String> steps;
+
+  const Activity({
+    required this.name,
+    required this.emoji,
+    required this.domain,
+    required this.description,
+    required this.duration,
+    this.materials = const [],
+    this.skills = const [],
+    this.steps = const [],
+  });
+}
+
+/// Parenting tip model with sources
+class ParentingTip {
+  final String title;
+  final String emoji;
+  final String category;
+  final String content;
+  final String? source;
+
+  const ParentingTip({
+    required this.title,
+    required this.emoji,
+    required this.category,
+    required this.content,
+    this.source,
+  });
+}
+
+/// Enhanced product recommendation
+class EnhancedProductRecommendation {
+  final String name;
+  final String emoji;
+  final String category;
+  final String description;
+  final String ageRange;
+  final List<String> developmentAreas;
+  final String whyRecommended;
+  final String? priceRange;
+  final String? affiliateUrl;
+
+  const EnhancedProductRecommendation({
+    required this.name,
+    required this.emoji,
+    required this.category,
+    required this.description,
+    required this.ageRange,
+    required this.developmentAreas,
+    required this.whyRecommended,
+    this.priceRange,
+    this.affiliateUrl,
+  });
 }
