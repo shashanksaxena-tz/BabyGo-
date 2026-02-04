@@ -11,6 +11,10 @@ import AnalysisView from './components/AnalysisView';
 import ResultsView from './components/ResultsView';
 import TimelineView from './components/TimelineView';
 import BedtimeStories from './components/BedtimeStories';
+import RecipesView from './components/RecipesView';
+import RecommendationsView from './components/RecommendationsView';
+import MilestonesView from './components/MilestonesView';
+import GrowthChartsView from './components/GrowthChartsView';
 
 import {
   Baby,
@@ -114,6 +118,15 @@ const App: React.FC = () => {
         break;
       case 'recommendations':
         setStep(AppStep.RECOMMENDATIONS);
+        break;
+      case 'recipes':
+        setStep(AppStep.RECIPES);
+        break;
+      case 'milestones':
+        setStep(AppStep.MILESTONES);
+        break;
+      case 'growth':
+        setStep(AppStep.GROWTH_CHARTS);
         break;
       case 'results':
         if (data?.analysisId) {
@@ -253,29 +266,43 @@ const App: React.FC = () => {
     );
   }
 
-  // Recommendations Placeholder
+  // Recommendations
   if (step === AppStep.RECOMMENDATIONS && currentChild) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 p-6">
-        <div className="flex items-center gap-3 mb-8">
-          <button
-            onClick={() => setStep(AppStep.HOME)}
-            className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm"
-          >
-            <ArrowLeft className="w-5 h-5 text-gray-600" />
-          </button>
-          <h1 className="text-xl font-bold text-gray-800">Recommendations</h1>
-        </div>
-        <div className="bg-white rounded-3xl shadow-xl p-8 text-center">
-          <div className="w-20 h-20 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <span className="text-4xl">🎁</span>
-          </div>
-          <h2 className="text-xl font-bold text-gray-800 mb-2">Coming Soon!</h2>
-          <p className="text-gray-500">
-            Personalized product recommendations for {currentChild.name} based on their age and interests.
-          </p>
-        </div>
-      </div>
+      <RecommendationsView
+        child={currentChild}
+        onBack={() => setStep(AppStep.HOME)}
+      />
+    );
+  }
+
+  // Recipes
+  if (step === AppStep.RECIPES && currentChild) {
+    return (
+      <RecipesView
+        child={currentChild}
+        onBack={() => setStep(AppStep.HOME)}
+      />
+    );
+  }
+
+  // Milestones
+  if (step === AppStep.MILESTONES && currentChild) {
+    return (
+      <MilestonesView
+        child={currentChild}
+        onBack={() => setStep(AppStep.HOME)}
+      />
+    );
+  }
+
+  // Growth Charts
+  if (step === AppStep.GROWTH_CHARTS && currentChild) {
+    return (
+      <GrowthChartsView
+        child={currentChild}
+        onBack={() => setStep(AppStep.HOME)}
+      />
     );
   }
 

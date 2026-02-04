@@ -10,6 +10,10 @@ import '../analysis/media_capture_screen.dart';
 import '../timeline/timeline_screen.dart';
 import '../stories/bedtime_stories_screen.dart';
 import '../profile/profile_screen.dart';
+import '../discover/recipes_screen.dart';
+import '../discover/recommendations_screen.dart';
+import '../milestones/milestones_screen.dart';
+import '../growth/growth_charts_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -123,6 +127,10 @@ class _HomeScreenState extends State<HomeScreen>
                   _buildDomainScores(),
                   const SizedBox(height: 20),
                 ],
+
+                // Discover Section
+                _buildDiscoverSection(),
+                const SizedBox(height: 20),
 
                 // Recent Activity
                 _buildRecentActivity(),
@@ -763,6 +771,138 @@ class _HomeScreenState extends State<HomeScreen>
                 ),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDiscoverSection() {
+    return StaggeredListAnimation(
+      index: 6,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(left: 4, bottom: 16),
+            child: Text(
+              'Discover',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.neutral800,
+              ),
+            ),
+          ),
+          GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 2,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: 1.5,
+            children: [
+              _buildDiscoverCard(
+                icon: Icons.restaurant_rounded,
+                label: 'Recipes',
+                subtitle: 'Healthy meals',
+                color: AppTheme.warning,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const RecipesScreen()),
+                  );
+                },
+              ),
+              _buildDiscoverCard(
+                icon: Icons.lightbulb_rounded,
+                label: 'Recommendations',
+                subtitle: 'Tips & products',
+                color: AppTheme.secondaryPurple,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const RecommendationsScreen()),
+                  );
+                },
+              ),
+              _buildDiscoverCard(
+                icon: Icons.flag_rounded,
+                label: 'Milestones',
+                subtitle: 'Track progress',
+                color: AppTheme.success,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const MilestonesScreen()),
+                  );
+                },
+              ),
+              _buildDiscoverCard(
+                icon: Icons.show_chart_rounded,
+                label: 'Growth Charts',
+                subtitle: 'WHO standards',
+                color: AppTheme.secondaryBlue,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const GrowthChartsScreen()),
+                  );
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDiscoverCard({
+    required IconData icon,
+    required String label,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return AnimatedPressableCard(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      shadow: AppTheme.softShadow,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, color: color, size: 22),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.neutral800,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.neutral500,
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
