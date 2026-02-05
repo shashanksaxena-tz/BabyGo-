@@ -7,15 +7,20 @@ import {
   CheckCircle,
   Star,
   Scale,
-  Ruler,
-  Filter,
   Plus,
   ChevronRight,
+  ExternalLink,
+  Trophy,
+  Activity,
+  MessageSquare,
+  Brain,
+  Heart,
+  Sparkles,
 } from 'lucide-react';
 import { ChildProfile, TimelineEntry, AnalysisResult } from '../types';
 import { getTimeline, getAnalyses } from '../services/storageService';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
-import { WHO_GROWTH_PERCENTILES, calculatePercentile } from '../services/whoDataService';
+import { calculatePercentile, getMilestoneById, WHO_SOURCES } from '../services/whoDataService';
 
 interface TimelineViewProps {
   child: ChildProfile;
@@ -76,14 +81,30 @@ const TimelineView: React.FC<TimelineViewProps> = ({ child, onBack, onNavigate }
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
-  const getEntryIcon = (type: string) => {
+  const getEntryIcon = (type: string, domain?: string) => {
     switch (type) {
-      case 'analysis': return { icon: Camera, color: 'bg-emerald-100 text-emerald-600' };
-      case 'milestone': return { icon: Star, color: 'bg-amber-100 text-amber-600' };
-      case 'measurement': return { icon: Scale, color: 'bg-blue-100 text-blue-600' };
-      case 'photo': return { icon: Camera, color: 'bg-purple-100 text-purple-600' };
-      default: return { icon: CheckCircle, color: 'bg-gray-100 text-gray-600' };
+      case 'analysis': return { icon: Camera, color: 'bg-emerald-100 text-emerald-600', emoji: '📊' };
+      case 'milestone':
+        // Return domain-specific icon for milestones
+        switch (domain) {
+          case 'motor': return { icon: Activity, color: 'bg-blue-100 text-blue-600', emoji: '🏃' };
+          case 'language': return { icon: MessageSquare, color: 'bg-purple-100 text-purple-600', emoji: '💬' };
+          case 'cognitive': return { icon: Brain, color: 'bg-amber-100 text-amber-600', emoji: '🧠' };
+          case 'social': return { icon: Heart, color: 'bg-rose-100 text-rose-600', emoji: '❤️' };
+          case 'sensory': return { icon: Sparkles, color: 'bg-teal-100 text-teal-600', emoji: '✨' };
+          default: return { icon: Trophy, color: 'bg-amber-100 text-amber-600', emoji: '🏆' };
+        }
+      case 'measurement': return { icon: Scale, color: 'bg-blue-100 text-blue-600', emoji: '📏' };
+      case 'photo': return { icon: Camera, color: 'bg-purple-100 text-purple-600', emoji: '📸' };
+      default: return { icon: CheckCircle, color: 'bg-gray-100 text-gray-600', emoji: '✓' };
     }
+  };
+
+  // Get milestone details from WHO data
+  const getMilestoneDetails = (entry: TimelineEntry) => {
+    if (entry.type !== 'milestone' || !entry.data?.milestoneId) return null;
+    const milestone = getMilestoneById(entry.data.milestoneId);
+    return milestone;
   };
 
   return (
@@ -205,7 +226,11 @@ const TimelineView: React.FC<TimelineViewProps> = ({ child, onBack, onNavigate }
         <div className="space-y-4">
           {filteredTimeline.length > 0 ? (
             filteredTimeline.map((entry, index) => {
-              const { icon: Icon, color } = getEntryIcon(entry.type);
+              const milestoneDetails = getMilestoneDetails(entry);
+              const domain = entry.data?.domain || milestoneDetails?.domain;
+              const { icon: Icon, color, emoji } = getEntryIcon(entry.type, domain);
+              const isMilestone = entry.type === 'milestone';
+
               return (
                 <div
                   key={entry.id}
@@ -214,7 +239,11 @@ const TimelineView: React.FC<TimelineViewProps> = ({ child, onBack, onNavigate }
                   {/* Timeline Line */}
                   <div className="flex flex-col items-center">
                     <div className={`w-10 h-10 rounded-xl ${color} flex items-center justify-center`}>
-                      <Icon className="w-5 h-5" />
+                      {isMilestone ? (
+                        <span className="text-lg">{emoji}</span>
+                      ) : (
+                        <Icon className="w-5 h-5" />
+                      )}
                     </div>
                     {index < filteredTimeline.length - 1 && (
                       <div className="w-0.5 h-full bg-gray-200 my-2" />
@@ -223,7 +252,9 @@ const TimelineView: React.FC<TimelineViewProps> = ({ child, onBack, onNavigate }
 
                   {/* Entry Card */}
                   <div
-                    className="flex-1 bg-white rounded-xl shadow-sm p-4 hover:shadow-md transition-shadow cursor-pointer"
+                    className={`flex-1 bg-white rounded-xl shadow-sm p-4 hover:shadow-md transition-shadow ${
+                      entry.type === 'analysis' ? 'cursor-pointer' : ''
+                    } ${isMilestone ? 'border-l-4 border-amber-400' : ''}`}
                     onClick={() => {
                       if (entry.type === 'analysis' && entry.analysisId) {
                         onNavigate('results', { analysisId: entry.analysisId });
@@ -232,8 +263,53 @@ const TimelineView: React.FC<TimelineViewProps> = ({ child, onBack, onNavigate }
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <p className="font-semibold text-gray-800">{entry.title}</p>
+                        <div className="flex items-center gap-2">
+                          {isMilestone && (
+                            <Trophy className="w-4 h-4 text-amber-500" />
+                          )}
+                          <p className="font-semibold text-gray-800">{entry.title}</p>
+                        </div>
                         <p className="text-sm text-gray-500 mt-1">{entry.description}</p>
+
+                        {/* Milestone-specific details */}
+                        {isMilestone && milestoneDetails && (
+                          <div className="mt-3 p-3 bg-amber-50 rounded-lg">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                domain === 'motor' ? 'bg-blue-100 text-blue-600' :
+                                domain === 'language' ? 'bg-purple-100 text-purple-600' :
+                                domain === 'cognitive' ? 'bg-amber-100 text-amber-600' :
+                                domain === 'social' ? 'bg-rose-100 text-rose-600' :
+                                'bg-teal-100 text-teal-600'
+                              }`}>
+                                {domain}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                Expected: {milestoneDetails.expectedAgeMonths.min}-{milestoneDetails.expectedAgeMonths.max} months
+                              </span>
+                            </div>
+                            {entry.data?.confirmedBy && (
+                              <p className="text-xs text-gray-500">
+                                Confirmed by: {entry.data.confirmedBy === 'parent' ? 'Parent' : 'AI Analysis'}
+                              </p>
+                            )}
+                            {milestoneDetails.source && (
+                              <a
+                                href={milestoneDetails.source.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 mt-2 text-xs text-blue-500 hover:text-blue-700 hover:underline"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                                <span>
+                                  {milestoneDetails.source.organization} - View Source
+                                </span>
+                              </a>
+                            )}
+                          </div>
+                        )}
+
                         <p className="text-xs text-gray-400 mt-2">
                           <Calendar className="w-3 h-3 inline mr-1" />
                           {formatDate(entry.timestamp)}

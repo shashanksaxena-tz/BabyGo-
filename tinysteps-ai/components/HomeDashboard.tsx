@@ -159,7 +159,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ child, onNavigate, onStar
             </div>
             {latestAnalysis && (
               <button
-                onClick={() => onNavigate('results')}
+                onClick={() => onNavigate('results', { analysisId: latestAnalysis.id })}
                 className="text-emerald-600 text-sm font-medium flex items-center gap-1 hover:text-emerald-700"
               >
                 View Details <ChevronRight className="w-4 h-4" />
@@ -228,10 +228,10 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ child, onNavigate, onStar
               Growth Percentiles
             </h3>
             <button
-              onClick={() => onNavigate('timeline')}
+              onClick={() => onNavigate('growth')}
               className="text-blue-600 text-sm font-medium"
             >
-              View Timeline
+              View Charts
             </button>
           </div>
 
@@ -391,7 +391,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ child, onNavigate, onStar
             Point to pictures and name objects to boost language development!
           </p>
           <button
-            onClick={() => onNavigate('tips')}
+            onClick={() => onNavigate('recommendations')}
             className="mt-4 text-amber-700 font-medium text-sm flex items-center gap-1"
           >
             More Tips <ChevronRight className="w-4 h-4" />

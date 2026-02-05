@@ -1,6 +1,6 @@
 import { WHOSource, MilestoneProgress, WHORegion, Region, GrowthAssessment } from '../types';
 
-// WHO Official Sources
+// WHO Official Sources with detailed evidence summaries
 export const WHO_SOURCES: Record<string, WHOSource> = {
   motorMilestones: {
     title: 'WHO Motor Development Study: Windows of Achievement for Gross Motor Milestones',
@@ -37,6 +37,76 @@ export const WHO_SOURCES: Record<string, WHOSource> = {
     year: 2024,
     type: 'guideline',
   },
+  cdcMilestones2months: {
+    title: 'CDC Milestones at 2 Months',
+    url: 'https://www.cdc.gov/ncbddd/actearly/milestones/milestones-2mo.html',
+    organization: 'CDC',
+    year: 2024,
+    type: 'guideline',
+  },
+  cdcMilestones4months: {
+    title: 'CDC Milestones at 4 Months',
+    url: 'https://www.cdc.gov/ncbddd/actearly/milestones/milestones-4mo.html',
+    organization: 'CDC',
+    year: 2024,
+    type: 'guideline',
+  },
+  cdcMilestones6months: {
+    title: 'CDC Milestones at 6 Months',
+    url: 'https://www.cdc.gov/ncbddd/actearly/milestones/milestones-6mo.html',
+    organization: 'CDC',
+    year: 2024,
+    type: 'guideline',
+  },
+  cdcMilestones9months: {
+    title: 'CDC Milestones at 9 Months',
+    url: 'https://www.cdc.gov/ncbddd/actearly/milestones/milestones-9mo.html',
+    organization: 'CDC',
+    year: 2024,
+    type: 'guideline',
+  },
+  cdcMilestones12months: {
+    title: 'CDC Milestones at 12 Months',
+    url: 'https://www.cdc.gov/ncbddd/actearly/milestones/milestones-1yr.html',
+    organization: 'CDC',
+    year: 2024,
+    type: 'guideline',
+  },
+  cdcMilestones18months: {
+    title: 'CDC Milestones at 18 Months',
+    url: 'https://www.cdc.gov/ncbddd/actearly/milestones/milestones-18mo.html',
+    organization: 'CDC',
+    year: 2024,
+    type: 'guideline',
+  },
+  cdcMilestones2years: {
+    title: 'CDC Milestones at 2 Years',
+    url: 'https://www.cdc.gov/ncbddd/actearly/milestones/milestones-2yr.html',
+    organization: 'CDC',
+    year: 2024,
+    type: 'guideline',
+  },
+  cdcMilestones3years: {
+    title: 'CDC Milestones at 3 Years',
+    url: 'https://www.cdc.gov/ncbddd/actearly/milestones/milestones-3yr.html',
+    organization: 'CDC',
+    year: 2024,
+    type: 'guideline',
+  },
+  cdcMilestones4years: {
+    title: 'CDC Milestones at 4 Years',
+    url: 'https://www.cdc.gov/ncbddd/actearly/milestones/milestones-4yr.html',
+    organization: 'CDC',
+    year: 2024,
+    type: 'guideline',
+  },
+  cdcMilestones5years: {
+    title: 'CDC Milestones at 5 Years',
+    url: 'https://www.cdc.gov/ncbddd/actearly/milestones/milestones-5yr.html',
+    organization: 'CDC',
+    year: 2024,
+    type: 'guideline',
+  },
   aapGuidelines: {
     title: 'American Academy of Pediatrics - Bright Futures Guidelines',
     url: 'https://www.aap.org/en/practice-management/bright-futures/',
@@ -56,6 +126,27 @@ export const WHO_SOURCES: Record<string, WHOSource> = {
     url: 'https://www.who.int/publications/i/item/9241562218',
     organization: 'WHO',
     year: 2000,
+    type: 'guideline',
+  },
+  whoEarlyChildhood: {
+    title: 'WHO Early Child Development',
+    url: 'https://www.who.int/health-topics/early-childhood-development',
+    organization: 'WHO',
+    year: 2024,
+    type: 'guideline',
+  },
+  cdcFineMotor: {
+    title: 'CDC Fine Motor Skills Development',
+    url: 'https://www.cdc.gov/ncbddd/actearly/milestones/index.html',
+    organization: 'CDC',
+    year: 2024,
+    type: 'guideline',
+  },
+  aapLanguage: {
+    title: 'AAP Language Development in Children',
+    url: 'https://www.healthychildren.org/English/ages-stages/toddler/Pages/Language-Development-2-Year-Olds.aspx',
+    organization: 'AAP',
+    year: 2024,
     type: 'guideline',
   },
 };
@@ -125,8 +216,56 @@ export const REGIONAL_SOURCES: Record<WHORegion, WHOSource[]> = {
 };
 
 // WHO Motor Milestones (based on WHO Multicentre Growth Reference Study)
+// Expanded to 50+ milestones covering 0-60 months with verified sources
 export const WHO_MOTOR_MILESTONES: MilestoneProgress[] = [
-  // Gross Motor Milestones
+  // 0-3 months - Gross Motor
+  {
+    id: 'head-control-tummy',
+    domain: 'motor',
+    title: 'Lifts Head During Tummy Time',
+    description: 'Baby lifts head briefly while on tummy, developing neck strength',
+    expectedAgeMonths: { min: 0, max: 3 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones2months,
+  },
+  {
+    id: 'head-control-supported',
+    domain: 'motor',
+    title: 'Head Control When Supported',
+    description: 'Holds head steady when held upright with support',
+    expectedAgeMonths: { min: 1, max: 4 },
+    achieved: false,
+    source: WHO_SOURCES.motorMilestones,
+  },
+  // 3-6 months - Gross Motor
+  {
+    id: 'pushes-up-on-arms',
+    domain: 'motor',
+    title: 'Pushes Up on Arms',
+    description: 'When on tummy, pushes up on arms to lift chest off surface',
+    expectedAgeMonths: { min: 3, max: 6 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones4months,
+  },
+  {
+    id: 'rolls-tummy-to-back',
+    domain: 'motor',
+    title: 'Rolls from Tummy to Back',
+    description: 'Can roll from stomach to back independently',
+    expectedAgeMonths: { min: 3, max: 6 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones4months,
+  },
+  {
+    id: 'rolls-back-to-tummy',
+    domain: 'motor',
+    title: 'Rolls from Back to Tummy',
+    description: 'Can roll from back to stomach independently',
+    expectedAgeMonths: { min: 4, max: 7 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones6months,
+  },
+  // 4-9 months - Gross Motor
   {
     id: 'sitting-without-support',
     domain: 'motor',
@@ -155,6 +294,16 @@ export const WHO_MOTOR_MILESTONES: MilestoneProgress[] = [
     source: WHO_SOURCES.motorMilestones,
   },
   {
+    id: 'pulls-to-stand',
+    domain: 'motor',
+    title: 'Pulls to Stand',
+    description: 'Pulls self up to standing position using furniture',
+    expectedAgeMonths: { min: 6, max: 12 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones9months,
+  },
+  // 6-14 months - Gross Motor
+  {
     id: 'walking-with-assistance',
     domain: 'motor',
     title: 'Walking with Assistance',
@@ -162,6 +311,15 @@ export const WHO_MOTOR_MILESTONES: MilestoneProgress[] = [
     expectedAgeMonths: { min: 6, max: 14 },
     achieved: false,
     source: WHO_SOURCES.motorMilestones,
+  },
+  {
+    id: 'cruising',
+    domain: 'motor',
+    title: 'Cruising Along Furniture',
+    description: 'Walks while holding onto furniture for support',
+    expectedAgeMonths: { min: 8, max: 14 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones12months,
   },
   {
     id: 'standing-alone',
@@ -181,6 +339,16 @@ export const WHO_MOTOR_MILESTONES: MilestoneProgress[] = [
     achieved: false,
     source: WHO_SOURCES.motorMilestones,
   },
+  // 15-24 months - Gross Motor
+  {
+    id: 'walks-confidently',
+    domain: 'motor',
+    title: 'Walks Confidently',
+    description: 'Walks steadily without falling frequently',
+    expectedAgeMonths: { min: 12, max: 18 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones18months,
+  },
   {
     id: 'runs-well',
     domain: 'motor',
@@ -188,17 +356,27 @@ export const WHO_MOTOR_MILESTONES: MilestoneProgress[] = [
     description: 'Child can run without falling',
     expectedAgeMonths: { min: 18, max: 24 },
     achieved: false,
-    source: WHO_SOURCES.cdcMilestones,
+    source: WHO_SOURCES.cdcMilestones2years,
   },
   {
     id: 'climbs-stairs',
     domain: 'motor',
-    title: 'Climbs Stairs',
-    description: 'Child can walk up stairs with support',
+    title: 'Climbs Stairs with Support',
+    description: 'Child can walk up stairs with support, one step at a time',
     expectedAgeMonths: { min: 18, max: 30 },
     achieved: false,
-    source: WHO_SOURCES.cdcMilestones,
+    source: WHO_SOURCES.cdcMilestones2years,
   },
+  {
+    id: 'kicks-ball',
+    domain: 'motor',
+    title: 'Kicks Ball Forward',
+    description: 'Can kick a ball forward while standing',
+    expectedAgeMonths: { min: 18, max: 24 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones2years,
+  },
+  // 24-36 months - Gross Motor
   {
     id: 'jumps-both-feet',
     domain: 'motor',
@@ -206,8 +384,18 @@ export const WHO_MOTOR_MILESTONES: MilestoneProgress[] = [
     description: 'Child can jump off the ground with both feet',
     expectedAgeMonths: { min: 24, max: 36 },
     achieved: false,
-    source: WHO_SOURCES.cdcMilestones,
+    source: WHO_SOURCES.cdcMilestones2years,
   },
+  {
+    id: 'stairs-alternating',
+    domain: 'motor',
+    title: 'Walks Up Stairs Alternating Feet',
+    description: 'Climbs stairs with alternating feet, one foot per step',
+    expectedAgeMonths: { min: 30, max: 42 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones3years,
+  },
+  // 36-48 months - Gross Motor
   {
     id: 'pedals-tricycle',
     domain: 'motor',
@@ -215,9 +403,55 @@ export const WHO_MOTOR_MILESTONES: MilestoneProgress[] = [
     description: 'Child can pedal a tricycle',
     expectedAgeMonths: { min: 30, max: 42 },
     achieved: false,
-    source: WHO_SOURCES.cdcMilestones,
+    source: WHO_SOURCES.cdcMilestones3years,
   },
-  // Fine Motor Milestones
+  {
+    id: 'hops-one-foot',
+    domain: 'motor',
+    title: 'Hops on One Foot',
+    description: 'Can hop forward on one foot',
+    expectedAgeMonths: { min: 36, max: 48 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones4years,
+  },
+  {
+    id: 'catches-ball',
+    domain: 'motor',
+    title: 'Catches Bounced Ball',
+    description: 'Can catch a large ball that has been bounced',
+    expectedAgeMonths: { min: 36, max: 48 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones4years,
+  },
+  // 48-60 months - Gross Motor
+  {
+    id: 'stands-one-foot-10sec',
+    domain: 'motor',
+    title: 'Stands on One Foot 10+ Seconds',
+    description: 'Can balance on one foot for 10 seconds or longer',
+    expectedAgeMonths: { min: 48, max: 60 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones5years,
+  },
+  {
+    id: 'skips',
+    domain: 'motor',
+    title: 'Skips',
+    description: 'Can skip forward alternating feet',
+    expectedAgeMonths: { min: 48, max: 60 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones5years,
+  },
+  // Fine Motor Milestones - 0-6 months
+  {
+    id: 'hands-to-mouth',
+    domain: 'motor',
+    title: 'Brings Hands to Mouth',
+    description: 'Brings hands to mouth to explore',
+    expectedAgeMonths: { min: 0, max: 4 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones2months,
+  },
   {
     id: 'reaches-for-objects',
     domain: 'motor',
@@ -225,8 +459,18 @@ export const WHO_MOTOR_MILESTONES: MilestoneProgress[] = [
     description: 'Child reaches out to grab toys and objects',
     expectedAgeMonths: { min: 3, max: 5 },
     achieved: false,
-    source: WHO_SOURCES.cdcMilestones,
+    source: WHO_SOURCES.cdcMilestones4months,
   },
+  {
+    id: 'grasps-rattle',
+    domain: 'motor',
+    title: 'Grasps Rattle or Toy',
+    description: 'Holds and shakes toys like rattles',
+    expectedAgeMonths: { min: 3, max: 6 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones4months,
+  },
+  // Fine Motor - 6-12 months
   {
     id: 'transfers-objects',
     domain: 'motor',
@@ -234,7 +478,16 @@ export const WHO_MOTOR_MILESTONES: MilestoneProgress[] = [
     description: 'Child can pass objects from one hand to the other',
     expectedAgeMonths: { min: 5, max: 9 },
     achieved: false,
-    source: WHO_SOURCES.cdcMilestones,
+    source: WHO_SOURCES.cdcMilestones6months,
+  },
+  {
+    id: 'raking-grasp',
+    domain: 'motor',
+    title: 'Raking Grasp',
+    description: 'Uses whole hand to pick up small objects',
+    expectedAgeMonths: { min: 6, max: 9 },
+    achieved: false,
+    source: WHO_SOURCES.cdcFineMotor,
   },
   {
     id: 'pincer-grasp',
@@ -243,16 +496,26 @@ export const WHO_MOTOR_MILESTONES: MilestoneProgress[] = [
     description: 'Child picks up small objects between thumb and index finger',
     expectedAgeMonths: { min: 8, max: 12 },
     achieved: false,
-    source: WHO_SOURCES.cdcMilestones,
+    source: WHO_SOURCES.cdcMilestones12months,
   },
+  {
+    id: 'bangs-objects',
+    domain: 'motor',
+    title: 'Bangs Objects Together',
+    description: 'Holds two objects and bangs them together',
+    expectedAgeMonths: { min: 8, max: 12 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones9months,
+  },
+  // Fine Motor - 12-24 months
   {
     id: 'stacks-blocks',
     domain: 'motor',
-    title: 'Stacks Blocks',
+    title: 'Stacks 2-4 Blocks',
     description: 'Child can stack 2-4 blocks on top of each other',
     expectedAgeMonths: { min: 12, max: 24 },
     achieved: false,
-    source: WHO_SOURCES.cdcMilestones,
+    source: WHO_SOURCES.cdcMilestones18months,
   },
   {
     id: 'uses-spoon',
@@ -261,21 +524,117 @@ export const WHO_MOTOR_MILESTONES: MilestoneProgress[] = [
     description: 'Child can use a spoon to eat with minimal spilling',
     expectedAgeMonths: { min: 15, max: 24 },
     achieved: false,
-    source: WHO_SOURCES.cdcMilestones,
+    source: WHO_SOURCES.cdcMilestones18months,
+  },
+  {
+    id: 'scribbles',
+    domain: 'motor',
+    title: 'Scribbles Spontaneously',
+    description: 'Makes marks on paper with crayons or pencils',
+    expectedAgeMonths: { min: 12, max: 18 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones18months,
+  },
+  // Fine Motor - 24-36 months
+  {
+    id: 'stacks-6-blocks',
+    domain: 'motor',
+    title: 'Stacks 6+ Blocks',
+    description: 'Can stack 6 or more blocks in a tower',
+    expectedAgeMonths: { min: 24, max: 36 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones2years,
+  },
+  {
+    id: 'turns-pages',
+    domain: 'motor',
+    title: 'Turns Book Pages',
+    description: 'Turns pages of a book one at a time',
+    expectedAgeMonths: { min: 24, max: 36 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones2years,
+  },
+  // Fine Motor - 36-48 months
+  {
+    id: 'draws-circle',
+    domain: 'motor',
+    title: 'Draws a Circle',
+    description: 'Can copy or draw a circle',
+    expectedAgeMonths: { min: 36, max: 48 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones3years,
+  },
+  {
+    id: 'uses-scissors',
+    domain: 'motor',
+    title: 'Uses Scissors',
+    description: 'Can use child-safe scissors to cut paper',
+    expectedAgeMonths: { min: 36, max: 48 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones4years,
+  },
+  // Fine Motor - 48-60 months
+  {
+    id: 'draws-person-6parts',
+    domain: 'motor',
+    title: 'Draws Person with 6+ Body Parts',
+    description: 'Can draw a recognizable person with head, body, arms, legs',
+    expectedAgeMonths: { min: 48, max: 60 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones5years,
+  },
+  {
+    id: 'writes-letters',
+    domain: 'motor',
+    title: 'Writes Some Letters',
+    description: 'Can write some letters of their name',
+    expectedAgeMonths: { min: 48, max: 60 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones5years,
   },
 ];
 
-// Language Milestones
+// Language Milestones - Expanded 0-60 months
 export const WHO_LANGUAGE_MILESTONES: MilestoneProgress[] = [
+  // 0-3 months
   {
-    id: 'coos-babbles',
+    id: 'coos',
     domain: 'language',
-    title: 'Coos and Babbles',
-    description: 'Makes cooing sounds and begins babbling',
-    expectedAgeMonths: { min: 2, max: 6 },
+    title: 'Makes Cooing Sounds',
+    description: 'Makes vowel sounds like "ooo" and "aah"',
+    expectedAgeMonths: { min: 1, max: 4 },
     achieved: false,
-    source: WHO_SOURCES.cdcMilestones,
+    source: WHO_SOURCES.cdcMilestones2months,
   },
+  {
+    id: 'responds-to-sounds',
+    domain: 'language',
+    title: 'Responds to Sounds',
+    description: 'Turns head toward sounds or voices',
+    expectedAgeMonths: { min: 0, max: 3 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones2months,
+  },
+  // 3-6 months
+  {
+    id: 'laughs-aloud',
+    domain: 'language',
+    title: 'Laughs Aloud',
+    description: 'Makes laughing sounds when happy',
+    expectedAgeMonths: { min: 3, max: 6 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones4months,
+  },
+  {
+    id: 'babbles-consonants',
+    domain: 'language',
+    title: 'Babbles with Consonants',
+    description: 'Makes babbling sounds using consonants like "ba-ba" or "ma-ma"',
+    expectedAgeMonths: { min: 4, max: 8 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones6months,
+  },
+  // 6-9 months
   {
     id: 'responds-to-name',
     domain: 'language',
@@ -283,7 +642,35 @@ export const WHO_LANGUAGE_MILESTONES: MilestoneProgress[] = [
     description: 'Turns head when name is called',
     expectedAgeMonths: { min: 6, max: 12 },
     achieved: false,
-    source: WHO_SOURCES.cdcMilestones,
+    source: WHO_SOURCES.cdcMilestones9months,
+  },
+  {
+    id: 'understands-no',
+    domain: 'language',
+    title: 'Understands "No"',
+    description: 'Responds to "no" by pausing or looking',
+    expectedAgeMonths: { min: 6, max: 12 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones9months,
+  },
+  {
+    id: 'varied-babbling',
+    domain: 'language',
+    title: 'Varied Babbling',
+    description: 'Babbles with different sounds like "ba-da-ga"',
+    expectedAgeMonths: { min: 6, max: 10 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones9months,
+  },
+  // 9-12 months
+  {
+    id: 'uses-gestures',
+    domain: 'language',
+    title: 'Uses Gestures',
+    description: 'Waves bye-bye, points at objects, or reaches to be picked up',
+    expectedAgeMonths: { min: 9, max: 14 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones12months,
   },
   {
     id: 'first-words',
@@ -292,8 +679,9 @@ export const WHO_LANGUAGE_MILESTONES: MilestoneProgress[] = [
     description: 'Says first words like "mama" or "dada" with meaning',
     expectedAgeMonths: { min: 9, max: 14 },
     achieved: false,
-    source: WHO_SOURCES.cdcMilestones,
+    source: WHO_SOURCES.cdcMilestones12months,
   },
+  // 12-18 months
   {
     id: 'follows-simple-commands',
     domain: 'language',
@@ -301,8 +689,27 @@ export const WHO_LANGUAGE_MILESTONES: MilestoneProgress[] = [
     description: 'Follows simple instructions like "give me the ball"',
     expectedAgeMonths: { min: 12, max: 18 },
     achieved: false,
-    source: WHO_SOURCES.cdcMilestones,
+    source: WHO_SOURCES.cdcMilestones12months,
   },
+  {
+    id: 'says-several-words',
+    domain: 'language',
+    title: 'Says Several Words',
+    description: 'Uses 3-5 words besides "mama" and "dada"',
+    expectedAgeMonths: { min: 12, max: 18 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones18months,
+  },
+  {
+    id: 'points-to-show',
+    domain: 'language',
+    title: 'Points to Show Interest',
+    description: 'Points to things to share interest or get attention',
+    expectedAgeMonths: { min: 12, max: 18 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones18months,
+  },
+  // 18-24 months
   {
     id: 'two-word-phrases',
     domain: 'language',
@@ -310,7 +717,7 @@ export const WHO_LANGUAGE_MILESTONES: MilestoneProgress[] = [
     description: 'Combines two words like "more milk" or "daddy go"',
     expectedAgeMonths: { min: 18, max: 24 },
     achieved: false,
-    source: WHO_SOURCES.cdcMilestones,
+    source: WHO_SOURCES.cdcMilestones2years,
   },
   {
     id: 'fifty-words',
@@ -319,21 +726,106 @@ export const WHO_LANGUAGE_MILESTONES: MilestoneProgress[] = [
     description: 'Vocabulary of 50 or more words',
     expectedAgeMonths: { min: 18, max: 30 },
     achieved: false,
-    source: WHO_SOURCES.cdcMilestones,
+    source: WHO_SOURCES.cdcMilestones2years,
   },
+  {
+    id: 'points-body-parts',
+    domain: 'language',
+    title: 'Points to Body Parts',
+    description: 'Points to at least 2 body parts when asked',
+    expectedAgeMonths: { min: 18, max: 24 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones2years,
+  },
+  // 24-36 months
   {
     id: 'simple-sentences',
     domain: 'language',
     title: 'Simple Sentences',
-    description: 'Uses 3-4 word sentences',
+    description: 'Uses 2-3 word sentences',
     expectedAgeMonths: { min: 24, max: 36 },
     achieved: false,
-    source: WHO_SOURCES.cdcMilestones,
+    source: WHO_SOURCES.cdcMilestones2years,
+  },
+  {
+    id: 'follows-2step-instructions',
+    domain: 'language',
+    title: 'Follows 2-Step Instructions',
+    description: 'Can follow two-step instructions like "Pick up the toy and put it on the table"',
+    expectedAgeMonths: { min: 24, max: 36 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones2years,
+  },
+  {
+    id: 'names-pictures',
+    domain: 'language',
+    title: 'Names Pictures in Books',
+    description: 'Can name common objects in picture books',
+    expectedAgeMonths: { min: 24, max: 36 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones2years,
+  },
+  // 36-48 months
+  {
+    id: 'talks-in-sentences',
+    domain: 'language',
+    title: 'Talks in Sentences',
+    description: 'Uses 4+ word sentences',
+    expectedAgeMonths: { min: 36, max: 48 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones3years,
+  },
+  {
+    id: 'asks-questions',
+    domain: 'language',
+    title: 'Asks Questions',
+    description: 'Asks "who," "what," "where," and "why" questions',
+    expectedAgeMonths: { min: 36, max: 48 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones3years,
+  },
+  {
+    id: 'tells-stories',
+    domain: 'language',
+    title: 'Tells Simple Stories',
+    description: 'Can tell a simple story with a beginning and end',
+    expectedAgeMonths: { min: 36, max: 48 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones4years,
+  },
+  // 48-60 months
+  {
+    id: 'speaks-clearly',
+    domain: 'language',
+    title: 'Speaks Clearly',
+    description: 'Speech is understood by strangers most of the time',
+    expectedAgeMonths: { min: 48, max: 60 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones4years,
+  },
+  {
+    id: 'tells-detailed-stories',
+    domain: 'language',
+    title: 'Tells Detailed Stories',
+    description: 'Can tell stories with several details and a clear sequence',
+    expectedAgeMonths: { min: 48, max: 60 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones5years,
+  },
+  {
+    id: 'uses-future-tense',
+    domain: 'language',
+    title: 'Uses Future Tense',
+    description: 'Uses future tense correctly (will, going to)',
+    expectedAgeMonths: { min: 48, max: 60 },
+    achieved: false,
+    source: WHO_SOURCES.aapLanguage,
   },
 ];
 
-// Cognitive Milestones
+// Cognitive Milestones - Expanded 0-60 months
 export const WHO_COGNITIVE_MILESTONES: MilestoneProgress[] = [
+  // 0-3 months
   {
     id: 'follows-moving-objects',
     domain: 'cognitive',
@@ -341,8 +833,56 @@ export const WHO_COGNITIVE_MILESTONES: MilestoneProgress[] = [
     description: 'Tracks moving objects with eyes',
     expectedAgeMonths: { min: 1, max: 4 },
     achieved: false,
-    source: WHO_SOURCES.cdcMilestones,
+    source: WHO_SOURCES.cdcMilestones2months,
   },
+  {
+    id: 'recognizes-caregiver',
+    domain: 'cognitive',
+    title: 'Recognizes Caregiver',
+    description: 'Shows recognition of familiar faces and voices',
+    expectedAgeMonths: { min: 2, max: 5 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones4months,
+  },
+  // 3-6 months
+  {
+    id: 'brings-things-to-mouth',
+    domain: 'cognitive',
+    title: 'Explores with Mouth',
+    description: 'Brings objects to mouth to explore them',
+    expectedAgeMonths: { min: 3, max: 8 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones4months,
+  },
+  {
+    id: 'reaches-for-toy',
+    domain: 'cognitive',
+    title: 'Reaches for Nearby Toy',
+    description: 'Shows interest and reaches for toys',
+    expectedAgeMonths: { min: 3, max: 6 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones4months,
+  },
+  // 6-9 months
+  {
+    id: 'looks-for-dropped',
+    domain: 'cognitive',
+    title: 'Looks for Dropped Objects',
+    description: 'Looks for toys that fall out of sight',
+    expectedAgeMonths: { min: 6, max: 10 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones6months,
+  },
+  {
+    id: 'explores-objects',
+    domain: 'cognitive',
+    title: 'Explores Objects',
+    description: 'Explores objects in different ways (shaking, banging, throwing)',
+    expectedAgeMonths: { min: 6, max: 12 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones9months,
+  },
+  // 9-12 months
   {
     id: 'object-permanence',
     domain: 'cognitive',
@@ -353,14 +893,24 @@ export const WHO_COGNITIVE_MILESTONES: MilestoneProgress[] = [
     source: WHO_SOURCES.developmentalMilestones,
   },
   {
-    id: 'explores-objects',
+    id: 'finds-hidden-objects',
     domain: 'cognitive',
-    title: 'Explores Objects',
-    description: 'Explores objects in different ways (shaking, banging, throwing)',
-    expectedAgeMonths: { min: 6, max: 12 },
+    title: 'Finds Hidden Objects',
+    description: 'Finds objects hidden under a cloth or container',
+    expectedAgeMonths: { min: 9, max: 14 },
     achieved: false,
-    source: WHO_SOURCES.cdcMilestones,
+    source: WHO_SOURCES.cdcMilestones12months,
   },
+  {
+    id: 'uses-objects-correctly',
+    domain: 'cognitive',
+    title: 'Uses Objects Correctly',
+    description: 'Uses objects correctly (drinks from cup, brushes hair)',
+    expectedAgeMonths: { min: 9, max: 15 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones12months,
+  },
+  // 12-18 months
   {
     id: 'simple-pretend-play',
     domain: 'cognitive',
@@ -368,8 +918,37 @@ export const WHO_COGNITIVE_MILESTONES: MilestoneProgress[] = [
     description: 'Engages in simple pretend play like feeding a doll',
     expectedAgeMonths: { min: 12, max: 24 },
     achieved: false,
-    source: WHO_SOURCES.cdcMilestones,
+    source: WHO_SOURCES.cdcMilestones18months,
   },
+  {
+    id: 'points-to-pictures',
+    domain: 'cognitive',
+    title: 'Points to Pictures',
+    description: 'Points to pictures when named',
+    expectedAgeMonths: { min: 12, max: 18 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones18months,
+  },
+  // 18-24 months
+  {
+    id: 'knows-body-parts',
+    domain: 'cognitive',
+    title: 'Knows Body Parts',
+    description: 'Can point to several body parts when named',
+    expectedAgeMonths: { min: 18, max: 24 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones2years,
+  },
+  {
+    id: 'completes-simple-puzzles',
+    domain: 'cognitive',
+    title: 'Completes Simple Puzzles',
+    description: 'Can complete simple 2-3 piece puzzles',
+    expectedAgeMonths: { min: 18, max: 30 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones2years,
+  },
+  // 24-36 months
   {
     id: 'sorts-shapes-colors',
     domain: 'cognitive',
@@ -377,8 +956,27 @@ export const WHO_COGNITIVE_MILESTONES: MilestoneProgress[] = [
     description: 'Can sort objects by shape or color',
     expectedAgeMonths: { min: 24, max: 36 },
     achieved: false,
-    source: WHO_SOURCES.cdcMilestones,
+    source: WHO_SOURCES.cdcMilestones2years,
   },
+  {
+    id: 'plays-make-believe',
+    domain: 'cognitive',
+    title: 'Plays Make-Believe',
+    description: 'Engages in imaginative play with dolls, animals, people',
+    expectedAgeMonths: { min: 24, max: 36 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones3years,
+  },
+  {
+    id: 'understands-same-different',
+    domain: 'cognitive',
+    title: 'Understands Same and Different',
+    description: 'Can identify things that are the same or different',
+    expectedAgeMonths: { min: 30, max: 42 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones3years,
+  },
+  // 36-48 months
   {
     id: 'understands-counting',
     domain: 'cognitive',
@@ -386,12 +984,59 @@ export const WHO_COGNITIVE_MILESTONES: MilestoneProgress[] = [
     description: 'Understands the concept of counting and may count to 10',
     expectedAgeMonths: { min: 36, max: 48 },
     achieved: false,
-    source: WHO_SOURCES.cdcMilestones,
+    source: WHO_SOURCES.cdcMilestones4years,
+  },
+  {
+    id: 'names-colors',
+    domain: 'cognitive',
+    title: 'Names Some Colors',
+    description: 'Can correctly name at least 4 colors',
+    expectedAgeMonths: { min: 36, max: 48 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones4years,
+  },
+  {
+    id: 'understands-time-concepts',
+    domain: 'cognitive',
+    title: 'Understands Time Concepts',
+    description: 'Understands "same" and "different", today/tomorrow',
+    expectedAgeMonths: { min: 36, max: 48 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones4years,
+  },
+  // 48-60 months
+  {
+    id: 'counts-10-objects',
+    domain: 'cognitive',
+    title: 'Counts 10+ Objects',
+    description: 'Can count 10 or more objects correctly',
+    expectedAgeMonths: { min: 48, max: 60 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones5years,
+  },
+  {
+    id: 'writes-some-letters',
+    domain: 'cognitive',
+    title: 'Recognizes Letters and Numbers',
+    description: 'Can name some letters and numbers',
+    expectedAgeMonths: { min: 48, max: 60 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones5years,
+  },
+  {
+    id: 'understands-rhyming',
+    domain: 'cognitive',
+    title: 'Understands Rhyming',
+    description: 'Can identify words that rhyme',
+    expectedAgeMonths: { min: 48, max: 60 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones5years,
   },
 ];
 
-// Social-Emotional Milestones
+// Social-Emotional Milestones - Expanded 0-60 months
 export const WHO_SOCIAL_MILESTONES: MilestoneProgress[] = [
+  // 0-3 months
   {
     id: 'social-smile',
     domain: 'social',
@@ -399,8 +1044,46 @@ export const WHO_SOCIAL_MILESTONES: MilestoneProgress[] = [
     description: 'Smiles in response to social interaction',
     expectedAgeMonths: { min: 1, max: 3 },
     achieved: false,
-    source: WHO_SOURCES.cdcMilestones,
+    source: WHO_SOURCES.cdcMilestones2months,
   },
+  {
+    id: 'calms-to-voice',
+    domain: 'social',
+    title: 'Calms to Voice',
+    description: 'Calms down when spoken to or picked up',
+    expectedAgeMonths: { min: 0, max: 3 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones2months,
+  },
+  {
+    id: 'looks-at-faces',
+    domain: 'social',
+    title: 'Looks at Faces',
+    description: 'Shows interest in looking at faces',
+    expectedAgeMonths: { min: 0, max: 3 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones2months,
+  },
+  // 3-6 months
+  {
+    id: 'smiles-spontaneously',
+    domain: 'social',
+    title: 'Smiles Spontaneously',
+    description: 'Smiles spontaneously, especially at people',
+    expectedAgeMonths: { min: 3, max: 6 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones4months,
+  },
+  {
+    id: 'enjoys-play',
+    domain: 'social',
+    title: 'Enjoys Playing with People',
+    description: 'Likes to play with people and might cry when playing stops',
+    expectedAgeMonths: { min: 3, max: 6 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones4months,
+  },
+  // 6-9 months
   {
     id: 'stranger-anxiety',
     domain: 'social',
@@ -408,8 +1091,27 @@ export const WHO_SOCIAL_MILESTONES: MilestoneProgress[] = [
     description: 'Shows wariness around unfamiliar people',
     expectedAgeMonths: { min: 6, max: 12 },
     achieved: false,
-    source: WHO_SOURCES.cdcMilestones,
+    source: WHO_SOURCES.cdcMilestones9months,
   },
+  {
+    id: 'has-favorite-toys',
+    domain: 'social',
+    title: 'Has Favorite Toys',
+    description: 'Shows preferences for certain toys',
+    expectedAgeMonths: { min: 6, max: 12 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones9months,
+  },
+  {
+    id: 'plays-peekaboo',
+    domain: 'social',
+    title: 'Plays Peek-a-Boo',
+    description: 'Enjoys and responds to peek-a-boo games',
+    expectedAgeMonths: { min: 6, max: 12 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones9months,
+  },
+  // 9-12 months
   {
     id: 'waves-bye',
     domain: 'social',
@@ -417,8 +1119,18 @@ export const WHO_SOCIAL_MILESTONES: MilestoneProgress[] = [
     description: 'Waves goodbye when prompted',
     expectedAgeMonths: { min: 9, max: 15 },
     achieved: false,
-    source: WHO_SOURCES.cdcMilestones,
+    source: WHO_SOURCES.cdcMilestones12months,
   },
+  {
+    id: 'cries-when-parent-leaves',
+    domain: 'social',
+    title: 'Separation Anxiety',
+    description: 'Cries when parents leave, showing attachment',
+    expectedAgeMonths: { min: 8, max: 14 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones12months,
+  },
+  // 12-18 months
   {
     id: 'shows-affection',
     domain: 'social',
@@ -426,8 +1138,27 @@ export const WHO_SOCIAL_MILESTONES: MilestoneProgress[] = [
     description: 'Shows affection with hugs and kisses',
     expectedAgeMonths: { min: 12, max: 18 },
     achieved: false,
-    source: WHO_SOURCES.cdcMilestones,
+    source: WHO_SOURCES.cdcMilestones18months,
   },
+  {
+    id: 'plays-simple-pretend',
+    domain: 'social',
+    title: 'Simple Pretend with Others',
+    description: 'Engages in simple pretend play with caregivers',
+    expectedAgeMonths: { min: 12, max: 18 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones18months,
+  },
+  {
+    id: 'shows-you-object',
+    domain: 'social',
+    title: 'Shows Objects to Others',
+    description: 'Shows you objects they like',
+    expectedAgeMonths: { min: 12, max: 18 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones18months,
+  },
+  // 18-24 months
   {
     id: 'parallel-play',
     domain: 'social',
@@ -435,16 +1166,189 @@ export const WHO_SOCIAL_MILESTONES: MilestoneProgress[] = [
     description: 'Plays alongside other children',
     expectedAgeMonths: { min: 18, max: 30 },
     achieved: false,
-    source: WHO_SOURCES.cdcMilestones,
+    source: WHO_SOURCES.cdcMilestones2years,
   },
+  {
+    id: 'copies-adults',
+    domain: 'social',
+    title: 'Copies Adults and Children',
+    description: 'Imitates behaviors of adults and other children',
+    expectedAgeMonths: { min: 18, max: 24 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones2years,
+  },
+  {
+    id: 'shows-independence',
+    domain: 'social',
+    title: 'Shows Independence',
+    description: 'Shows defiant behavior and wants to do things alone',
+    expectedAgeMonths: { min: 18, max: 30 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones2years,
+  },
+  // 24-36 months
   {
     id: 'shares-with-others',
     domain: 'social',
-    title: 'Shares with Others',
+    title: 'Begins Sharing',
     description: 'Begins to share toys with other children',
     expectedAgeMonths: { min: 24, max: 42 },
     achieved: false,
-    source: WHO_SOURCES.cdcMilestones,
+    source: WHO_SOURCES.cdcMilestones3years,
+  },
+  {
+    id: 'takes-turns',
+    domain: 'social',
+    title: 'Takes Turns',
+    description: 'Can take turns in games or activities',
+    expectedAgeMonths: { min: 24, max: 36 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones3years,
+  },
+  {
+    id: 'shows-concern',
+    domain: 'social',
+    title: 'Shows Concern for Others',
+    description: 'Shows concern when someone is crying or hurt',
+    expectedAgeMonths: { min: 24, max: 36 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones3years,
+  },
+  // 36-48 months
+  {
+    id: 'cooperative-play',
+    domain: 'social',
+    title: 'Cooperative Play',
+    description: 'Plays cooperatively with other children',
+    expectedAgeMonths: { min: 36, max: 48 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones4years,
+  },
+  {
+    id: 'talks-about-interests',
+    domain: 'social',
+    title: 'Talks About Interests',
+    description: 'Talks about what they like and are interested in',
+    expectedAgeMonths: { min: 36, max: 48 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones4years,
+  },
+  {
+    id: 'prefers-friends',
+    domain: 'social',
+    title: 'Has Favorite Friends',
+    description: 'Has favorite friends and knows their names',
+    expectedAgeMonths: { min: 36, max: 48 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones4years,
+  },
+  // 48-60 months
+  {
+    id: 'follows-rules',
+    domain: 'social',
+    title: 'Follows Rules',
+    description: 'Follows rules and takes turns in games',
+    expectedAgeMonths: { min: 48, max: 60 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones5years,
+  },
+  {
+    id: 'likes-to-please-friends',
+    domain: 'social',
+    title: 'Wants to Please Friends',
+    description: 'Wants to be like friends and wants to please them',
+    expectedAgeMonths: { min: 48, max: 60 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones5years,
+  },
+  {
+    id: 'distinguishes-real-makebelieve',
+    domain: 'social',
+    title: 'Real vs. Make-Believe',
+    description: 'Can tell the difference between real and make-believe',
+    expectedAgeMonths: { min: 48, max: 60 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones5years,
+  },
+];
+
+// Sensory Milestones - NEW (0-24 months)
+export const WHO_SENSORY_MILESTONES: MilestoneProgress[] = [
+  // 0-3 months
+  {
+    id: 'startles-to-sounds',
+    domain: 'sensory',
+    title: 'Startles to Loud Sounds',
+    description: 'Startles or blinks in response to loud sounds',
+    expectedAgeMonths: { min: 0, max: 3 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones2months,
+  },
+  {
+    id: 'focuses-on-faces',
+    domain: 'sensory',
+    title: 'Focuses on Faces',
+    description: 'Can focus on faces 8-12 inches away',
+    expectedAgeMonths: { min: 0, max: 3 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones2months,
+  },
+  // 3-6 months
+  {
+    id: 'tracks-objects',
+    domain: 'sensory',
+    title: 'Tracks Moving Objects',
+    description: 'Follows moving objects with eyes smoothly',
+    expectedAgeMonths: { min: 2, max: 6 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones4months,
+  },
+  {
+    id: 'recognizes-voices',
+    domain: 'sensory',
+    title: 'Recognizes Familiar Voices',
+    description: 'Shows recognition of familiar voices and sounds',
+    expectedAgeMonths: { min: 3, max: 6 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones4months,
+  },
+  // 6-12 months
+  {
+    id: 'responds-to-sounds',
+    domain: 'sensory',
+    title: 'Responds to Sounds from All Directions',
+    description: 'Turns head toward sounds from any direction',
+    expectedAgeMonths: { min: 6, max: 10 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones9months,
+  },
+  {
+    id: 'texture-exploration',
+    domain: 'sensory',
+    title: 'Explores Textures',
+    description: 'Shows interest in different textures and surfaces',
+    expectedAgeMonths: { min: 6, max: 12 },
+    achieved: false,
+    source: WHO_SOURCES.developmentalMilestones,
+  },
+  // 12-24 months
+  {
+    id: 'identifies-sounds',
+    domain: 'sensory',
+    title: 'Identifies Common Sounds',
+    description: 'Recognizes and responds to familiar sounds (doorbell, phone)',
+    expectedAgeMonths: { min: 12, max: 24 },
+    achieved: false,
+    source: WHO_SOURCES.cdcMilestones18months,
+  },
+  {
+    id: 'tolerates-messy-play',
+    domain: 'sensory',
+    title: 'Tolerates Messy Play',
+    description: 'Can engage with different textures in messy play',
+    expectedAgeMonths: { min: 12, max: 24 },
+    achieved: false,
+    source: WHO_SOURCES.developmentalMilestones,
   },
 ];
 
@@ -570,28 +1474,34 @@ export const REGIONS: Region[] = [
 ];
 
 // Helper functions
-export function getMilestonesForAge(ageMonths: number): MilestoneProgress[] {
-  const allMilestones = [
+export function getAllMilestones(): MilestoneProgress[] {
+  return [
     ...WHO_MOTOR_MILESTONES,
     ...WHO_LANGUAGE_MILESTONES,
     ...WHO_COGNITIVE_MILESTONES,
     ...WHO_SOCIAL_MILESTONES,
+    ...WHO_SENSORY_MILESTONES,
   ];
+}
+
+export function getMilestonesForAge(ageMonths: number): MilestoneProgress[] {
+  const allMilestones = getAllMilestones();
 
   return allMilestones.filter(
     (m) => m.expectedAgeMonths.min <= ageMonths && ageMonths <= m.expectedAgeMonths.max + 6
   );
 }
 
-export function getUpcomingMilestones(ageMonths: number, count: number = 5): MilestoneProgress[] {
-  const allMilestones = [
-    ...WHO_MOTOR_MILESTONES,
-    ...WHO_LANGUAGE_MILESTONES,
-    ...WHO_COGNITIVE_MILESTONES,
-    ...WHO_SOCIAL_MILESTONES,
-  ];
+export function getMilestoneById(id: string): MilestoneProgress | undefined {
+  return getAllMilestones().find(m => m.id === id);
+}
 
-  return allMilestones
+export function getMilestonesByDomain(domain: 'motor' | 'language' | 'cognitive' | 'social' | 'sensory'): MilestoneProgress[] {
+  return getAllMilestones().filter(m => m.domain === domain);
+}
+
+export function getUpcomingMilestones(ageMonths: number, count: number = 5): MilestoneProgress[] {
+  return getAllMilestones()
     .filter((m) => m.expectedAgeMonths.min > ageMonths)
     .sort((a, b) => a.expectedAgeMonths.min - b.expectedAgeMonths.min)
     .slice(0, count);

@@ -6,7 +6,6 @@ import {
   ProductRecommendation,
   Recipe,
   ParentingTip,
-  DevelopmentTip,
   WHOSource,
 } from "../types";
 import {
@@ -198,6 +197,14 @@ export const analyzeBabySounds = async (audioBlob: Blob, ageMonths: number): Pro
   }
 };
 
+// Interface for achieved milestones context
+export interface AchievedMilestoneContext {
+  milestoneId: string;
+  title: string;
+  domain: string;
+  achievedDate: string;
+}
+
 /**
  * Comprehensive development analysis using WHO data
  */
@@ -205,7 +212,8 @@ export const analyzeDevelopment = async (
   mediaFiles: File[],
   child: ChildProfile,
   contextNotes: string,
-  babyAudioBlob?: Blob
+  _babyAudioBlob?: Blob,
+  achievedMilestones?: AchievedMilestoneContext[]
 ): Promise<Omit<AnalysisResult, 'id'>> => {
   const milestones = getMilestonesForAge(child.ageMonths);
   const growthAssessment = assessGrowth(
@@ -232,16 +240,28 @@ export const analyzeDevelopment = async (
 
   const mediaData = await Promise.all(mediaPromises);
 
+  // Build achieved milestones context
+  const achievedContext = achievedMilestones && achievedMilestones.length > 0
+    ? `
+ALREADY ACHIEVED MILESTONES (parent-confirmed):
+${achievedMilestones.map(m => `- ${m.title} (${m.domain}) - achieved on ${new Date(m.achievedDate).toLocaleDateString()}`).join('\n')}
+
+IMPORTANT: The child has ALREADY mastered these skills. DO NOT suggest activities to learn these skills.
+Instead, suggest more advanced activities that BUILD UPON these achievements.
+For example, if "Walking Alone" is achieved, suggest running, climbing, or kicking activities instead.
+`
+    : '';
+
   // Build the analysis prompt with WHO context
   const whoContext = `
 WHO DEVELOPMENTAL MILESTONES FOR ${child.ageMonths} MONTHS:
-${milestones.map(m => `- ${m.title}: ${m.description} (Expected: ${m.expectedAgeMonths.min}-${m.expectedAgeMonths.max} months)`).join('\n')}
+${milestones.map(m => `- ${m.title}: ${m.description} (Expected: ${m.expectedAgeMonths.min}-${m.expectedAgeMonths.max} months)${achievedMilestones?.some(a => a.milestoneId === m.id) ? ' [ACHIEVED]' : ''}`).join('\n')}
 
 GROWTH PERCENTILES (WHO Standards):
 - Weight: ${growthAssessment.weightPercentile}th percentile
 - Height: ${growthAssessment.heightPercentile}th percentile
 ${growthAssessment.headCircumferencePercentile ? `- Head Circumference: ${growthAssessment.headCircumferencePercentile}th percentile` : ''}
-
+${achievedContext}
 CHILD PROFILE:
 - Name: ${child.name}
 - Age: ${child.ageMonths} months
@@ -629,24 +649,72 @@ Return JSON array with each product having:
   }
 };
 
+interface RecipeFilters {
+  excludeAllergens?: string[];
+  dietaryPreferences?: string[];
+  foodLikings?: string;
+}
+
 /**
- * Generate age-appropriate recipes
+ * Generate age-appropriate recipes with filters for allergies, preferences, and region
  */
 export const generateRecipes = async (
   child: ChildProfile,
-  mealType?: 'breakfast' | 'lunch' | 'dinner' | 'snack'
+  mealType?: 'breakfast' | 'lunch' | 'dinner' | 'snack',
+  filters?: RecipeFilters
 ): Promise<Recipe[]> => {
-  const prompt = `
-Generate 3 healthy, age-appropriate recipes for a ${child.ageMonths}-month-old child.
+  // Build filter sections
+  const allergenSection = filters?.excludeAllergens?.length
+    ? `\nALLERGEN RESTRICTIONS (MUST AVOID these ingredients completely):
+${filters.excludeAllergens.map(a => `- NO ${a.toUpperCase()}`).join('\n')}`
+    : '';
 
+  const dietarySection = filters?.dietaryPreferences?.length
+    ? `\nDIETARY REQUIREMENTS:
+${filters.dietaryPreferences.map(p => `- Must be ${p}`).join('\n')}`
+    : '';
+
+  const likingsSection = filters?.foodLikings
+    ? `\nCHILD'S FOOD PREFERENCES: ${filters.foodLikings}`
+    : '';
+
+  // Regional cuisine mapping
+  const regionCuisineMap: Record<string, string> = {
+    'IN': 'Indian cuisine (dal, khichdi, roti, rice dishes, mild spices)',
+    'US': 'American cuisine (varied, include familiar comfort foods)',
+    'GB': 'British cuisine (include traditional weaning foods)',
+    'CN': 'Chinese cuisine (congee, steamed dishes, mild flavors)',
+    'JP': 'Japanese cuisine (rice porridge, soft vegetables, mild fish)',
+    'AU': 'Australian cuisine (varied multicultural options)',
+    'DE': 'German cuisine (potatoes, soft vegetables, mild meats)',
+    'FR': 'French cuisine (purees, soft cheeses if allowed, vegetables)',
+    'CA': 'Canadian cuisine (varied, maple-based, comfort foods)',
+    'BR': 'Brazilian cuisine (rice, beans, tropical fruits)',
+  };
+
+  const regionCuisine = regionCuisineMap[child.region.code] || 'diverse international cuisine with locally available ingredients';
+
+  const prompt = `
+Generate 4 healthy, age-appropriate recipes for a ${child.ageMonths}-month-old child named ${child.name}.
+
+CHILD'S REGION: ${child.region.name}
+REGIONAL CUISINE STYLE: ${regionCuisine}
 ${mealType ? `MEAL TYPE: ${mealType}` : 'Include variety of meal types'}
+${allergenSection}
+${dietarySection}
+${likingsSection}
+${child.interests.length > 0 ? `\nCHILD'S INTERESTS (for fun food presentation): ${child.interests.map(i => i.name).join(', ')}` : ''}
 
 REQUIREMENTS:
 1. Appropriate texture and consistency for ${child.ageMonths} months
 2. Nutritious ingredients based on WHO feeding guidelines
-3. Easy for parents to prepare
-4. Include common allergen warnings
-5. Child-friendly flavors
+3. Use ingredients commonly available in ${child.region.name}
+4. Include cultural/regional dishes suitable for the child's age
+5. Easy for parents to prepare
+6. Child-friendly flavors
+7. If child has interests, suggest fun presentation ideas related to them
+
+IMPORTANT: Strictly follow all allergen restrictions and dietary preferences listed above.
 
 Return JSON array with each recipe having:
 - name, description, emoji
@@ -659,8 +727,8 @@ Return JSON array with each recipe having:
 - iron (string, e.g. "High", "Medium")
 - ingredients (array of strings)
 - steps (array of strings)
-- tips (array of strings)
-- allergens (array of strings)
+- tips (array of strings - include presentation ideas if relevant to child's interests)
+- allergens (array of strings - list any allergens present, empty if allergen-free)
   `;
 
   try {
@@ -687,19 +755,31 @@ Return JSON array with each recipe having:
  */
 export const generateParentingTips = async (
   child: ChildProfile,
-  category?: string
+  category?: string,
+  achievedMilestones?: AchievedMilestoneContext[]
 ): Promise<ParentingTip[]> => {
+  // Build achieved milestones context
+  const achievedContext = achievedMilestones && achievedMilestones.length > 0
+    ? `
+THE CHILD HAS ALREADY ACHIEVED THESE MILESTONES:
+${achievedMilestones.map(m => `- ${m.title} (${m.domain})`).join('\n')}
+
+Consider these achievements when providing tips - focus on next steps and how to build upon what the child has already mastered.
+`
+    : '';
+
   const prompt = `
 Generate 5 evidence-based parenting tips for a parent of a ${child.ageMonths}-month-old.
 
 ${category ? `FOCUS AREA: ${category}` : 'Cover various aspects: sleep, feeding, development, bonding'}
-
+${achievedContext}
 REQUIREMENTS:
 1. Tips must be backed by WHO/CDC/AAP guidelines
 2. Practical and actionable
 3. Age-appropriate for ${child.ageMonths} months
 4. Supportive and encouraging tone
 5. Include safety considerations where relevant
+6. If development tips, focus on NEXT milestones to work toward, not skills already mastered
 
 Return JSON array with each tip having:
 - category (sleep/feeding/behavior/safety/development/health/bonding)
@@ -743,19 +823,35 @@ Return JSON array with each tip having:
  */
 export const generateActivities = async (
   child: ChildProfile,
-  domain?: string
+  domain?: string,
+  achievedMilestones?: AchievedMilestoneContext[]
 ): Promise<any[]> => {
+  // Build achieved milestones context
+  const achievedContext = achievedMilestones && achievedMilestones.length > 0
+    ? `
+ALREADY MASTERED SKILLS (DO NOT suggest activities for these - they've been achieved):
+${achievedMilestones.map(m => `- ${m.title} (${m.domain})`).join('\n')}
+
+IMPORTANT: Suggest activities that BUILD UPON these achieved milestones, not activities to learn them.
+For example:
+- If "Walking Alone" is achieved → suggest running games, obstacle courses, kicking balls
+- If "Pincer Grasp" is achieved → suggest threading beads, using scissors, drawing
+- If "Two-Word Phrases" is achieved → suggest storytelling, singing songs with actions
+`
+    : '';
+
   const prompt = `
 Generate 5 fun, developmentally appropriate activities for a ${child.ageMonths}-month-old child.
 
 ${domain ? `FOCUS DOMAIN: ${domain}` : 'Cover balanced areas: Motor, Cognitive, Language, Social'}
-
+${achievedContext}
 REQUIREMENTS:
 1. Safe and appropriate for ${child.ageMonths} months
 2. Uses common household items
 3. Aligned with WHO developmental milestones
 4. Clear, simple steps for parents
 5. Fun and engaging
+6. Activities should challenge and extend BEYOND already mastered skills
 
 Return JSON array with each activity having:
 - name, description, emoji

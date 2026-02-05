@@ -125,6 +125,8 @@ export interface MilestoneProgress {
   expectedAgeMonths: { min: number; max: number };
   achieved: boolean;
   achievedDate?: string;
+  confirmedBy?: 'parent' | 'analysis';
+  notes?: string;
   source: WHOSource;
 }
 

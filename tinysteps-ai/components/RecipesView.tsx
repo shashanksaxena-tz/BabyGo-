@@ -12,6 +12,8 @@ import {
   Heart,
   X,
   Sparkles,
+  Filter,
+  Check,
 } from 'lucide-react';
 import { ChildProfile } from '../types';
 import * as geminiService from '../services/geminiService';
@@ -48,12 +50,46 @@ const CATEGORIES = [
   { id: 'smoothies', name: 'Smoothies', emoji: '🥤' },
 ];
 
+const COMMON_ALLERGENS = [
+  { id: 'dairy', name: 'Dairy', emoji: '🥛' },
+  { id: 'eggs', name: 'Eggs', emoji: '🥚' },
+  { id: 'nuts', name: 'Tree Nuts', emoji: '🥜' },
+  { id: 'peanuts', name: 'Peanuts', emoji: '🥜' },
+  { id: 'wheat', name: 'Wheat/Gluten', emoji: '🌾' },
+  { id: 'soy', name: 'Soy', emoji: '🫘' },
+  { id: 'fish', name: 'Fish', emoji: '🐟' },
+  { id: 'shellfish', name: 'Shellfish', emoji: '🦐' },
+];
+
+const DIETARY_PREFERENCES = [
+  { id: 'vegetarian', name: 'Vegetarian', emoji: '🥬' },
+  { id: 'vegan', name: 'Vegan', emoji: '🌱' },
+  { id: 'halal', name: 'Halal', emoji: '☪️' },
+  { id: 'kosher', name: 'Kosher', emoji: '✡️' },
+];
+
 const RecipesView: React.FC<RecipesViewProps> = ({ child, onBack }) => {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [showFilters, setShowFilters] = useState(false);
+  const [excludeAllergens, setExcludeAllergens] = useState<string[]>([]);
+  const [dietaryPrefs, setDietaryPrefs] = useState<string[]>([]);
+  const [likings, setLikings] = useState<string>('');
+
+  const toggleAllergen = (id: string) => {
+    setExcludeAllergens(prev =>
+      prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id]
+    );
+  };
+
+  const toggleDietaryPref = (id: string) => {
+    setDietaryPrefs(prev =>
+      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
+    );
+  };
 
   useEffect(() => {
     loadRecipes();
@@ -63,7 +99,11 @@ const RecipesView: React.FC<RecipesViewProps> = ({ child, onBack }) => {
     setLoading(true);
     try {
       const mealType = selectedCategory === 'all' ? undefined : selectedCategory as any;
-      const data = await geminiService.generateRecipes(child, mealType);
+      const data = await geminiService.generateRecipes(child, mealType, {
+        excludeAllergens,
+        dietaryPreferences: dietaryPrefs,
+        foodLikings: likings,
+      });
       setRecipes(data || []);
     } catch (error) {
       console.error('Failed to load recipes:', error);
@@ -71,6 +111,8 @@ const RecipesView: React.FC<RecipesViewProps> = ({ child, onBack }) => {
       setLoading(false);
     }
   };
+
+  const activeFilterCount = excludeAllergens.length + dietaryPrefs.length + (likings ? 1 : 0);
 
   const toggleFavorite = (recipeId: string) => {
     setFavorites((prev) => {
@@ -124,12 +166,53 @@ const RecipesView: React.FC<RecipesViewProps> = ({ child, onBack }) => {
             </p>
           </div>
           <button
+            onClick={() => setShowFilters(true)}
+            className="relative w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm hover:shadow-md transition-all"
+          >
+            <Filter className="w-5 h-5 text-gray-600" />
+            {activeFilterCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+          <button
             onClick={loadRecipes}
             className="w-10 h-10 bg-gradient-to-r from-orange-500 to-amber-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-orange-200"
           >
             <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
+
+        {/* Active Filters Display */}
+        {activeFilterCount > 0 && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            {excludeAllergens.map(id => {
+              const allergen = COMMON_ALLERGENS.find(a => a.id === id);
+              return allergen ? (
+                <span key={id} className="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs flex items-center gap-1">
+                  {allergen.emoji} No {allergen.name}
+                  <button onClick={() => toggleAllergen(id)} className="ml-1 hover:text-red-900">×</button>
+                </span>
+              ) : null;
+            })}
+            {dietaryPrefs.map(id => {
+              const pref = DIETARY_PREFERENCES.find(p => p.id === id);
+              return pref ? (
+                <span key={id} className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs flex items-center gap-1">
+                  {pref.emoji} {pref.name}
+                  <button onClick={() => toggleDietaryPref(id)} className="ml-1 hover:text-green-900">×</button>
+                </span>
+              ) : null;
+            })}
+            {likings && (
+              <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs flex items-center gap-1">
+                ❤️ {likings.slice(0, 20)}{likings.length > 20 ? '...' : ''}
+                <button onClick={() => setLikings('')} className="ml-1 hover:text-blue-900">×</button>
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Categories */}
         <div className="flex gap-2 overflow-x-auto pb-4 mb-6 scrollbar-hide">
@@ -409,6 +492,159 @@ const RecipesView: React.FC<RecipesViewProps> = ({ child, onBack }) => {
                     </ul>
                   </div>
                 )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Filter Modal */}
+      <AnimatePresence>
+        {showFilters && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4"
+            onClick={() => setShowFilters(false)}
+          >
+            <motion.div
+              initial={{ y: 100, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 100, opacity: 0 }}
+              className="bg-white rounded-3xl w-full max-w-lg max-h-[85vh] overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="bg-gradient-to-r from-orange-500 to-amber-500 p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold text-white">Recipe Filters</h2>
+                    <p className="text-white/80 text-sm">Customize recipes for {child.name}</p>
+                  </div>
+                  <button
+                    onClick={() => setShowFilters(false)}
+                    className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center text-white"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="p-6 overflow-y-auto max-h-[60vh] space-y-6">
+                {/* Region Info */}
+                <div className="bg-blue-50 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xl">🌍</span>
+                    <h3 className="font-bold text-blue-800">Regional Cuisine</h3>
+                  </div>
+                  <p className="text-blue-700 text-sm">
+                    Recipes will include dishes appropriate for <strong>{child.region.name}</strong> region,
+                    featuring locally available ingredients and cultural preferences.
+                  </p>
+                </div>
+
+                {/* Allergens */}
+                <div>
+                  <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-amber-500" />
+                    Exclude Allergens
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {COMMON_ALLERGENS.map(allergen => (
+                      <button
+                        key={allergen.id}
+                        onClick={() => toggleAllergen(allergen.id)}
+                        className={`px-3 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-1 ${
+                          excludeAllergens.includes(allergen.id)
+                            ? 'bg-red-500 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-red-100'
+                        }`}
+                      >
+                        <span>{allergen.emoji}</span>
+                        <span>{allergen.name}</span>
+                        {excludeAllergens.includes(allergen.id) && <Check className="w-3 h-3 ml-1" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Dietary Preferences */}
+                <div>
+                  <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                    <Leaf className="w-5 h-5 text-green-500" />
+                    Dietary Preferences
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {DIETARY_PREFERENCES.map(pref => (
+                      <button
+                        key={pref.id}
+                        onClick={() => toggleDietaryPref(pref.id)}
+                        className={`px-3 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-1 ${
+                          dietaryPrefs.includes(pref.id)
+                            ? 'bg-green-500 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-green-100'
+                        }`}
+                      >
+                        <span>{pref.emoji}</span>
+                        <span>{pref.name}</span>
+                        {dietaryPrefs.includes(pref.id) && <Check className="w-3 h-3 ml-1" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Food Likings */}
+                <div>
+                  <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                    <Heart className="w-5 h-5 text-pink-500" />
+                    Food Preferences
+                  </h3>
+                  <textarea
+                    value={likings}
+                    onChange={(e) => setLikings(e.target.value)}
+                    placeholder="E.g., loves carrots, doesn't like spinach, prefers sweet flavors..."
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 outline-none transition-all resize-none"
+                    rows={3}
+                  />
+                  <p className="text-gray-500 text-xs mt-2">
+                    Describe what {child.name} likes or dislikes to get personalized recipes.
+                  </p>
+                </div>
+
+                {/* Child's Interests */}
+                {child.interests.length > 0 && (
+                  <div className="bg-purple-50 rounded-xl p-4">
+                    <h3 className="font-bold text-purple-800 mb-2">Based on {child.name}'s Interests</h3>
+                    <p className="text-purple-700 text-sm">
+                      We'll suggest fun food presentations related to: {child.interests.map(i => i.name).join(', ')}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="p-6 border-t border-gray-100 flex gap-3">
+                <button
+                  onClick={() => {
+                    setExcludeAllergens([]);
+                    setDietaryPrefs([]);
+                    setLikings('');
+                  }}
+                  className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+                >
+                  Clear All
+                </button>
+                <button
+                  onClick={() => {
+                    setShowFilters(false);
+                    loadRecipes();
+                  }}
+                  className="flex-1 py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl font-medium hover:shadow-lg transition-all"
+                >
+                  Apply & Generate
+                </button>
               </div>
             </motion.div>
           </motion.div>

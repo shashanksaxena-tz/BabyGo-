@@ -200,6 +200,24 @@ const GrowthChartsView: React.FC<GrowthChartsViewProps> = ({ child, onBack }) =>
     return 'text-emerald-500';
   };
 
+  const getPercentileInterpretation = (p: number) => {
+    if (p < 3) return { text: 'Below typical range', advice: 'Consider consulting your pediatrician', status: 'concern' };
+    if (p < 15) return { text: 'Lower end of typical', advice: 'Monitor growth trend over time', status: 'monitor' };
+    if (p < 50) return { text: 'Healthy range', advice: 'Growing well, keep it up!', status: 'healthy' };
+    if (p < 85) return { text: 'Healthy range', advice: 'Growing well, keep it up!', status: 'healthy' };
+    if (p < 97) return { text: 'Higher end of typical', advice: 'Monitor growth trend over time', status: 'monitor' };
+    return { text: 'Above typical range', advice: 'Consider consulting your pediatrician', status: 'concern' };
+  };
+
+  const getStatusBadgeColor = (status: string) => {
+    switch (status) {
+      case 'concern': return 'bg-red-100 text-red-700 border-red-200';
+      case 'monitor': return 'bg-amber-100 text-amber-700 border-amber-200';
+      case 'healthy': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+      default: return 'bg-gray-100 text-gray-700 border-gray-200';
+    }
+  };
+
   const metrics = [
     { id: 'weight' as MetricType, name: 'Weight', icon: Scale, unit: 'kg' },
     { id: 'height' as MetricType, name: 'Height', icon: Ruler, unit: 'cm' },
@@ -453,6 +471,109 @@ const GrowthChartsView: React.FC<GrowthChartsViewProps> = ({ child, onBack }) =>
                 />
               </ComposedChart>
             </ResponsiveContainer>
+          </div>
+        </motion.div>
+
+        {/* Detailed Status Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="bg-white rounded-3xl shadow-lg p-6 mb-6"
+        >
+          <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-blue-500" />
+            Growth Status Overview
+          </h3>
+
+          <div className="space-y-4">
+            {/* Weight Status */}
+            {(() => {
+              const weightPercentile = percentile;
+              const interpretation = getPercentileInterpretation(weightPercentile);
+              return selectedMetric === 'weight' && (
+                <div className={`p-4 rounded-xl border ${getStatusBadgeColor(interpretation.status)}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Scale className="w-5 h-5" />
+                      <span className="font-semibold">Weight</span>
+                    </div>
+                    <span className="text-lg font-bold">{child.weight} kg</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">{interpretation.text}</span>
+                    <span className="text-sm font-medium">{percentile.toFixed(0)}th percentile</span>
+                  </div>
+                  <p className="text-xs mt-2 opacity-80">{interpretation.advice}</p>
+                </div>
+              );
+            })()}
+
+            {/* Height Status */}
+            {selectedMetric === 'height' && (() => {
+              const interpretation = getPercentileInterpretation(percentile);
+              return (
+                <div className={`p-4 rounded-xl border ${getStatusBadgeColor(interpretation.status)}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Ruler className="w-5 h-5" />
+                      <span className="font-semibold">Height</span>
+                    </div>
+                    <span className="text-lg font-bold">{child.height} cm</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">{interpretation.text}</span>
+                    <span className="text-sm font-medium">{percentile.toFixed(0)}th percentile</span>
+                  </div>
+                  <p className="text-xs mt-2 opacity-80">{interpretation.advice}</p>
+                </div>
+              );
+            })()}
+
+            {/* Head Circumference Status */}
+            {selectedMetric === 'head' && child.headCircumference && (() => {
+              const interpretation = getPercentileInterpretation(percentile);
+              return (
+                <div className={`p-4 rounded-xl border ${getStatusBadgeColor(interpretation.status)}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <CircleDot className="w-5 h-5" />
+                      <span className="font-semibold">Head Circumference</span>
+                    </div>
+                    <span className="text-lg font-bold">{child.headCircumference} cm</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">{interpretation.text}</span>
+                    <span className="text-sm font-medium">{percentile.toFixed(0)}th percentile</span>
+                  </div>
+                  <p className="text-xs mt-2 opacity-80">{interpretation.advice}</p>
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Percentile Scale */}
+          <div className="mt-6">
+            <p className="text-sm text-gray-600 mb-2">Percentile Scale</p>
+            <div className="relative h-8 bg-gradient-to-r from-red-200 via-amber-100 via-50% via-emerald-200 via-85% to-amber-100 to-red-200 rounded-full">
+              <div
+                className="absolute top-0 w-1 h-8 bg-blue-600 rounded-full shadow-lg transform -translate-x-1/2 transition-all duration-500"
+                style={{ left: `${percentile}%` }}
+              />
+              {/* Labels */}
+              <div className="absolute -bottom-5 left-0 text-xs text-gray-400">3rd</div>
+              <div className="absolute -bottom-5 left-[15%] text-xs text-gray-400">15th</div>
+              <div className="absolute -bottom-5 left-1/2 transform -translate-x-1/2 text-xs text-gray-500 font-medium">50th</div>
+              <div className="absolute -bottom-5 left-[85%] text-xs text-gray-400">85th</div>
+              <div className="absolute -bottom-5 right-0 text-xs text-gray-400">97th</div>
+            </div>
+            <div className="flex justify-between mt-8 text-xs">
+              <span className="text-red-500">Consult</span>
+              <span className="text-amber-500">Monitor</span>
+              <span className="text-emerald-500">Healthy Range</span>
+              <span className="text-amber-500">Monitor</span>
+              <span className="text-red-500">Consult</span>
+            </div>
           </div>
         </motion.div>
 

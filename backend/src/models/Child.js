@@ -1,5 +1,39 @@
 import mongoose from 'mongoose';
 
+// Schema for achieved milestones
+const achievedMilestoneSchema = new mongoose.Schema({
+  milestoneId: {
+    type: String,
+    required: true,
+  },
+  achievedDate: {
+    type: Date,
+    required: true,
+    default: Date.now,
+  },
+  confirmedBy: {
+    type: String,
+    enum: ['parent', 'analysis'],
+    default: 'parent',
+  },
+  notes: {
+    type: String,
+    trim: true,
+  },
+}, { _id: false });
+
+// Schema for watched/tracked milestones
+const watchedMilestoneSchema = new mongoose.Schema({
+  milestoneId: {
+    type: String,
+    required: true,
+  },
+  addedDate: {
+    type: Date,
+    default: Date.now,
+  },
+}, { _id: false });
+
 const childSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -55,6 +89,9 @@ const childSchema = new mongoose.Schema({
   profilePhotoUrl: {
     type: String,
   },
+  // Milestone tracking
+  achievedMilestones: [achievedMilestoneSchema],
+  watchedMilestones: [watchedMilestoneSchema],
   createdAt: {
     type: Date,
     default: Date.now,

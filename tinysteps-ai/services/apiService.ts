@@ -258,6 +258,61 @@ class ApiService {
     const params = region ? `?region=${region}` : '';
     return this.request(`/recommendations/sources${params}`);
   }
+
+  // ============ MILESTONE TRACKING ============
+
+  // Get all milestones for a child (achieved and watched)
+  async getChildMilestones(childId: string) {
+    return this.request<{
+      achievedMilestones: Array<{
+        milestoneId: string;
+        achievedDate: string;
+        confirmedBy: 'parent' | 'analysis';
+        notes?: string;
+      }>;
+      watchedMilestones: Array<{
+        milestoneId: string;
+        addedDate: string;
+      }>;
+    }>(`/children/${childId}/milestones`);
+  }
+
+  // Mark milestone as achieved
+  async markMilestoneAchieved(
+    childId: string,
+    milestoneId: string,
+    data?: {
+      achievedDate?: string;
+      notes?: string;
+      confirmedBy?: 'parent' | 'analysis';
+    }
+  ) {
+    return this.request(`/children/${childId}/milestones/${milestoneId}`, {
+      method: 'POST',
+      body: JSON.stringify(data || {}),
+    });
+  }
+
+  // Remove milestone achievement
+  async unmarkMilestoneAchieved(childId: string, milestoneId: string) {
+    return this.request(`/children/${childId}/milestones/${milestoneId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Add milestone to watch list
+  async watchMilestone(childId: string, milestoneId: string) {
+    return this.request(`/children/${childId}/milestones/${milestoneId}/watch`, {
+      method: 'POST',
+    });
+  }
+
+  // Remove milestone from watch list
+  async unwatchMilestone(childId: string, milestoneId: string) {
+    return this.request(`/children/${childId}/milestones/${milestoneId}/watch`, {
+      method: 'DELETE',
+    });
+  }
 }
 
 export const apiService = new ApiService();

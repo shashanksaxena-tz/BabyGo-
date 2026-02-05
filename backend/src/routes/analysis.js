@@ -24,6 +24,44 @@ const upload = multer({
   },
 });
 
+// Get WHO milestones for age (MUST be before /:childId route)
+router.get('/milestones/:ageMonths', async (req, res) => {
+  try {
+    const ageMonths = parseInt(req.params.ageMonths);
+    if (isNaN(ageMonths) || ageMonths < 0) {
+      return res.status(400).json({ error: 'Invalid age in months' });
+    }
+    const milestones = whoDataService.getMilestonesForAge(ageMonths);
+    const sources = whoDataService.getSources();
+
+    res.json({ milestones, sources });
+  } catch (error) {
+    console.error('Milestones error:', error);
+    res.status(500).json({ error: 'Failed to fetch milestones: ' + error.message });
+  }
+});
+
+// Get growth percentiles (MUST be before /:childId route)
+router.post('/growth-percentiles', authMiddleware, async (req, res) => {
+  try {
+    const { weight, height, headCircumference, ageMonths, gender } = req.body;
+
+    const childData = {
+      weight,
+      height,
+      headCircumference,
+      ageInMonths: ageMonths,
+      gender,
+    };
+
+    const percentiles = whoDataService.assessGrowth(childData);
+
+    res.json({ percentiles });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to calculate percentiles' });
+  }
+});
+
 // Create new analysis
 router.post('/', authMiddleware, upload.array('media', 10), async (req, res) => {
   try {
@@ -127,40 +165,6 @@ router.get('/:childId/:id', authMiddleware, async (req, res) => {
     res.json({ analysis });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch analysis' });
-  }
-});
-
-// Get WHO milestones for age
-router.get('/milestones/:ageMonths', async (req, res) => {
-  try {
-    const ageMonths = parseInt(req.params.ageMonths);
-    const milestones = whoDataService.getMilestonesForAge(ageMonths);
-    const sources = whoDataService.getSources();
-
-    res.json({ milestones, sources });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch milestones' });
-  }
-});
-
-// Get growth percentiles
-router.post('/growth-percentiles', authMiddleware, async (req, res) => {
-  try {
-    const { weight, height, headCircumference, ageMonths, gender } = req.body;
-
-    const childData = {
-      weight,
-      height,
-      headCircumference,
-      ageInMonths: ageMonths,
-      gender,
-    };
-
-    const percentiles = whoDataService.assessGrowth(childData);
-
-    res.json({ percentiles });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to calculate percentiles' });
   }
 });
 
