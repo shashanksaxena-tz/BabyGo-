@@ -16,7 +16,85 @@ import {
   getSourcesForRegion,
 } from "./whoDataService";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
+
+/**
+ * Generates an illustration for a story scene using the child's photo as reference
+ */
+export const generateStoryIllustration = async (
+  childPhoto: string,
+  sceneDescription: string,
+  childName: string,
+  style: 'watercolor' | 'cartoon' | 'storybook' = 'storybook'
+): Promise<string | null> => {
+  const stylePrompts = {
+    watercolor: 'soft watercolor illustration style, gentle pastel colors, dreamy atmosphere',
+    cartoon: 'friendly cartoon style, bright colors, simple shapes, child-friendly',
+    storybook: 'classic storybook illustration, warm and inviting, magical lighting, detailed but whimsical'
+  };
+
+  const prompt = `Create a beautiful ${stylePrompts[style]} illustration for a children's bedtime story.
+
+Scene: ${sceneDescription}
+
+The main character is a child named ${childName}. Look at the reference photo provided and make the illustrated child resemble them - capture their hair color, skin tone, and general appearance in the illustration style.
+
+IMPORTANT:
+- Make it child-friendly, warm, and magical
+- The scene should feel safe and cozy
+- Use soft, calming colors suitable for bedtime
+- The child character should be clearly visible and central to the scene
+- NO text in the image`;
+
+  try {
+    // Check if we have a valid photo
+    if (!childPhoto || !childPhoto.startsWith('data:')) {
+      console.warn('No valid child photo for illustration');
+      return null;
+    }
+
+    const [mimeInfo, base64Data] = childPhoto.split(',');
+    const mimeType = mimeInfo.split(':')[1].split(';')[0];
+
+    const contents = [
+      { text: prompt },
+      {
+        inlineData: {
+          mimeType: mimeType,
+          data: base64Data
+        }
+      }
+    ];
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-image-preview',
+      contents: contents,
+      config: {
+        responseModalities: ['TEXT', 'IMAGE'],
+        imageConfig: {
+          aspectRatio: '16:9',
+          imageSize: '1K',
+        },
+      }
+    });
+
+    // Extract image from response
+    const candidate = response.candidates?.[0];
+    if (candidate?.content?.parts) {
+      for (const part of candidate.content.parts) {
+        if (part.inlineData?.data && part.inlineData?.mimeType?.startsWith('image/')) {
+          return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+        }
+      }
+    }
+
+    console.warn('No image in response');
+    return null;
+  } catch (error) {
+    console.error('Illustration generation failed:', error);
+    return null;
+  }
+};
 
 /**
  * Transcribes audio context using Gemini Flash.
@@ -29,7 +107,7 @@ export const transcribeAudio = async (audioBlob: Blob): Promise<string> => {
         const base64Audio = (reader.result as string).split(',')[1];
 
         const response = await ai.models.generateContent({
-          model: 'gemini-2.0-flash',
+          model: 'gemini-3-flash-preview',
           contents: {
             parts: [
               {
@@ -88,7 +166,7 @@ export const analyzeBabySounds = async (audioBlob: Blob, ageMonths: number): Pro
         `;
 
         const response = await ai.models.generateContent({
-          model: 'gemini-2.0-flash',
+          model: 'gemini-3-flash-preview',
           contents: {
             parts: [
               { inlineData: { mimeType: audioBlob.type, data: base64Audio } },
@@ -309,7 +387,7 @@ Provide your analysis in the specified JSON format.
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-3-flash-preview',
       contents: { parts: contentParts },
       config: {
         tools: [{ googleSearch: {} }],
@@ -410,6 +488,8 @@ export const generateBedtimeStory = async (
   const prompt = `
 Create a magical bedtime story for a ${child.ageMonths}-month-old child named ${child.name}.
 
+The attached image is of ${child.name}. Please describe the protagonist in the story to match the child's appearance in the photo (e.g. hair color/style, eye color, glasses if any).
+
 THEME: ${storyTheme}
 CHILD'S INTERESTS: ${child.interests.map(i => i.name).join(', ') || 'general adventure'}
 FAVORITE CHARACTERS: ${child.favoriteCharacters.join(', ') || 'friendly animals'}
@@ -423,21 +503,42 @@ REQUIREMENTS:
 5. End with ${child.name} feeling safe, loved, and sleepy
 6. Story should be 3-5 minutes when read aloud
 7. Include a gentle moral or lesson
+8. IMPORTANT: In the character description and story text, explicitly mention physical traits observed from the photo
 
 Return JSON with:
 - title: story title
 - theme: the story theme
 - content: array of paragraphs (5-8 paragraphs)
-- illustrations: array of scene descriptions for each paragraph
+- illustrations: array of scene descriptions for each paragraph. Include details about ${child.name}'s appearance in the scene descriptions so they match the photo.
 - duration: estimated reading time in minutes
 - characters: array of characters with name, role, description, basedOnChild (true for ${child.name})
 - moral: the gentle lesson
   `;
 
+  // Prepare content parts with potential image
+  const parts: any[] = [{ text: prompt }];
+
+  // Add profile photo if available and is a data URL
+  if (child.profilePhoto && child.profilePhoto.startsWith('data:')) {
+    try {
+      const [mimeInfo, base64Data] = child.profilePhoto.split(',');
+      const mimeType = mimeInfo.split(':')[1].split(';')[0];
+
+      parts.unshift({
+        inlineData: {
+          mimeType: mimeType,
+          data: base64Data
+        }
+      });
+    } catch (e) {
+      console.warn('Failed to process profile photo for story generation', e);
+    }
+  }
+
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: { parts: [{ text: prompt }] },
+      model: 'gemini-3-flash-preview',
+      contents: { parts },
       config: {
         responseMimeType: "application/json",
       }
@@ -492,15 +593,19 @@ REQUIREMENTS:
 5. Include products across different price ranges
 
 Return JSON array with each product having:
-- name, description, category (toys/books/educational/outdoor)
-- imageUrl (placeholder), price estimate
-- ageRange (min/max months), interests related to
-- rating (4-5), benefits array
+- name: product name
+- emoji: a single emoji representing the product
+- description: brief description
+- category: toys/books/educational/outdoor
+- ageRange: string like "6-12 months"
+- developmentAreas: array of skills developed (e.g. ["Fine Motor", "Cognitive"])
+- whyRecommended: why this is good for the child
+- priceRange: estimated price range
   `;
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-3-flash-preview',
       contents: { parts: [{ text: prompt }] },
       config: { responseMimeType: "application/json" }
     });
@@ -508,17 +613,15 @@ Return JSON array with each product having:
     const products = JSON.parse(response.text || "[]");
     return products.map((p: any, i: number) => ({
       id: `rec-${i}`,
-      name: p.name,
-      description: p.description,
+      name: p.name || 'Product',
+      emoji: p.emoji || '🧸',
+      description: p.description || '',
       category: p.category || 'toys',
-      imageUrl: p.imageUrl || 'https://via.placeholder.com/200',
-      price: p.price || '$19.99',
+      ageRange: p.ageRange || `${Math.max(0, child.ageMonths - 3)}-${child.ageMonths + 6} months`,
+      developmentAreas: p.developmentAreas || [],
+      whyRecommended: p.whyRecommended || '',
+      priceRange: p.priceRange || '$15-30',
       affiliateUrl: '#',
-      ageRange: p.ageRange || { min: child.ageMonths - 6, max: child.ageMonths + 12 },
-      interests: p.interests || [],
-      rating: p.rating || 4.5,
-      benefits: p.benefits || [],
-      source: 'amazon' as const
     }));
   } catch (error) {
     console.error("Recommendations failed", error);
@@ -546,20 +649,23 @@ REQUIREMENTS:
 5. Child-friendly flavors
 
 Return JSON array with each recipe having:
-- name, description
-- ageRange (min/max months)
-- prepTime, cookTime, servings
-- ingredients (array with name, amount, unit)
-- instructions (array of steps)
-- nutritionInfo (calories, protein, carbs, fat, fiber)
-- allergens (array)
-- difficulty (easy/medium/hard)
-- mealType
+- name, description, emoji
+- category (Breakfast/Lunch/Dinner/Snacks/Smoothies)
+- prepTime (number in minutes)
+- servings (string, e.g. "1 child")
+- calories (number)
+- protein (number, grams)
+- fiber (number, grams)
+- iron (string, e.g. "High", "Medium")
+- ingredients (array of strings)
+- steps (array of strings)
+- tips (array of strings)
+- allergens (array of strings)
   `;
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-3-flash-preview',
       contents: { parts: [{ text: prompt }] },
       config: { responseMimeType: "application/json" }
     });
@@ -597,26 +703,80 @@ REQUIREMENTS:
 
 Return JSON array with each tip having:
 - category (sleep/feeding/behavior/safety/development/health/bonding)
-- title, content (detailed explanation)
+- emoji: a single emoji representing the tip category
+- title: short title
+- content: detailed explanation
 - ageRange (min/max months it applies to)
 - importance (essential/recommended/optional)
   `;
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-3-flash-preview',
       contents: { parts: [{ text: prompt }] },
       config: { responseMimeType: "application/json" }
     });
 
     const tips = JSON.parse(response.text || "[]");
+    const categoryEmojis: Record<string, string> = {
+      sleep: '😴', feeding: '🍼', behavior: '🧠', safety: '🛡️',
+      development: '📈', health: '💪', bonding: '❤️'
+    };
     return tips.map((t: any, i: number) => ({
       id: `tip-${i}`,
-      ...t,
+      category: t.category || 'development',
+      emoji: t.emoji || categoryEmojis[t.category] || '💡',
+      title: t.title || 'Parenting Tip',
+      content: t.content || '',
+      ageRange: t.ageRange,
+      importance: t.importance,
       source: WHO_SOURCES.developmentalMilestones
     }));
   } catch (error) {
     console.error("Tips generation failed", error);
+    return [];
+  }
+};
+
+/**
+ * Generate age-appropriate development activities
+ */
+export const generateActivities = async (
+  child: ChildProfile,
+  domain?: string
+): Promise<any[]> => {
+  const prompt = `
+Generate 5 fun, developmentally appropriate activities for a ${child.ageMonths}-month-old child.
+
+${domain ? `FOCUS DOMAIN: ${domain}` : 'Cover balanced areas: Motor, Cognitive, Language, Social'}
+
+REQUIREMENTS:
+1. Safe and appropriate for ${child.ageMonths} months
+2. Uses common household items
+3. Aligned with WHO developmental milestones
+4. Clear, simple steps for parents
+5. Fun and engaging
+
+Return JSON array with each activity having:
+- name, description, emoji
+- domain (Motor/Cognitive/Language/Social)
+- duration (e.g., "15-20 min")
+- materials (array of strings)
+- skills (array of skills developed)
+- steps (array of instructions)
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: { parts: [{ text: prompt }] },
+      config: { responseMimeType: "application/json" }
+    });
+
+    const data = JSON.parse(response.text || "[]");
+    return data;
+  } catch (error) {
+    console.error("Activities generation failed", error);
     return [];
   }
 };

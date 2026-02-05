@@ -12,6 +12,7 @@ export enum AppStep {
   RECIPES = 'RECIPES',
   MILESTONES = 'MILESTONES',
   GROWTH_CHARTS = 'GROWTH_CHARTS',
+  SETTINGS = 'SETTINGS',
 }
 
 export interface ChildProfile {

@@ -12,37 +12,14 @@ export const generateRefreshToken = (userId) => {
 };
 
 export const authMiddleware = async (req, res, next) => {
-  try {
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      // Allow API key authentication for mobile apps
-      const apiKey = req.headers['x-api-key'];
-      if (apiKey) {
-        // Find user by API key (simplified for demo)
-        req.apiKey = apiKey;
-        return next();
-      }
-
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-
-    const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, JWT_SECRET);
-
-    const user = await User.findById(decoded.userId).select('-password');
-    if (!user) {
-      return res.status(401).json({ error: 'User not found' });
-    }
-
-    req.user = user;
-    next();
-  } catch (error) {
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ error: 'Token expired' });
-    }
-    return res.status(401).json({ error: 'Invalid token' });
-  }
+  // Authentication disabled as requested
+  req.user = {
+    _id: '000000000000000000000000',
+    name: 'Guest User',
+    email: 'guest@example.com',
+    geminiApiKey: process.env.GEMINI_API_KEY
+  };
+  next();
 };
 
 // Optional auth - doesn't fail if no token, but attaches user if present

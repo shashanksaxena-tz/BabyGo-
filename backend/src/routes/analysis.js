@@ -31,8 +31,7 @@ router.post('/', authMiddleware, upload.array('media', 10), async (req, res) => 
 
     // Get child
     const child = await Child.findOne({
-      _id: childId,
-      userId: req.user._id,
+      _id: childId
     });
 
     if (!child) {
@@ -96,8 +95,7 @@ router.post('/', authMiddleware, upload.array('media', 10), async (req, res) => 
 router.get('/:childId', authMiddleware, async (req, res) => {
   try {
     const child = await Child.findOne({
-      _id: req.params.childId,
-      userId: req.user._id,
+      _id: req.params.childId
     });
 
     if (!child) {
@@ -119,8 +117,7 @@ router.get('/:childId/:id', authMiddleware, async (req, res) => {
   try {
     const analysis = await Analysis.findOne({
       _id: req.params.id,
-      childId: req.params.childId,
-      userId: req.user._id,
+      childId: req.params.childId
     });
 
     if (!analysis) {

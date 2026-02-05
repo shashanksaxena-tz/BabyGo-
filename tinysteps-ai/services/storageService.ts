@@ -202,6 +202,16 @@ export function saveStory(story: Omit<BedtimeStory, 'id' | 'createdAt'>): Bedtim
   return newStory;
 }
 
+export function updateStory(story: BedtimeStory): BedtimeStory | null {
+  const stories = getStories();
+  const index = stories.findIndex((s) => s.id === story.id);
+  if (index === -1) return null;
+
+  stories[index] = story;
+  localStorage.setItem(STORAGE_KEYS.STORIES, JSON.stringify(stories));
+  return stories[index];
+}
+
 export function deleteStory(id: string): boolean {
   const stories = getStories();
   const filtered = stories.filter((s) => s.id !== id);

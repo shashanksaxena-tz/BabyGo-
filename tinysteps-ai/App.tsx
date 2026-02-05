@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AppStep, ChildProfile, AnalysisResult } from './types';
-import { getCurrentChild, isOnboardingComplete, setOnboardingComplete, saveAnalysis, getAnalysisById } from './services/storageService';
+import { getCurrentChild, isOnboardingComplete, setOnboardingComplete, saveAnalysis, getAnalysisById, getChildren } from './services/storageService';
 import { analyzeDevelopment } from './services/geminiService';
 
 // Components
@@ -15,6 +15,7 @@ import RecipesView from './components/RecipesView';
 import RecommendationsView from './components/RecommendationsView';
 import MilestonesView from './components/MilestonesView';
 import GrowthChartsView from './components/GrowthChartsView';
+import EditProfile from './components/EditProfile';
 
 import {
   Baby,
@@ -128,6 +129,9 @@ const App: React.FC = () => {
       case 'growth':
         setStep(AppStep.GROWTH_CHARTS);
         break;
+      case 'settings':
+        setStep(AppStep.SETTINGS);
+        break;
       case 'results':
         if (data?.analysisId) {
           const analysis = getAnalysisById(data.analysisId);
@@ -147,9 +151,23 @@ const App: React.FC = () => {
     return (
       <ProfileSetup
         onComplete={handleProfileComplete}
+        onBack={() => setStep(AppStep.HOME)}
       />
     );
   }
+
+  const handleSwitchChild = (childId: string) => {
+    const children = getChildren();
+    const child = children.find(c => c.id === childId);
+    if (child) {
+      setCurrentChild(child);
+      localStorage.setItem('tinysteps_current_child', childId);
+    }
+  };
+
+  const handleAddChild = () => {
+    setStep(AppStep.PROFILE_SETUP);
+  };
 
   // Home Dashboard
   if (step === AppStep.HOME && currentChild) {
@@ -158,6 +176,8 @@ const App: React.FC = () => {
         child={currentChild}
         onNavigate={handleNavigate}
         onStartAnalysis={() => setStep(AppStep.UPLOAD)}
+        onSwitchChild={handleSwitchChild}
+        onAddChild={handleAddChild}
       />
     );
   }
@@ -215,11 +235,10 @@ const App: React.FC = () => {
           <button
             onClick={handleStartAnalysis}
             disabled={mediaFiles.length === 0}
-            className={`w-full py-4 rounded-xl font-bold text-lg transition-all ${
-              mediaFiles.length === 0
-                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                : 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:shadow-lg hover:shadow-emerald-200 transform hover:scale-[1.02]'
-            }`}
+            className={`w-full py-4 rounded-xl font-bold text-lg transition-all ${mediaFiles.length === 0
+              ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              : 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:shadow-lg hover:shadow-emerald-200 transform hover:scale-[1.02]'
+              }`}
           >
             Analyze {currentChild.name}'s Development
           </button>
@@ -302,6 +321,32 @@ const App: React.FC = () => {
       <GrowthChartsView
         child={currentChild}
         onBack={() => setStep(AppStep.HOME)}
+      />
+    );
+  }
+
+  // Settings / Edit Profile
+  if (step === AppStep.SETTINGS && currentChild) {
+    return (
+      <EditProfile
+        child={currentChild}
+        onSave={(updatedChild) => {
+          setCurrentChild(updatedChild);
+          setStep(AppStep.HOME);
+        }}
+        onBack={() => setStep(AppStep.HOME)}
+        onDelete={() => {
+          // After deletion, check if there are other children
+          const remainingChildren = getChildren();
+          if (remainingChildren.length > 0) {
+            setCurrentChild(remainingChildren[0]);
+            localStorage.setItem('tinysteps_current_child', remainingChildren[0].id);
+            setStep(AppStep.HOME);
+          } else {
+            setCurrentChild(null);
+            setStep(AppStep.ONBOARDING);
+          }
+        }}
       />
     );
   }

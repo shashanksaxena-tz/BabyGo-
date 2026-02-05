@@ -11,8 +11,7 @@ const router = express.Router();
 router.get('/:childId', authMiddleware, async (req, res) => {
   try {
     const child = await Child.findOne({
-      _id: req.params.childId,
-      userId: req.user._id,
+      _id: req.params.childId
     });
 
     if (!child) {
@@ -44,8 +43,7 @@ router.post('/', authMiddleware, [
     const { childId, type, title, description, data, date } = req.body;
 
     const child = await Child.findOne({
-      _id: childId,
-      userId: req.user._id,
+      _id: childId
     });
 
     if (!child) {
@@ -75,8 +73,7 @@ router.delete('/:childId/:id', authMiddleware, async (req, res) => {
   try {
     const entry = await TimelineEntry.findOneAndDelete({
       _id: req.params.id,
-      childId: req.params.childId,
-      userId: req.user._id,
+      childId: req.params.childId
     });
 
     if (!entry) {
@@ -102,8 +99,7 @@ router.post('/measurement', authMiddleware, [
     const { childId, weight, height, headCircumference, date, notes } = req.body;
 
     const child = await Child.findOne({
-      _id: childId,
-      userId: req.user._id,
+      _id: childId
     });
 
     if (!child) {
@@ -155,8 +151,7 @@ router.post('/measurement', authMiddleware, [
 router.get('/measurements/:childId', authMiddleware, async (req, res) => {
   try {
     const child = await Child.findOne({
-      _id: req.params.childId,
-      userId: req.user._id,
+      _id: req.params.childId
     });
 
     if (!child) {

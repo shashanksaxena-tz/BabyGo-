@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   ArrowLeft,
   BookOpen,
@@ -13,10 +13,11 @@ import {
   Clock,
   Heart,
   Loader2,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { ChildProfile, BedtimeStory } from '../types';
-import { getStories, saveStory } from '../services/storageService';
-import { generateBedtimeStory } from '../services/geminiService';
+import { getStories, saveStory, updateStory } from '../services/storageService';
+import { generateBedtimeStory, generateStoryIllustration } from '../services/geminiService';
 
 interface BedtimeStoriesProps {
   child: ChildProfile;
@@ -30,6 +31,8 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isReading, setIsReading] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState('');
+  const [generatingIllustration, setGeneratingIllustration] = useState<number | null>(null);
+  const [illustrationCache, setIllustrationCache] = useState<Record<string, string>>({});
 
   useEffect(() => {
     setStories(getStories(child.id));
@@ -94,6 +97,68 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
     }
   };
 
+  // Generate illustration for current page
+  const generateIllustrationForPage = useCallback(async (pageIndex: number) => {
+    if (!selectedStory || !child.profilePhoto) return;
+
+    const cacheKey = `${selectedStory.id}-${pageIndex}`;
+
+    // Check if already cached or already has imageUrl
+    if (illustrationCache[cacheKey] || selectedStory.illustrations[pageIndex]?.imageUrl) {
+      return;
+    }
+
+    const illustration = selectedStory.illustrations[pageIndex];
+    if (!illustration?.description) return;
+
+    setGeneratingIllustration(pageIndex);
+
+    try {
+      const imageUrl = await generateStoryIllustration(
+        child.profilePhoto,
+        illustration.description,
+        child.name,
+        illustration.style || 'storybook'
+      );
+
+      if (imageUrl) {
+        // Cache the illustration
+        setIllustrationCache(prev => ({
+          ...prev,
+          [cacheKey]: imageUrl
+        }));
+
+        // Update the story with the new illustration
+        const updatedIllustrations = [...selectedStory.illustrations];
+        updatedIllustrations[pageIndex] = {
+          ...updatedIllustrations[pageIndex],
+          imageUrl
+        };
+
+        const updatedStory = {
+          ...selectedStory,
+          illustrations: updatedIllustrations
+        };
+
+        // Update in storage and state
+        updateStory(updatedStory);
+        setSelectedStory(updatedStory);
+        setStories(prev => prev.map(s => s.id === updatedStory.id ? updatedStory : s));
+      }
+    } catch (error) {
+      console.error('Failed to generate illustration:', error);
+    } finally {
+      setGeneratingIllustration(null);
+    }
+  }, [selectedStory, child.profilePhoto, child.name, illustrationCache]);
+
+  // Auto-generate illustration when page changes
+  useEffect(() => {
+    if (selectedStory && child.profilePhoto) {
+      generateIllustrationForPage(currentPage);
+    }
+  }, [currentPage, selectedStory?.id]);
+
   const StoryReader = () => {
     if (!selectedStory) return null;
 
@@ -122,9 +187,8 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
             </div>
             <button
               onClick={() => speakText(currentContent)}
-              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
-                isReading ? 'bg-amber-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'
-              }`}
+              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isReading ? 'bg-amber-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'
+                }`}
             >
               {isReading ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
             </button>
@@ -133,13 +197,63 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
 
         {/* Story Content */}
         <div className="px-6 pb-32">
-          {/* Illustration Placeholder */}
-          <div className="aspect-video bg-gradient-to-br from-purple-500/30 to-pink-500/30 rounded-3xl mb-6 flex items-center justify-center border border-white/10">
-            <div className="text-center text-white/60">
-              <Sparkles className="w-12 h-12 mx-auto mb-2" />
-              <p className="text-sm">{selectedStory.illustrations[currentPage]?.description || 'Imagine the scene...'}</p>
-            </div>
-          </div>
+          {/* Illustration */}
+          {(() => {
+            const illustration = selectedStory.illustrations[currentPage];
+            const cacheKey = `${selectedStory.id}-${currentPage}`;
+            const cachedImage = illustrationCache[cacheKey] || illustration?.imageUrl;
+            const isGeneratingThis = generatingIllustration === currentPage;
+
+            if (cachedImage) {
+              // Show generated illustration
+              return (
+                <div className="aspect-video rounded-3xl mb-6 overflow-hidden border border-white/10 shadow-xl">
+                  <img
+                    src={cachedImage}
+                    alt={illustration?.description || 'Story illustration'}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              );
+            }
+
+            if (isGeneratingThis) {
+              // Show loading state
+              return (
+                <div className="aspect-video bg-gradient-to-br from-purple-500/30 to-pink-500/30 rounded-3xl mb-6 flex items-center justify-center border border-white/10">
+                  <div className="text-center text-white/80">
+                    <Loader2 className="w-12 h-12 mx-auto mb-3 animate-spin text-purple-300" />
+                    <p className="text-sm font-medium">Creating illustration...</p>
+                    <p className="text-xs text-white/60 mt-1">Bringing the scene to life</p>
+                  </div>
+                </div>
+              );
+            }
+
+            // Show placeholder with generate button
+            return (
+              <div className="aspect-video bg-gradient-to-br from-purple-500/30 to-pink-500/30 rounded-3xl mb-6 flex items-center justify-center border border-white/10">
+                <div className="text-center text-white/60">
+                  {child.profilePhoto ? (
+                    <button
+                      onClick={() => generateIllustrationForPage(currentPage)}
+                      className="flex flex-col items-center hover:text-white/80 transition-colors"
+                    >
+                      <ImageIcon className="w-12 h-12 mx-auto mb-2" />
+                      <p className="text-sm font-medium">Tap to generate illustration</p>
+                      <p className="text-xs mt-1 max-w-[200px]">{illustration?.description || 'Imagine the scene...'}</p>
+                    </button>
+                  ) : (
+                    <>
+                      <Sparkles className="w-12 h-12 mx-auto mb-2" />
+                      <p className="text-sm">{illustration?.description || 'Imagine the scene...'}</p>
+                      <p className="text-xs mt-2 text-amber-300">Add a profile photo to generate illustrations</p>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Story Text */}
           <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 min-h-[200px]">
@@ -167,9 +281,8 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
               <button
                 key={i}
                 onClick={() => setCurrentPage(i)}
-                className={`h-1 rounded-full transition-all ${
-                  i === currentPage ? 'w-8 bg-white' : 'w-2 bg-white/30'
-                }`}
+                className={`h-1 rounded-full transition-all ${i === currentPage ? 'w-8 bg-white' : 'w-2 bg-white/30'
+                  }`}
               />
             ))}
           </div>
@@ -179,11 +292,10 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
             <button
               onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
               disabled={currentPage === 0}
-              className={`flex items-center gap-2 px-4 py-3 rounded-xl font-medium transition-all ${
-                currentPage === 0
+              className={`flex items-center gap-2 px-4 py-3 rounded-xl font-medium transition-all ${currentPage === 0
                   ? 'text-white/30 cursor-not-allowed'
                   : 'bg-white/10 text-white hover:bg-white/20'
-              }`}
+                }`}
             >
               <ChevronLeft className="w-5 h-5" />
               Back
@@ -196,11 +308,10 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
             <button
               onClick={() => setCurrentPage(Math.min(totalPages - 1, currentPage + 1))}
               disabled={currentPage === totalPages - 1}
-              className={`flex items-center gap-2 px-4 py-3 rounded-xl font-medium transition-all ${
-                currentPage === totalPages - 1
+              className={`flex items-center gap-2 px-4 py-3 rounded-xl font-medium transition-all ${currentPage === totalPages - 1
                   ? 'text-white/30 cursor-not-allowed'
                   : 'bg-white/10 text-white hover:bg-white/20'
-              }`}
+                }`}
             >
               Next
               <ChevronRight className="w-5 h-5" />
@@ -228,7 +339,16 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
           </button>
           <div className="flex-1">
             <h1 className="text-xl font-bold text-white">Bedtime Stories</h1>
-            <p className="text-purple-200 text-sm">Starring {child.name}!</p>
+            <div className="flex items-center gap-2 mt-1">
+              {child.profilePhoto && (
+                <img
+                  src={child.profilePhoto}
+                  alt={child.name}
+                  className="w-6 h-6 rounded-full object-cover border border-white/30"
+                />
+              )}
+              <p className="text-purple-200 text-sm">Starring {child.name}!</p>
+            </div>
           </div>
           <Moon className="w-8 h-8 text-amber-300" />
         </div>

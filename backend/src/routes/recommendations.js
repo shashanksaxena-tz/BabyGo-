@@ -12,15 +12,14 @@ router.get('/products/:childId', authMiddleware, async (req, res) => {
     const { category = 'toys' } = req.query;
 
     const child = await Child.findOne({
-      _id: req.params.childId,
-      userId: req.user._id,
+      _id: req.params.childId
     });
 
     if (!child) {
       return res.status(404).json({ error: 'Child not found' });
     }
 
-    const apiKey = req.user.geminiApiKey || process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return res.status(400).json({ error: 'Gemini API key not configured' });
     }
@@ -46,15 +45,14 @@ router.get('/activities/:childId', authMiddleware, async (req, res) => {
     const { domain } = req.query;
 
     const child = await Child.findOne({
-      _id: req.params.childId,
-      userId: req.user._id,
+      _id: req.params.childId
     });
 
     if (!child) {
       return res.status(404).json({ error: 'Child not found' });
     }
 
-    const apiKey = req.user.geminiApiKey || process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return res.status(400).json({ error: 'Gemini API key not configured' });
     }
@@ -86,15 +84,14 @@ router.get('/recipes/:childId', authMiddleware, async (req, res) => {
     const { count = 3 } = req.query;
 
     const child = await Child.findOne({
-      _id: req.params.childId,
-      userId: req.user._id,
+      _id: req.params.childId
     });
 
     if (!child) {
       return res.status(404).json({ error: 'Child not found' });
     }
 
-    const apiKey = req.user.geminiApiKey || process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return res.status(400).json({ error: 'Gemini API key not configured' });
     }
@@ -119,15 +116,14 @@ router.get('/tips/:childId', authMiddleware, async (req, res) => {
     const { focusArea } = req.query;
 
     const child = await Child.findOne({
-      _id: req.params.childId,
-      userId: req.user._id,
+      _id: req.params.childId
     });
 
     if (!child) {
       return res.status(404).json({ error: 'Child not found' });
     }
 
-    const apiKey = req.user.geminiApiKey || process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return res.status(400).json({ error: 'Gemini API key not configured' });
     }

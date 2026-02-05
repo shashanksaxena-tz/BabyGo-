@@ -9,6 +9,7 @@ import {
   Bell,
   Settings,
   ChevronRight,
+  ChevronDown,
   Sparkles,
   Calendar,
   Star,
@@ -19,7 +20,7 @@ import {
   Lightbulb,
 } from 'lucide-react';
 import { ChildProfile, AnalysisResult, TimelineEntry, Notification } from '../types';
-import { getTimeline, getAnalyses, getNotifications } from '../services/storageService';
+import { getTimeline, getAnalyses, getNotifications, getChildren, setCurrentChild } from '../services/storageService';
 import { getMilestonesForAge, getUpcomingMilestones, assessGrowth } from '../services/whoDataService';
 import { getPersonalizedGreeting, getThemedNotification } from '../data/interests';
 import { RadialBarChart, RadialBar, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from 'recharts';
@@ -28,19 +29,24 @@ interface HomeDashboardProps {
   child: ChildProfile;
   onNavigate: (screen: string) => void;
   onStartAnalysis: () => void;
+  onSwitchChild: (childId: string) => void;
+  onAddChild: () => void;
 }
 
-const HomeDashboard: React.FC<HomeDashboardProps> = ({ child, onNavigate, onStartAnalysis }) => {
+const HomeDashboard: React.FC<HomeDashboardProps> = ({ child, onNavigate, onStartAnalysis, onSwitchChild, onAddChild }) => {
   const [greeting, setGreeting] = useState('');
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [analyses, setAnalyses] = useState<AnalysisResult[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [isSwitchingProfile, setIsSwitchingProfile] = useState(false);
+  const [allChildren, setAllChildren] = useState<ChildProfile[]>([]);
 
   useEffect(() => {
     setGreeting(getPersonalizedGreeting(child.name, child.interests));
     setTimeline(getTimeline(child.id).slice(0, 5));
     setAnalyses(getAnalyses(child.id).slice(0, 3));
     setNotifications(getNotifications(child.id).filter(n => !n.read).slice(0, 3));
+    setAllChildren(getChildren());
   }, [child]);
 
   const milestones = getMilestonesForAge(child.ageMonths);
@@ -86,18 +92,26 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ child, onNavigate, onStar
       {/* Header */}
       <div className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-6 pt-12 pb-24 rounded-b-[3rem]">
         <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            {child.profilePhoto ? (
-              <img
-                src={child.profilePhoto}
-                alt={child.name}
-                className="w-14 h-14 rounded-2xl object-cover border-2 border-white/30"
-              />
-            ) : (
-              <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center">
-                <Baby className="w-7 h-7" />
+          <div
+            className="flex items-center gap-3 cursor-pointer"
+            onClick={() => setIsSwitchingProfile(true)}
+          >
+            <div className="relative">
+              {child.profilePhoto ? (
+                <img
+                  src={child.profilePhoto}
+                  alt={child.name}
+                  className="w-14 h-14 rounded-2xl object-cover border-2 border-white/30"
+                />
+              ) : (
+                <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center border-2 border-white/30">
+                  <Baby className="w-7 h-7" />
+                </div>
+              )}
+              <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-white rounded-full flex items-center justify-center shadow-sm">
+                <ChevronDown className="w-4 h-4 text-emerald-600" />
               </div>
-            )}
+            </div>
             <div>
               <p className="text-emerald-100 text-sm">Welcome back!</p>
               <h1 className="text-xl font-bold">{child.name}</h1>
@@ -302,15 +316,14 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ child, onNavigate, onStar
                 className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-emerald-50 transition-colors cursor-pointer"
                 onClick={() => onNavigate('milestones')}
               >
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                  milestone.domain === 'motor' ? 'bg-blue-100 text-blue-600' :
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${milestone.domain === 'motor' ? 'bg-blue-100 text-blue-600' :
                   milestone.domain === 'cognitive' ? 'bg-purple-100 text-purple-600' :
-                  milestone.domain === 'language' ? 'bg-pink-100 text-pink-600' :
-                  'bg-amber-100 text-amber-600'
-                }`}>
+                    milestone.domain === 'language' ? 'bg-pink-100 text-pink-600' :
+                      'bg-amber-100 text-amber-600'
+                  }`}>
                   {milestone.domain === 'motor' ? '🏃' :
-                   milestone.domain === 'cognitive' ? '🧠' :
-                   milestone.domain === 'language' ? '💬' : '❤️'}
+                    milestone.domain === 'cognitive' ? '🧠' :
+                      milestone.domain === 'language' ? '💬' : '❤️'}
                 </div>
                 <div className="flex-1">
                   <p className="font-medium text-gray-800 text-sm">{milestone.title}</p>
@@ -385,6 +398,72 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ child, onNavigate, onStar
           </button>
         </div>
       </div>
+      {/* Profile Switcher Modal */}
+      {isSwitchingProfile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setIsSwitchingProfile(false)}
+          />
+          <div className="relative bg-white rounded-3xl w-full max-w-sm overflow-hidden animate-scaleIn">
+            <div className="p-6">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">Switch Profile</h3>
+              <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
+                {allChildren.map(c => (
+                  <button
+                    key={c.id}
+                    onClick={() => {
+                      onSwitchChild(c.id);
+                      setIsSwitchingProfile(false);
+                    }}
+                    className={`w-full flex items-center gap-4 p-3 rounded-2xl border-2 transition-all ${c.id === child.id
+                      ? 'border-emerald-500 bg-emerald-50'
+                      : 'border-gray-100 hover:border-emerald-200'
+                      }`}
+                  >
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${c.id === child.id ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-400'
+                      }`}>
+                      <Baby className="w-6 h-6" />
+                    </div>
+                    <div className="text-left flex-1">
+                      <p className="font-bold text-gray-800">{c.name}</p>
+                      <p className="text-xs text-gray-500">{formatAge(c.ageMonths)} old</p>
+                    </div>
+                    {c.id === child.id && (
+                      <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center">
+                        <Star className="w-3 h-3 text-white fill-current" />
+                      </div>
+                    )}
+                  </button>
+                ))}
+
+                <button
+                  onClick={() => {
+                    onAddChild();
+                    setIsSwitchingProfile(false);
+                  }}
+                  className="w-full flex items-center gap-4 p-3 rounded-2xl border-2 border-dashed border-gray-200 text-gray-500 hover:border-emerald-300 hover:text-emerald-600 transition-all"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-gray-50 flex items-center justify-center">
+                    <Sparkles className="w-6 h-6" />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-bold">Add New Child</p>
+                    <p className="text-xs">Create another profile</p>
+                  </div>
+                </button>
+              </div>
+
+              <button
+                onClick={() => setIsSwitchingProfile(false)}
+                className="w-full mt-6 py-3 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

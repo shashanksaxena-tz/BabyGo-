@@ -14,12 +14,12 @@ services:
       - MONGODB_URI=mongodb://mongo:27017/tinysteps
       - JWT_SECRET=${JWT_SECRET:-change-this-in-production}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - WEB_APP_URL=http://localhost:3000
+      - WEB_APP_URL=http://localhost:3005
     depends_on:
       - mongo
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -44,7 +44,7 @@ services:
       context: ./tinysteps-ai
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "3005:3005"
     environment:
       - VITE_API_URL=http://localhost:3001/api
     depends_on:
@@ -53,6 +53,7 @@ services:
 
 volumes:
   mongo_data:
+
 
 networks:
   default:

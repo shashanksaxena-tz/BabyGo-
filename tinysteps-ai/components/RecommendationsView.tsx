@@ -13,7 +13,7 @@ import {
   Award,
 } from 'lucide-react';
 import { ChildProfile } from '../types';
-import apiService from '../services/apiService';
+import * as geminiService from '../services/geminiService';
 
 interface Product {
   name: string;
@@ -43,7 +43,7 @@ interface ParentingTip {
   emoji: string;
   category: string;
   content: string;
-  source?: string;
+  source?: string | { title: string; url: string; organization: string; year?: number; type: string };
 }
 
 interface RecommendationsViewProps {
@@ -71,21 +71,15 @@ const RecommendationsView: React.FC<RecommendationsViewProps> = ({
   const loadData = async () => {
     setLoading(true);
     try {
-      const [productsRes, activitiesRes, tipsRes] = await Promise.all([
-        apiService.getProductRecommendations(child.id, 'all'),
-        apiService.getActivities(child.id),
-        apiService.getParentingTips(child.id),
+      const [productsData, activitiesData, tipsData] = await Promise.all([
+        geminiService.generateProductRecommendations(child),
+        geminiService.generateActivities(child),
+        geminiService.generateParentingTips(child),
       ]);
 
-      if (productsRes.data) {
-        setProducts((productsRes.data as any).products || []);
-      }
-      if (activitiesRes.data) {
-        setActivities((activitiesRes.data as any).activities || []);
-      }
-      if (tipsRes.data) {
-        setTips((tipsRes.data as any).tips || []);
-      }
+      if (productsData) setProducts(productsData);
+      if (activitiesData) setActivities(activitiesData);
+      if (tipsData) setTips(tipsData);
     } catch (error) {
       console.error('Failed to load recommendations:', error);
     } finally {
@@ -160,11 +154,10 @@ const RecommendationsView: React.FC<RecommendationsViewProps> = ({
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-medium text-sm transition-all ${
-                activeTab === tab.id
+              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-medium text-sm transition-all ${activeTab === tab.id
                   ? 'bg-white text-purple-600 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700'
-              }`}
+                }`}
             >
               <span>{tab.emoji}</span>
               <span>{tab.label}</span>
@@ -229,16 +222,18 @@ const RecommendationsView: React.FC<RecommendationsViewProps> = ({
                       <p className="text-sm text-gray-600 mt-2 line-clamp-2">
                         {product.description}
                       </p>
-                      <div className="flex flex-wrap gap-1 mt-3">
-                        {product.developmentAreas.map((area, i) => (
-                          <span
-                            key={i}
-                            className="text-xs px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-full"
-                          >
-                            {area}
-                          </span>
-                        ))}
-                      </div>
+                      {product.developmentAreas && product.developmentAreas.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-3">
+                          {product.developmentAreas.map((area, i) => (
+                            <span
+                              key={i}
+                              className="text-xs px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-full"
+                            >
+                              {area}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </motion.div>
@@ -299,7 +294,7 @@ const RecommendationsView: React.FC<RecommendationsViewProps> = ({
                       </p>
 
                       {/* Materials */}
-                      {activity.materials.length > 0 && (
+                      {activity.materials && activity.materials.length > 0 && (
                         <div className="mb-3">
                           <p className="text-xs font-semibold text-gray-500 mb-1">
                             Materials:
@@ -318,25 +313,27 @@ const RecommendationsView: React.FC<RecommendationsViewProps> = ({
                       )}
 
                       {/* Skills */}
-                      <div className="mb-3">
-                        <p className="text-xs font-semibold text-gray-500 mb-1">
-                          Skills developed:
-                        </p>
-                        <div className="flex flex-wrap gap-1">
-                          {activity.skills.map((s, i) => (
-                            <span
-                              key={i}
-                              className={`text-xs px-2 py-1 rounded-lg ${colors.bg} ${colors.text}`}
-                            >
-                              {s}
-                            </span>
-                          ))}
+                      {activity.skills && activity.skills.length > 0 && (
+                        <div className="mb-3">
+                          <p className="text-xs font-semibold text-gray-500 mb-1">
+                            Skills developed:
+                          </p>
+                          <div className="flex flex-wrap gap-1">
+                            {activity.skills.map((s, i) => (
+                              <span
+                                key={i}
+                                className={`text-xs px-2 py-1 rounded-lg ${colors.bg} ${colors.text}`}
+                              >
+                                {s}
+                              </span>
+                            ))}
+                          </div>
                         </div>
-                      </div>
+                      )}
 
                       {/* Steps (expanded) */}
                       <AnimatePresence>
-                        {isExpanded && activity.steps.length > 0 && (
+                        {isExpanded && activity.steps && activity.steps.length > 0 && (
                           <motion.div
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: 'auto' }}
@@ -398,7 +395,7 @@ const RecommendationsView: React.FC<RecommendationsViewProps> = ({
                       {tip.source && (
                         <div className="flex items-center gap-1 mt-3 text-xs text-gray-400">
                           <Award className="w-3 h-3" />
-                          <span>Source: {tip.source}</span>
+                          <span>Source: {typeof tip.source === 'object' ? tip.source.organization : tip.source}</span>
                         </div>
                       )}
                     </div>
@@ -420,8 +417,8 @@ const RecommendationsView: React.FC<RecommendationsViewProps> = ({
                   {activeTab === 'products'
                     ? '🛍️'
                     : activeTab === 'activities'
-                    ? '🎯'
-                    : '💡'}
+                      ? '🎯'
+                      : '💡'}
                 </span>
               </div>
               <h3 className="text-lg font-bold text-gray-800 mb-2">

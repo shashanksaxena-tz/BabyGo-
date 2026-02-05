@@ -28,8 +28,7 @@ router.get('/themes', (req, res) => {
 router.get('/:childId', authMiddleware, async (req, res) => {
   try {
     const child = await Child.findOne({
-      _id: req.params.childId,
-      userId: req.user._id,
+      _id: req.params.childId
     });
 
     if (!child) {
@@ -61,8 +60,7 @@ router.post('/', authMiddleware, [
 
     // Get child
     const child = await Child.findOne({
-      _id: childId,
-      userId: req.user._id,
+      _id: childId
     });
 
     if (!child) {
@@ -119,8 +117,7 @@ router.get('/:childId/:id', authMiddleware, async (req, res) => {
   try {
     const story = await Story.findOne({
       _id: req.params.id,
-      childId: req.params.childId,
-      userId: req.user._id,
+      childId: req.params.childId
     });
 
     if (!story) {
@@ -142,8 +139,7 @@ router.patch('/:childId/:id/favorite', authMiddleware, async (req, res) => {
   try {
     const story = await Story.findOne({
       _id: req.params.id,
-      childId: req.params.childId,
-      userId: req.user._id,
+      childId: req.params.childId
     });
 
     if (!story) {
@@ -164,8 +160,7 @@ router.delete('/:childId/:id', authMiddleware, async (req, res) => {
   try {
     const story = await Story.findOneAndDelete({
       _id: req.params.id,
-      childId: req.params.childId,
-      userId: req.user._id,
+      childId: req.params.childId
     });
 
     if (!story) {

@@ -14,7 +14,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { ChildProfile } from '../types';
-import apiService from '../services/apiService';
+import * as geminiService from '../services/geminiService';
 
 interface Recipe {
   id: string;
@@ -62,11 +62,9 @@ const RecipesView: React.FC<RecipesViewProps> = ({ child, onBack }) => {
   const loadRecipes = async () => {
     setLoading(true);
     try {
-      const response = await apiService.getRecipes(child.id, 6);
-      if (response.data) {
-        const recipesData = response.data as any;
-        setRecipes(recipesData.recipes || []);
-      }
+      const mealType = selectedCategory === 'all' ? undefined : selectedCategory as any;
+      const data = await geminiService.generateRecipes(child, mealType);
+      setRecipes(data || []);
     } catch (error) {
       console.error('Failed to load recipes:', error);
     } finally {
@@ -139,11 +137,10 @@ const RecipesView: React.FC<RecipesViewProps> = ({ child, onBack }) => {
             <button
               key={cat.id}
               onClick={() => setSelectedCategory(cat.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap transition-all ${
-                selectedCategory === cat.id
+              className={`flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap transition-all ${selectedCategory === cat.id
                   ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-200'
                   : 'bg-white text-gray-600 hover:bg-gray-50'
-              }`}
+                }`}
             >
               <span>{cat.emoji}</span>
               <span className="font-medium text-sm">{cat.name}</span>
@@ -206,16 +203,14 @@ const RecipesView: React.FC<RecipesViewProps> = ({ child, onBack }) => {
                           e.stopPropagation();
                           toggleFavorite(recipe.id);
                         }}
-                        className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                          favorites.has(recipe.id)
+                        className={`w-8 h-8 rounded-full flex items-center justify-center ${favorites.has(recipe.id)
                             ? 'bg-white text-red-500'
                             : 'bg-white/20 text-white'
-                        }`}
+                          }`}
                       >
                         <Heart
-                          className={`w-4 h-4 ${
-                            favorites.has(recipe.id) ? 'fill-current' : ''
-                          }`}
+                          className={`w-4 h-4 ${favorites.has(recipe.id) ? 'fill-current' : ''
+                            }`}
                         />
                       </button>
                     </div>

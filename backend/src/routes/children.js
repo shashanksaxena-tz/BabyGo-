@@ -8,7 +8,7 @@ const router = express.Router();
 // Get all children for user
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const children = await Child.find({ userId: req.user._id }).sort({ createdAt: -1 });
+    const children = await Child.find({}).sort({ createdAt: -1 });
     res.json({ children });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch children' });
@@ -51,8 +51,7 @@ router.post('/', authMiddleware, [
 router.get('/:id', authMiddleware, async (req, res) => {
   try {
     const child = await Child.findOne({
-      _id: req.params.id,
-      userId: req.user._id,
+      _id: req.params.id
     });
 
     if (!child) {
@@ -69,7 +68,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const child = await Child.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user._id },
+      { _id: req.params.id },
       { ...req.body, updatedAt: new Date() },
       { new: true, runValidators: true }
     );
@@ -88,8 +87,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const child = await Child.findOneAndDelete({
-      _id: req.params.id,
-      userId: req.user._id,
+      _id: req.params.id
     });
 
     if (!child) {
