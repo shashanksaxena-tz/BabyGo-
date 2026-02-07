@@ -6,6 +6,7 @@ enum DevelopmentDomain {
   language,
   cognitive,
   social,
+  sensory,
 }
 
 class WHOSource {
@@ -170,6 +171,8 @@ class DomainAssessment {
         return 'Cognitive';
       case DevelopmentDomain.social:
         return 'Social-Emotional';
+      case DevelopmentDomain.sensory:
+        return 'Sensory';
     }
   }
 
@@ -183,6 +186,8 @@ class DomainAssessment {
         return '🧠';
       case DevelopmentDomain.social:
         return '❤️';
+      case DevelopmentDomain.sensory:
+        return '✨';
     }
   }
 }

@@ -20,6 +20,12 @@ class _RecipesScreenState extends State<RecipesScreen>
   bool _isLoading = true;
   bool _isGenerating = false;
   String _selectedCategory = 'all';
+  bool _showFilters = false;
+
+  // Filter state
+  List<String> _excludeAllergens = [];
+  List<String> _dietaryPreferences = [];
+  String _foodLikings = '';
 
   final List<Map<String, dynamic>> _categories = [
     {'id': 'all', 'name': 'All', 'icon': '🍽️'},
@@ -29,6 +35,27 @@ class _RecipesScreenState extends State<RecipesScreen>
     {'id': 'snacks', 'name': 'Snacks', 'icon': '🍎'},
     {'id': 'smoothies', 'name': 'Smoothies', 'icon': '🥤'},
   ];
+
+  static const List<Map<String, dynamic>> _allergenOptions = [
+    {'id': 'dairy', 'name': 'Dairy', 'emoji': '🥛'},
+    {'id': 'eggs', 'name': 'Eggs', 'emoji': '🥚'},
+    {'id': 'nuts', 'name': 'Tree Nuts', 'emoji': '🥜'},
+    {'id': 'peanuts', 'name': 'Peanuts', 'emoji': '🥜'},
+    {'id': 'wheat', 'name': 'Wheat/Gluten', 'emoji': '🌾'},
+    {'id': 'soy', 'name': 'Soy', 'emoji': '🫘'},
+    {'id': 'fish', 'name': 'Fish', 'emoji': '🐟'},
+    {'id': 'shellfish', 'name': 'Shellfish', 'emoji': '🦐'},
+  ];
+
+  static const List<Map<String, dynamic>> _dietaryOptions = [
+    {'id': 'vegetarian', 'name': 'Vegetarian', 'emoji': '🥬'},
+    {'id': 'vegan', 'name': 'Vegan', 'emoji': '🌱'},
+    {'id': 'halal', 'name': 'Halal', 'emoji': '☪️'},
+    {'id': 'kosher', 'name': 'Kosher', 'emoji': '✡️'},
+  ];
+
+  int get _activeFilterCount =>
+      _excludeAllergens.length + _dietaryPreferences.length + (_foodLikings.isNotEmpty ? 1 : 0);
 
   @override
   void initState() {
@@ -68,15 +95,18 @@ class _RecipesScreenState extends State<RecipesScreen>
         await gemini.initialize(apiKey);
       }
 
-      final recipes = await gemini.generateRecipes(
+      final recipesData = await gemini.generateRecipesRaw(
         child: _child!,
         count: 6,
         category: _selectedCategory == 'all' ? null : _selectedCategory,
+        excludeAllergens: _excludeAllergens,
+        dietaryPreferences: _dietaryPreferences,
+        foodLikings: _foodLikings.isNotEmpty ? _foodLikings : null,
       );
 
       if (mounted) {
         setState(() {
-          _recipes = recipes;
+          _recipes = recipesData.map((r) => Recipe.fromJson(r)).toList();
           _isGenerating = false;
         });
       }
@@ -91,6 +121,34 @@ class _RecipesScreenState extends State<RecipesScreen>
         );
       }
     }
+  }
+
+  void _toggleAllergen(String id) {
+    setState(() {
+      if (_excludeAllergens.contains(id)) {
+        _excludeAllergens.remove(id);
+      } else {
+        _excludeAllergens.add(id);
+      }
+    });
+  }
+
+  void _toggleDietaryPref(String id) {
+    setState(() {
+      if (_dietaryPreferences.contains(id)) {
+        _dietaryPreferences.remove(id);
+      } else {
+        _dietaryPreferences.add(id);
+      }
+    });
+  }
+
+  void _clearAllFilters() {
+    setState(() {
+      _excludeAllergens = [];
+      _dietaryPreferences = [];
+      _foodLikings = '';
+    });
   }
 
   @override
@@ -109,6 +167,8 @@ class _RecipesScreenState extends State<RecipesScreen>
         child: Column(
           children: [
             _buildHeader(),
+            _buildActiveFilters(),
+            if (_activeFilterCount > 0) const SizedBox(height: 8),
             _buildCategories(),
             Expanded(
               child: _isGenerating
@@ -161,6 +221,42 @@ class _RecipesScreenState extends State<RecipesScreen>
               ],
             ),
           ),
+          // Filter button
+          Stack(
+            children: [
+              IconButton(
+                onPressed: () => _showFilterModal(),
+                icon: const Icon(Icons.tune_rounded),
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+              if (_activeFilterCount > 0)
+                Positioned(
+                  right: 4,
+                  top: 4,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: AppTheme.error,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      '$_activeFilterCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -168,6 +264,79 @@ class _RecipesScreenState extends State<RecipesScreen>
               borderRadius: BorderRadius.circular(16),
             ),
             child: const Text('🍳', style: TextStyle(fontSize: 24)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActiveFilters() {
+    if (_activeFilterCount == 0) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          ..._excludeAllergens.map((id) {
+            final allergen = _allergenOptions.firstWhere(
+              (a) => a['id'] == id,
+              orElse: () => {'name': id, 'emoji': '🚫'},
+            );
+            return _buildFilterChip(
+              '${allergen['emoji']} No ${allergen['name']}',
+              AppTheme.error.withOpacity(0.1),
+              AppTheme.error,
+              () => _toggleAllergen(id),
+            );
+          }),
+          ..._dietaryPreferences.map((id) {
+            final pref = _dietaryOptions.firstWhere(
+              (p) => p['id'] == id,
+              orElse: () => {'name': id, 'emoji': '✓'},
+            );
+            return _buildFilterChip(
+              '${pref['emoji']} ${pref['name']}',
+              AppTheme.primaryGreen.withOpacity(0.1),
+              AppTheme.primaryGreen,
+              () => _toggleDietaryPref(id),
+            );
+          }),
+          if (_foodLikings.isNotEmpty)
+            _buildFilterChip(
+              '❤️ ${_foodLikings.length > 20 ? '${_foodLikings.substring(0, 20)}...' : _foodLikings}',
+              AppTheme.secondaryBlue.withOpacity(0.1),
+              AppTheme.secondaryBlue,
+              () => setState(() => _foodLikings = ''),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String label, Color bgColor, Color textColor, VoidCallback onRemove) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: textColor,
+            ),
+          ),
+          const SizedBox(width: 4),
+          GestureDetector(
+            onTap: onRemove,
+            child: Icon(Icons.close, size: 14, color: textColor),
           ),
         ],
       ),
@@ -523,6 +692,364 @@ class _RecipesScreenState extends State<RecipesScreen>
       backgroundColor: Colors.transparent,
       builder: (context) => _RecipeDetailSheet(recipe: recipe),
     );
+  }
+
+  void _showFilterModal() {
+    final likingsController = TextEditingController(text: _foodLikings);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => DraggableScrollableSheet(
+          initialChildSize: 0.85,
+          maxChildSize: 0.95,
+          minChildSize: 0.5,
+          builder: (context, scrollController) => Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              children: [
+                // Handle
+                Center(
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(vertical: 12),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppTheme.neutral300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AppTheme.accentOrange,
+                        AppTheme.accentOrange.withOpacity(0.8),
+                      ],
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Recipe Filters',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                            Text(
+                              'Customize recipes for ${_child?.displayName ?? "your child"}',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.white.withOpacity(0.8),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close),
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.white.withOpacity(0.2),
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Content
+                Expanded(
+                  child: ListView(
+                    controller: scrollController,
+                    padding: const EdgeInsets.all(20),
+                    children: [
+                      // Region info
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppTheme.secondaryBlue.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Row(
+                          children: [
+                            const Text('🌍', style: TextStyle(fontSize: 24)),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Regional Cuisine',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.secondaryBlue,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Recipes include dishes appropriate for ${_getRegionName(_child?.region)} region.',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppTheme.neutral600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Allergens section
+                      Row(
+                        children: [
+                          Icon(Icons.warning_amber_rounded, color: AppTheme.warning),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Exclude Allergens',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.neutral800,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _allergenOptions.map((allergen) {
+                          final isSelected = _excludeAllergens.contains(allergen['id']);
+                          return FilterChip(
+                            label: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(allergen['emoji']),
+                                const SizedBox(width: 6),
+                                Text(allergen['name']),
+                              ],
+                            ),
+                            selected: isSelected,
+                            onSelected: (_) {
+                              _toggleAllergen(allergen['id']);
+                              setModalState(() {});
+                            },
+                            selectedColor: AppTheme.error.withOpacity(0.2),
+                            checkmarkColor: AppTheme.error,
+                            backgroundColor: AppTheme.neutral100,
+                            side: BorderSide(
+                              color: isSelected ? AppTheme.error : AppTheme.neutral200,
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Dietary preferences section
+                      Row(
+                        children: [
+                          Icon(Icons.eco_rounded, color: AppTheme.primaryGreen),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Dietary Preferences',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.neutral800,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _dietaryOptions.map((pref) {
+                          final isSelected = _dietaryPreferences.contains(pref['id']);
+                          return FilterChip(
+                            label: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(pref['emoji']),
+                                const SizedBox(width: 6),
+                                Text(pref['name']),
+                              ],
+                            ),
+                            selected: isSelected,
+                            onSelected: (_) {
+                              _toggleDietaryPref(pref['id']);
+                              setModalState(() {});
+                            },
+                            selectedColor: AppTheme.primaryGreen.withOpacity(0.2),
+                            checkmarkColor: AppTheme.primaryGreen,
+                            backgroundColor: AppTheme.neutral100,
+                            side: BorderSide(
+                              color: isSelected ? AppTheme.primaryGreen : AppTheme.neutral200,
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Food preferences section
+                      Row(
+                        children: [
+                          Icon(Icons.favorite_rounded, color: AppTheme.secondaryPink),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Food Preferences',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.neutral800,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: likingsController,
+                        maxLines: 3,
+                        decoration: InputDecoration(
+                          hintText: 'E.g., loves carrots, doesn\'t like spinach, prefers sweet flavors...',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onChanged: (value) {
+                          _foodLikings = value;
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Describe what ${_child?.displayName ?? "your child"} likes or dislikes to get personalized recipes.',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.neutral500,
+                        ),
+                      ),
+
+                      // Child's interests
+                      if (_child != null && _child!.interests.isNotEmpty) ...[
+                        const SizedBox(height: 24),
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AppTheme.secondaryPurple.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Based on ${_child!.displayName}\'s Interests',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.secondaryPurple,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'We\'ll suggest fun food presentations related to: ${_child!.interests.join(", ")}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.neutral600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 32),
+                    ],
+                  ),
+                ),
+                // Actions
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, -5),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            _clearAllFilters();
+                            likingsController.clear();
+                            setModalState(() {});
+                          },
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            side: const BorderSide(color: AppTheme.neutral300),
+                          ),
+                          child: const Text('Clear All'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            _foodLikings = likingsController.text;
+                            Navigator.pop(context);
+                            _generateRecipes();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.accentOrange,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          child: const Text('Apply & Generate'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _getRegionName(WHORegion? region) {
+    if (region == null) return 'your';
+    switch (region) {
+      case WHORegion.afro:
+        return 'African';
+      case WHORegion.amro:
+        return 'Americas';
+      case WHORegion.searo:
+        return 'South-East Asian';
+      case WHORegion.euro:
+        return 'European';
+      case WHORegion.emro:
+        return 'Eastern Mediterranean';
+      case WHORegion.wpro:
+        return 'Western Pacific';
+    }
   }
 }
 

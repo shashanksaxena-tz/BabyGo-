@@ -348,36 +348,76 @@ Respond in JSON format:
   }
 
   /// Generate age-appropriate recipes
+  /// Options for recipe generation filtering
   Future<List<Recipe>> generateRecipes({
     required ChildProfile child,
-    int count = 3,
+    int count = 6,
+    String? category,
+    List<String> excludeAllergens = const [],
+    List<String> dietaryPreferences = const [],
+    String? foodLikings,
   }) async {
     if (!_isInitialized) {
       throw Exception('GeminiService not initialized');
     }
 
+    // Build allergen exclusion text
+    final allergenText = excludeAllergens.isNotEmpty
+        ? 'IMPORTANT: Exclude these allergens completely: ${excludeAllergens.join(', ')}.'
+        : '';
+
+    // Build dietary preferences text
+    final dietaryText = dietaryPreferences.isNotEmpty
+        ? 'Dietary requirements: ${dietaryPreferences.join(', ')}.'
+        : '';
+
+    // Build category filter text
+    final categoryText = category != null && category != 'all'
+        ? 'Recipe type: $category meals only.'
+        : 'Include a variety of meal types (breakfast, lunch, dinner, snacks).';
+
+    // Build food preferences text
+    final likingsText = foodLikings != null && foodLikings.isNotEmpty
+        ? 'Child\'s food preferences: $foodLikings'
+        : '';
+
+    // Get region name for cultural context
+    final regionName = _getRegionDisplayName(child.region);
+
     final prompt = '''
-Create $count age-appropriate recipes for a ${child.ageInMonths}-month-old child.
+Create $count age-appropriate recipes for a ${child.ageInMonths}-month-old child from the $regionName region.
+
+$categoryText
+$allergenText
+$dietaryText
+$likingsText
 
 Consider:
-- Age-appropriate textures and ingredients
-- Nutritional needs for this age
-- Easy preparation
-- WHO feeding guidelines
+- Age-appropriate textures and ingredients for ${child.ageInMonths} months
+- Nutritional needs (iron, protein, fiber) for this age
+- WHO/UNICEF infant and young child feeding guidelines
+- Regional cuisine and locally available ingredients from $regionName
+- Easy preparation for busy parents
+- Child's interests: ${child.interests.join(', ')}
 
-Respond in JSON format:
+Respond ONLY with valid JSON in this exact format:
 {
   "recipes": [
     {
       "name": "Recipe Name",
-      "description": "Brief description",
-      "ingredients": ["ingredient1", "ingredient2"],
-      "instructions": ["step1", "step2"],
-      "prepTime": "10 mins",
-      "cookTime": "15 mins",
-      "nutritionHighlights": ["Iron-rich", "Good source of protein"],
-      "allergens": ["dairy"],
-      "difficulty": "Easy"
+      "emoji": "🍽️",
+      "category": "breakfast|lunch|dinner|snacks|smoothies",
+      "description": "Brief appealing description",
+      "prepTime": 15,
+      "servings": "1-2 servings",
+      "calories": 150,
+      "protein": 5,
+      "fiber": 2,
+      "iron": "medium",
+      "ingredients": ["1 cup ingredient1", "2 tbsp ingredient2"],
+      "steps": ["Step 1 instruction", "Step 2 instruction"],
+      "tips": ["Helpful tip 1"],
+      "allergens": ["dairy", "eggs"]
     }
   ]
 }
@@ -399,11 +439,13 @@ Respond in JSON format:
           minAgeMonths: child.ageInMonths,
           maxAgeMonths: child.ageInMonths + 6,
           ingredients: List<String>.from(r['ingredients'] ?? []),
-          instructions: List<String>.from(r['instructions'] ?? []),
-          prepTime: r['prepTime'] ?? '',
-          cookTime: r['cookTime'] ?? '',
+          instructions: List<String>.from(r['steps'] ?? r['instructions'] ?? []),
+          prepTime: r['prepTime']?.toString() ?? '15 min',
+          cookTime: r['cookTime']?.toString() ?? '',
           nutritionHighlights: List<String>.from(r['nutritionHighlights'] ?? []),
           allergens: List<String>.from(r['allergens'] ?? []),
+          isVegetarian: dietaryPreferences.contains('vegetarian') || r['isVegetarian'] == true,
+          isVegan: dietaryPreferences.contains('vegan') || r['isVegan'] == true,
           difficulty: r['difficulty'] ?? 'Easy',
         )).toList();
       }
@@ -412,6 +454,109 @@ Respond in JSON format:
     } catch (e) {
       print('Error generating recipes: $e');
       return [];
+    }
+  }
+
+  /// Generate recipes returning raw maps for custom parsing
+  Future<List<Map<String, dynamic>>> generateRecipesRaw({
+    required ChildProfile child,
+    int count = 6,
+    String? category,
+    List<String> excludeAllergens = const [],
+    List<String> dietaryPreferences = const [],
+    String? foodLikings,
+  }) async {
+    if (!_isInitialized) {
+      throw Exception('GeminiService not initialized');
+    }
+
+    // Build filter texts
+    final allergenText = excludeAllergens.isNotEmpty
+        ? 'IMPORTANT: Exclude these allergens completely: ${excludeAllergens.join(', ')}.'
+        : '';
+    final dietaryText = dietaryPreferences.isNotEmpty
+        ? 'Dietary requirements: ${dietaryPreferences.join(', ')}.'
+        : '';
+    final categoryText = category != null && category != 'all'
+        ? 'Recipe type: $category meals only.'
+        : 'Include a variety of meal types (breakfast, lunch, dinner, snacks).';
+    final likingsText = foodLikings != null && foodLikings.isNotEmpty
+        ? 'Child\'s food preferences: $foodLikings'
+        : '';
+    final regionName = _getRegionDisplayName(child.region);
+
+    final prompt = '''
+Create $count age-appropriate recipes for a ${child.ageInMonths}-month-old child from the $regionName region.
+
+$categoryText
+$allergenText
+$dietaryText
+$likingsText
+
+Consider:
+- Age-appropriate textures and ingredients for ${child.ageInMonths} months
+- Nutritional needs (iron, protein, fiber) for this age
+- WHO/UNICEF infant and young child feeding guidelines
+- Regional cuisine and locally available ingredients from $regionName
+- Easy preparation for busy parents
+- Child's interests: ${child.interests.join(', ')}
+
+Respond ONLY with valid JSON:
+{
+  "recipes": [
+    {
+      "name": "Recipe Name",
+      "emoji": "🍽️",
+      "category": "breakfast|lunch|dinner|snacks|smoothies",
+      "description": "Brief appealing description",
+      "prepTime": 15,
+      "servings": "1-2 servings",
+      "calories": 150,
+      "protein": 5,
+      "fiber": 2,
+      "iron": "medium",
+      "ingredients": ["1 cup ingredient1", "2 tbsp ingredient2"],
+      "steps": ["Step 1 instruction", "Step 2 instruction"],
+      "tips": ["Helpful tip 1"],
+      "allergens": ["dairy", "eggs"]
+    }
+  ]
+}
+''';
+
+    try {
+      final content = [Content.text(prompt)];
+      final response = await _model.generateContent(content);
+      final responseText = response.text ?? '{}';
+
+      final jsonMatch = RegExp(r'\{[\s\S]*\}').firstMatch(responseText);
+      if (jsonMatch != null) {
+        final data = json.decode(jsonMatch.group(0)!);
+        final recipes = (data['recipes'] as List?) ?? [];
+        return recipes.cast<Map<String, dynamic>>();
+      }
+
+      return [];
+    } catch (e) {
+      print('Error generating recipes: $e');
+      return [];
+    }
+  }
+
+  String _getRegionDisplayName(WHORegion region) {
+    switch (region) {
+      case WHORegion.afro:
+        return 'African';
+      case WHORegion.amro:
+        return 'Americas';
+      case WHORegion.searo:
+        return 'South-East Asian';
+      case WHORegion.euro:
+        return 'European';
+      case WHORegion.emro:
+        return 'Eastern Mediterranean';
+      case WHORegion.wpro:
+        return 'Western Pacific';
     }
   }
 
@@ -711,8 +856,8 @@ Respond in JSON format:
     }
   }
 
-  /// Generate parenting tips with expert sources
-  Future<List<ParentingTip>> generateParentingTipsWithSources({
+  /// Generate parenting tips with expert sources and action steps
+  Future<List<Map<String, dynamic>>> generateParentingTipsRaw({
     required ChildProfile child,
     String? focusArea,
   }) async {
@@ -724,32 +869,44 @@ Respond in JSON format:
         ? 'Focus on: $focusArea'
         : 'Cover various aspects of parenting';
 
+    final regionName = _getRegionDisplayName(child.region);
+
     final prompt = '''
-Provide 6 evidence-based parenting tips for a ${child.ageInMonths}-month-old child.
+Provide 6 evidence-based parenting tips for a ${child.ageInMonths}-month-old child from the $regionName region.
 
 $focusText
 
 Child's interests: ${child.interests.join(', ')}
-Child's region: ${child.region.name}
 
 Tips should be:
 - Based on WHO guidelines and pediatric research
-- Culturally sensitive
-- Practical and actionable
+- Culturally sensitive to $regionName region
+- Practical and actionable with specific steps
 - Specific to this age
 
-Respond in JSON format:
+Respond ONLY in JSON format:
 {
   "tips": [
     {
-      "title": "Tip Title",
+      "title": "Concise Tip Title",
       "emoji": "💡",
       "category": "Sleep|Feeding|Play|Safety|Development|Bonding",
-      "content": "Detailed tip content...",
-      "source": "WHO Nurturing Care Framework"
+      "content": "Detailed explanation of the tip with context...",
+      "source": "WHO Nurturing Care Framework",
+      "sourceUrl": "https://www.who.int/publications/i/item/9789241514064",
+      "actionSteps": [
+        "Specific action step 1",
+        "Specific action step 2",
+        "Specific action step 3"
+      ]
     }
   ]
 }
+
+For sources, use only these verified URLs:
+- WHO: https://www.who.int/health-topics/infant-and-young-child-feeding
+- CDC: https://www.cdc.gov/ncbddd/childdevelopment/positiveparenting/
+- AAP: https://www.healthychildren.org/
 ''';
 
     try {
@@ -761,13 +918,7 @@ Respond in JSON format:
       if (jsonMatch != null) {
         final data = json.decode(jsonMatch.group(0)!);
         final tips = (data['tips'] as List?) ?? [];
-        return tips.map((t) => ParentingTip(
-          title: t['title'] ?? '',
-          emoji: t['emoji'] ?? '💡',
-          category: t['category'] ?? 'General',
-          content: t['content'] ?? '',
-          source: t['source'],
-        )).toList();
+        return tips.cast<Map<String, dynamic>>();
       }
 
       return [];
@@ -775,6 +926,21 @@ Respond in JSON format:
       print('Error generating tips: $e');
       return [];
     }
+  }
+
+  /// Generate parenting tips with expert sources (legacy method)
+  Future<List<ParentingTip>> generateParentingTipsWithSources({
+    required ChildProfile child,
+    String? focusArea,
+  }) async {
+    final raw = await generateParentingTipsRaw(child: child, focusArea: focusArea);
+    return raw.map((t) => ParentingTip(
+      title: t['title'] ?? '',
+      emoji: t['emoji'] ?? '💡',
+      category: t['category'] ?? 'General',
+      content: t['content'] ?? '',
+      source: t['source'],
+    )).toList();
   }
 
   /// Generate enhanced recipes with full nutrition info

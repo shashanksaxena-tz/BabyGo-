@@ -29,6 +29,9 @@ class _RecommendationsScreenState extends State<RecommendationsScreen>
   bool _isLoadingActivities = false;
   bool _isLoadingTips = false;
 
+  // Expanded state for activities
+  Set<int> _expandedActivities = {};
+
   @override
   void initState() {
     super.initState();
@@ -128,11 +131,11 @@ class _RecommendationsScreenState extends State<RecommendationsScreen>
         await gemini.initialize(apiKey);
       }
 
-      final tips = await gemini.generateParentingTips(child: _child!);
+      final tipsData = await gemini.generateParentingTipsRaw(child: _child!);
 
       if (mounted) {
         setState(() {
-          _tips = tips;
+          _tips = tipsData.map((t) => ParentingTip.fromJson(t)).toList();
           _isLoadingTips = false;
         });
       }
@@ -399,15 +402,17 @@ class _RecommendationsScreenState extends State<RecommendationsScreen>
         itemBuilder: (context, index) {
           return StaggeredListAnimation(
             index: index,
-            child: _buildActivityCard(_activities[index]),
+            child: _buildActivityCard(_activities[index], index),
           );
         },
       ),
     );
   }
 
-  Widget _buildActivityCard(Activity activity) {
+  Widget _buildActivityCard(Activity activity, int index) {
     final domainColor = _getDomainColor(activity.domain);
+    final isExpanded = _expandedActivities.contains(index);
+    final hasSteps = activity.steps.isNotEmpty;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -559,6 +564,133 @@ class _RecommendationsScreenState extends State<RecommendationsScreen>
                           ))
                       .toList(),
                 ),
+                // Expandable Steps Section
+                if (hasSteps) ...[
+                  const SizedBox(height: 16),
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        if (isExpanded) {
+                          _expandedActivities.remove(index);
+                        } else {
+                          _expandedActivities.add(index);
+                        }
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: domainColor.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: domainColor.withOpacity(0.2),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.format_list_numbered_rounded,
+                            size: 20,
+                            color: domainColor,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Step-by-step instructions',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: domainColor,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            '${activity.steps.length} steps',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: domainColor.withOpacity(0.7),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          AnimatedRotation(
+                            turns: isExpanded ? 0.5 : 0,
+                            duration: const Duration(milliseconds: 200),
+                            child: Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              color: domainColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  AnimatedCrossFade(
+                    firstChild: const SizedBox.shrink(),
+                    secondChild: Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Column(
+                        children: activity.steps.asMap().entries.map((entry) {
+                          final stepNum = entry.key + 1;
+                          final step = entry.value;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  width: 28,
+                                  height: 28,
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        domainColor,
+                                        domainColor.withOpacity(0.7),
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      '$stepNum',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.neutral50,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      step,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        color: AppTheme.neutral700,
+                                        height: 1.5,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                    crossFadeState: isExpanded
+                        ? CrossFadeState.showSecond
+                        : CrossFadeState.showFirst,
+                    duration: const Duration(milliseconds: 200),
+                  ),
+                ],
               ],
             ),
           ),
@@ -629,11 +761,20 @@ class _RecommendationsScreenState extends State<RecommendationsScreen>
                         color: AppTheme.neutral900,
                       ),
                     ),
-                    Text(
-                      tip.category,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.neutral500,
+                    Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppTheme.accentOrange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        tip.category,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: AppTheme.accentOrange,
+                        ),
                       ),
                     ),
                   ],
@@ -650,24 +791,119 @@ class _RecommendationsScreenState extends State<RecommendationsScreen>
               height: 1.6,
             ),
           ),
+          // Action steps
+          if (tip.actionSteps.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryGreen.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AppTheme.primaryGreen.withOpacity(0.2),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.check_circle_outline_rounded,
+                          size: 16, color: AppTheme.primaryGreen),
+                      const SizedBox(width: 6),
+                      const Text(
+                        'Try this:',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.primaryGreen,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ...tip.actionSteps.map((step) => Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              margin: const EdgeInsets.only(top: 6),
+                              width: 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryGreen,
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                step,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.neutral700,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )),
+                ],
+              ),
+            ),
+          ],
+          // Source with clickable link
           if (tip.source != null) ...[
             const SizedBox(height: 12),
-            Row(
-              children: [
-                const Icon(Icons.verified_rounded,
-                    size: 14, color: AppTheme.primaryGreen),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    'Source: ${tip.source}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.neutral500,
-                      fontStyle: FontStyle.italic,
-                    ),
+            InkWell(
+              onTap: tip.sourceUrl != null ? () => _openUrl(tip.sourceUrl!) : null,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppTheme.secondaryBlue.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: AppTheme.secondaryBlue.withOpacity(0.1),
                   ),
                 ),
-              ],
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.verified_rounded,
+                      size: 14,
+                      color: AppTheme.primaryGreen,
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        tip.source!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: tip.sourceUrl != null
+                              ? AppTheme.secondaryBlue
+                              : AppTheme.neutral500,
+                          fontStyle: FontStyle.italic,
+                          decoration: tip.sourceUrl != null
+                              ? TextDecoration.underline
+                              : null,
+                        ),
+                      ),
+                    ),
+                    if (tip.sourceUrl != null) ...[
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.open_in_new_rounded,
+                        size: 12,
+                        color: AppTheme.secondaryBlue,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ),
           ],
         ],
@@ -842,6 +1078,8 @@ class ParentingTip {
   final String category;
   final String content;
   final String? source;
+  final String? sourceUrl;
+  final List<String> actionSteps;
 
   const ParentingTip({
     required this.title,
@@ -849,6 +1087,8 @@ class ParentingTip {
     required this.category,
     required this.content,
     this.source,
+    this.sourceUrl,
+    this.actionSteps = const [],
   });
 
   factory ParentingTip.fromJson(Map<String, dynamic> json) {
@@ -858,6 +1098,8 @@ class ParentingTip {
       category: json['category'] ?? 'General',
       content: json['content'] ?? '',
       source: json['source'],
+      sourceUrl: json['sourceUrl'],
+      actionSteps: List<String>.from(json['actionSteps'] ?? []),
     );
   }
 }

@@ -4,6 +4,7 @@ import '../../services/storage_service.dart';
 import '../../utils/app_theme.dart';
 import '../../animations/custom_animations.dart';
 import '../profile_setup/profile_setup_screen.dart';
+import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -479,8 +480,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _editProfile() {
-    // Navigate to edit profile
+  void _editProfile() async {
+    if (_child == null) return;
+
+    final result = await Navigator.push<ChildProfile>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EditProfileScreen(
+          child: _child!,
+          onSave: (updatedChild) {
+            setState(() => _child = updatedChild);
+          },
+        ),
+      ),
+    );
+
+    // Reload data if profile was updated
+    if (result != null) {
+      _loadData();
+    }
   }
 
   Future<void> _saveApiKey() async {

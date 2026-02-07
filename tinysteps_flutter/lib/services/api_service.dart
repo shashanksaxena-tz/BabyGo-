@@ -439,6 +439,52 @@ class ApiService {
     );
   }
 
+  // ==================== Milestone Tracking ====================
+
+  /// Get achieved and watched milestones for a child
+  Future<Map<String, dynamic>> getChildMilestones(String childId) async {
+    return _request('GET', '/children/$childId/milestones');
+  }
+
+  /// Mark a milestone as achieved
+  Future<Map<String, dynamic>> markMilestoneAchieved(
+    String childId,
+    String milestoneId, {
+    String? achievedDate,
+    String? notes,
+    String confirmedBy = 'parent',
+  }) async {
+    return _request('POST', '/children/$childId/milestones/$milestoneId', body: {
+      'achievedDate': achievedDate ?? DateTime.now().toIso8601String(),
+      'notes': notes,
+      'confirmedBy': confirmedBy,
+    });
+  }
+
+  /// Unmark a milestone (remove from achieved)
+  Future<Map<String, dynamic>> unmarkMilestoneAchieved(
+    String childId,
+    String milestoneId,
+  ) async {
+    return _request('DELETE', '/children/$childId/milestones/$milestoneId');
+  }
+
+  /// Add milestone to watch list
+  Future<Map<String, dynamic>> watchMilestone(
+    String childId,
+    String milestoneId,
+  ) async {
+    return _request('POST', '/children/$childId/milestones/$milestoneId/watch');
+  }
+
+  /// Remove milestone from watch list
+  Future<Map<String, dynamic>> unwatchMilestone(
+    String childId,
+    String milestoneId,
+  ) async {
+    return _request('DELETE', '/children/$childId/milestones/$milestoneId/watch');
+  }
+
   // ==================== Helpers ====================
 
   String _getMimeType(String path) {
