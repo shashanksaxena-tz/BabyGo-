@@ -50,6 +50,10 @@ const storySchema = new mongoose.Schema({
     type: Number, // months
     required: true,
   },
+  illustrationsGenerated: {
+    type: Boolean,
+    default: false,
+  },
   isFavorite: {
     type: Boolean,
     default: false,
