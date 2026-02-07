@@ -2,25 +2,161 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#10b981" />
+    <meta name="description" content="TinySteps AI - AI-powered child development tracking based on WHO standards. Help your child thrive with personalized insights, bedtime stories, and more." />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
     <title>TinySteps AI - Child Development Insights</title>
+
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👶</text></svg>" />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+
     <style>
+      * {
+        font-family: 'Nunito', system-ui, -apple-system, sans-serif;
+        -webkit-tap-highlight-color: transparent;
+      }
+
       body {
-        font-family: 'Quicksand', sans-serif;
-        background-color: #f0fdf4; /* Soft green bg */
+        background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 50%, #f0fdfa 100%);
+        min-height: 100vh;
+        overscroll-behavior: none;
       }
-      .animate-float {
-        animation: float 6s ease-in-out infinite;
+
+      /* Smooth scrolling */
+      html {
+        scroll-behavior: smooth;
       }
+
+      /* Custom scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: #d1d5db;
+        border-radius: 3px;
+      }
+
+      ::-webkit-scrollbar-thumb:hover {
+        background: #9ca3af;
+      }
+
+      /* Animations */
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      @keyframes slideUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      @keyframes scaleIn {
+        from { opacity: 0; transform: scale(0.95); }
+        to { opacity: 1; transform: scale(1); }
+      }
+
       @keyframes float {
-        0% { transform: translateY(0px); }
+        0%, 100% { transform: translateY(0); }
         50% { transform: translateY(-10px); }
-        100% { transform: translateY(0px); }
+      }
+
+      @keyframes pulse-soft {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+      }
+
+      @keyframes shimmer {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+      }
+
+      .animate-fadeIn {
+        animation: fadeIn 0.5s ease-out forwards;
+      }
+
+      .animate-slideUp {
+        animation: slideUp 0.6s ease-out forwards;
+      }
+
+      .animate-scaleIn {
+        animation: scaleIn 0.4s ease-out forwards;
+      }
+
+      .animate-float {
+        animation: float 4s ease-in-out infinite;
+      }
+
+      .animate-pulse-soft {
+        animation: pulse-soft 2s ease-in-out infinite;
+      }
+
+      /* Gradient backgrounds */
+      .bg-gradient-primary {
+        background: linear-gradient(135deg, #10b981 0%, #14b8a6 100%);
+      }
+
+      .bg-gradient-secondary {
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      }
+
+      /* Safe area padding for mobile */
+      .safe-top {
+        padding-top: max(env(safe-area-inset-top), 12px);
+      }
+
+      .safe-bottom {
+        padding-bottom: max(env(safe-area-inset-bottom), 24px);
+      }
+
+      /* Focus styles */
+      *:focus-visible {
+        outline: 2px solid #10b981;
+        outline-offset: 2px;
+        border-radius: 8px;
+      }
+
+      /* Button press effect */
+      button:active:not(:disabled) {
+        transform: scale(0.98);
+      }
+
+      /* Card hover effects */
+      .card-hover {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .card-hover:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+      }
+
+      /* Loading skeleton */
+      .skeleton {
+        background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+        background-size: 200% 100%;
+        animation: shimmer 1.5s infinite;
       }
     </style>
-  <script type="importmap">
+
+    <script type="importmap">
 {
   "imports": {
     "react/": "https://esm.sh/react@^19.2.4/",
@@ -32,10 +168,10 @@
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
-</head>
-  <body>
+    <link rel="stylesheet" href="/index.css">
+  </head>
+  <body class="antialiased">
     <div id="root"></div>
-  <script type="module" src="/index.tsx"></script>
-</body>
+    <script type="module" src="/index.tsx"></script>
+  </body>
 </html>
