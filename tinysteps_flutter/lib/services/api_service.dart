@@ -485,6 +485,119 @@ class ApiService {
     return _request('DELETE', '/children/$childId/milestones/$milestoneId/watch');
   }
 
+  // ==================== Doctors ====================
+
+  /// Get recommended doctors for a child based on their development analysis
+  Future<Map<String, dynamic>> getRecommendedDoctors(String childId) async {
+    return _request('GET', '/doctors/recommended/$childId');
+  }
+
+  /// Get doctors with optional domain and specialty filters
+  Future<Map<String, dynamic>> getDoctors({String? domain, String? specialty}) async {
+    final params = <String, String>{};
+    if (domain != null) params['domain'] = domain;
+    if (specialty != null) params['specialty'] = specialty;
+    return _request('GET', '/doctors', queryParams: params.isNotEmpty ? params : null);
+  }
+
+  // ==================== Resources ====================
+
+  /// Get improvement resources for a child, optionally filtered by domain and type
+  Future<Map<String, dynamic>> getResources(String childId, {String? domain, String? type}) async {
+    final params = <String, String>{};
+    if (domain != null) params['domain'] = domain;
+    if (type != null) params['type'] = type;
+    return _request('GET', '/resources/$childId', queryParams: params.isNotEmpty ? params : null);
+  }
+
+  /// Regenerate improvement resources for a child
+  Future<Map<String, dynamic>> regenerateResources(String childId) async {
+    return _request('POST', '/resources/$childId/regenerate');
+  }
+
+  // ==================== Reports ====================
+
+  /// Get all reports for a child
+  Future<Map<String, dynamic>> getReports(String childId) async {
+    return _request('GET', '/reports/$childId');
+  }
+
+  /// Generate a new developmental report for a child
+  Future<Map<String, dynamic>> generateReport(String childId) async {
+    return _request('POST', '/reports/$childId/generate');
+  }
+
+  /// Get a specific report
+  Future<Map<String, dynamic>> getReport(String childId, String reportId) async {
+    return _request('GET', '/reports/$childId/$reportId');
+  }
+
+  /// Get a report as PDF
+  Future<Map<String, dynamic>> getReportPdf(String childId, String reportId) async {
+    return _request('GET', '/reports/$childId/$reportId/pdf');
+  }
+
+  /// Share a report via email or link
+  Future<Map<String, dynamic>> shareReport(
+    String childId,
+    String reportId,
+    String method, {
+    String? recipient,
+  }) async {
+    return _request('POST', '/reports/$childId/$reportId/share', body: {
+      'method': method,
+      if (recipient != null) 'recipient': recipient,
+    });
+  }
+
+  // ==================== WHO Evidence ====================
+
+  /// Get WHO evidence/sources with optional context, analysis, and region filters
+  Future<Map<String, dynamic>> getWHOEvidence({
+    String? context,
+    String? analysisId,
+    String? region,
+  }) async {
+    final params = <String, String>{};
+    if (context != null) params['context'] = context;
+    if (analysisId != null) params['analysisId'] = analysisId;
+    if (region != null) params['region'] = region;
+    return _request(
+      'GET',
+      '/recommendations/sources',
+      queryParams: params.isNotEmpty ? params : null,
+    );
+  }
+
+  // ==================== Upload ====================
+
+  /// Upload an image file to a specified storage bucket
+  Future<Map<String, dynamic>> uploadImage(String filePath, String bucket) async {
+    try {
+      final uri = Uri.parse('$_baseUrl/upload/image');
+      final request = http.MultipartRequest('POST', uri);
+
+      if (_token != null) {
+        request.headers['Authorization'] = 'Bearer $_token';
+      }
+
+      request.fields['bucket'] = bucket;
+      request.files.add(await http.MultipartFile.fromPath('image', filePath));
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      final data = json.decode(response.body);
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {'success': true, 'data': data};
+      } else {
+        return {'success': false, 'error': data['error'] ?? 'Upload failed'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
   // ==================== Helpers ====================
 
   String _getMimeType(String path) {
