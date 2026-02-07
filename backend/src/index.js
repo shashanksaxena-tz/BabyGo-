@@ -13,6 +13,7 @@ import analysisRoutes from './routes/analysis.js';
 import storiesRoutes from './routes/stories.js';
 import timelineRoutes from './routes/timeline.js';
 import recommendationsRoutes from './routes/recommendations.js';
+import storageService from './services/storageService.js';
 
 // Load environment variables
 dotenv.config();
@@ -156,6 +157,15 @@ const connectDB = async () => {
 // Start server
 const startServer = async () => {
   await connectDB();
+
+  // Initialize MinIO storage (non-blocking - app works without it)
+  try {
+    await storageService.initialize();
+    console.log('Connected to MinIO storage');
+  } catch (error) {
+    console.warn('MinIO storage not available:', error.message);
+    console.warn('   File upload features will be unavailable');
+  }
 
   app.listen(PORT, () => {
     console.log(`
