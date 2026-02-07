@@ -16,6 +16,13 @@ import RecommendationsView from './components/RecommendationsView';
 import MilestonesView from './components/MilestonesView';
 import GrowthChartsView from './components/GrowthChartsView';
 import EditProfile from './components/EditProfile';
+import ImproveDomainView from './components/ImproveDomainView';
+import ResourcesLibraryView from './components/ResourcesLibraryView';
+import HealthHubView from './components/HealthHubView';
+import PediatricianReportView from './components/PediatricianReportView';
+import GeneratedReportView from './components/GeneratedReportView';
+import DevelopmentInsightsView from './components/DevelopmentInsightsView';
+import WHOEvidenceView from './components/WHOEvidenceView';
 
 import {
   Baby,
@@ -140,6 +147,27 @@ const App: React.FC = () => {
             setStep(AppStep.RESULTS);
           }
         }
+        break;
+      case 'PEDIATRICIAN_REPORT':
+        setStep(AppStep.PEDIATRICIAN_REPORT);
+        break;
+      case 'GENERATED_REPORT':
+        setStep(AppStep.GENERATED_REPORT);
+        break;
+      case 'DEVELOPMENT_INSIGHTS':
+        setStep(AppStep.DEVELOPMENT_INSIGHTS);
+        break;
+      case 'WHO_EVIDENCE':
+        setStep(AppStep.WHO_EVIDENCE);
+        break;
+      case 'HEALTH_HUB':
+        setStep(AppStep.HEALTH_HUB);
+        break;
+      case 'IMPROVE_DOMAIN':
+        setStep(AppStep.IMPROVE_DOMAIN);
+        break;
+      case 'RESOURCES_LIBRARY':
+        setStep(AppStep.RESOURCES_LIBRARY);
         break;
       default:
         break;
@@ -321,6 +349,93 @@ const App: React.FC = () => {
       <GrowthChartsView
         child={currentChild}
         onBack={() => setStep(AppStep.HOME)}
+      />
+    );
+  }
+
+  // Pediatrician Report
+  if (step === AppStep.PEDIATRICIAN_REPORT && currentChild) {
+    return (
+      <PediatricianReportView
+        childId={currentChild.id}
+        child={currentChild}
+        onBack={() => setStep(AppStep.HOME)}
+        onNavigate={handleNavigate}
+      />
+    );
+  }
+
+  // Generated Report
+  if (step === AppStep.GENERATED_REPORT && currentChild) {
+    return (
+      <GeneratedReportView
+        childId={currentChild.id}
+        child={currentChild}
+        reportId={navData?.reportId}
+        onBack={() => setStep(AppStep.PEDIATRICIAN_REPORT)}
+        onNavigate={handleNavigate}
+      />
+    );
+  }
+
+  // Development Insights
+  if (step === AppStep.DEVELOPMENT_INSIGHTS && currentChild) {
+    return (
+      <DevelopmentInsightsView
+        childId={currentChild.id}
+        child={currentChild}
+        onBack={() => setStep(AppStep.HOME)}
+        onNavigate={handleNavigate}
+      />
+    );
+  }
+
+  // WHO Evidence
+  if (step === AppStep.WHO_EVIDENCE && currentChild) {
+    return (
+      <WHOEvidenceView
+        context={navData?.context}
+        analysisId={navData?.analysisId}
+        region={currentChild.region?.whoRegion}
+        onBack={() => setStep(AppStep.HOME)}
+        onNavigate={handleNavigate}
+      />
+    );
+  }
+
+  // Health Hub
+  if (step === AppStep.HEALTH_HUB && currentChild) {
+    return (
+      <HealthHubView
+        childId={currentChild.id}
+        childName={currentChild.name}
+        onBack={() => setStep(AppStep.HOME)}
+        onNavigate={handleNavigate}
+      />
+    );
+  }
+
+  // Improve Domain
+  if (step === AppStep.IMPROVE_DOMAIN && currentChild) {
+    return (
+      <ImproveDomainView
+        childId={currentChild.id}
+        domain={navData?.domain || 'motor'}
+        score={navData?.score || 0}
+        status={navData?.status || 'on-track'}
+        onBack={() => setStep(AppStep.DEVELOPMENT_INSIGHTS)}
+        onNavigate={handleNavigate}
+      />
+    );
+  }
+
+  // Resources Library
+  if (step === AppStep.RESOURCES_LIBRARY && currentChild) {
+    return (
+      <ResourcesLibraryView
+        childId={currentChild.id}
+        onBack={() => setStep(AppStep.HOME)}
+        onNavigate={handleNavigate}
       />
     );
   }

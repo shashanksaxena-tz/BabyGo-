@@ -313,6 +313,76 @@ class ApiService {
       method: 'DELETE',
     });
   }
+
+  // ============ DOCTORS ============
+
+  async getRecommendedDoctors(childId: string) {
+    return this.request(`/doctors/recommended/${childId}`);
+  }
+
+  async getDoctors(params?: { domain?: string; specialty?: string }) {
+    const query = new URLSearchParams(params as Record<string, string>).toString();
+    return this.request(`/doctors${query ? `?${query}` : ''}`);
+  }
+
+  // ============ RESOURCES ============
+
+  async getResources(childId: string, params?: { domain?: string; type?: string }) {
+    const query = new URLSearchParams(params as Record<string, string>).toString();
+    return this.request(`/resources/${childId}${query ? `?${query}` : ''}`);
+  }
+
+  async regenerateResources(childId: string) {
+    return this.request(`/resources/${childId}/regenerate`, { method: 'POST' });
+  }
+
+  // ============ REPORTS ============
+
+  async getReports(childId: string) {
+    return this.request(`/reports/${childId}`);
+  }
+
+  async generateReport(childId: string) {
+    return this.request(`/reports/${childId}/generate`, { method: 'POST' });
+  }
+
+  async getReport(childId: string, reportId: string) {
+    return this.request(`/reports/${childId}/${reportId}`);
+  }
+
+  async getReportPdf(childId: string, reportId: string) {
+    return this.request(`/reports/${childId}/${reportId}/pdf`);
+  }
+
+  async shareReport(childId: string, reportId: string, method: string, recipient?: string) {
+    return this.request(`/reports/${childId}/${reportId}/share`, {
+      method: 'POST',
+      body: JSON.stringify({ method, recipient }),
+    });
+  }
+
+  // ============ WHO EVIDENCE ============
+
+  async getWHOEvidence(params?: { context?: string; analysisId?: string; region?: string }) {
+    const query = new URLSearchParams(params as Record<string, string>).toString();
+    return this.request(`/recommendations/sources${query ? `?${query}` : ''}`);
+  }
+
+  // ============ UPLOAD ============
+
+  async uploadImage(file: File, bucket: string) {
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('bucket', bucket);
+    const headers: Record<string, string> = {};
+    if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
+    const response = await fetch(`${API_BASE_URL}/upload/image`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+    return response.json();
+  }
 }
 
 export const apiService = new ApiService();

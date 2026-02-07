@@ -18,6 +18,10 @@ import {
   Clock,
   Target,
   Lightbulb,
+  Stethoscope,
+  Library,
+  FileText,
+  BarChart3,
 } from 'lucide-react';
 import { ChildProfile, AnalysisResult, TimelineEntry, Notification } from '../types';
 import { getTimeline, getAnalyses, getNotifications, getChildren, setCurrentChild } from '../services/storageService';
@@ -27,7 +31,7 @@ import { RadialBarChart, RadialBar, ResponsiveContainer, LineChart, Line, XAxis,
 
 interface HomeDashboardProps {
   child: ChildProfile;
-  onNavigate: (screen: string) => void;
+  onNavigate: (screen: string, data?: any) => void;
   onStartAnalysis: () => void;
   onSwitchChild: (childId: string) => void;
   onAddChild: () => void;
@@ -159,17 +163,20 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ child, onNavigate, onStar
             </div>
             {latestAnalysis && (
               <button
-                onClick={() => onNavigate('results', { analysisId: latestAnalysis.id })}
+                onClick={() => onNavigate('PEDIATRICIAN_REPORT')}
                 className="text-emerald-600 text-sm font-medium flex items-center gap-1 hover:text-emerald-700"
               >
-                View Details <ChevronRight className="w-4 h-4" />
+                View Report <ChevronRight className="w-4 h-4" />
               </button>
             )}
           </div>
 
           {latestAnalysis ? (
             <div className="flex items-center gap-6">
-              <div className="w-24 h-24 relative">
+              <div
+                className="w-24 h-24 relative cursor-pointer hover:scale-105 transition-transform"
+                onClick={() => onNavigate('DEVELOPMENT_INSIGHTS')}
+              >
                 <ResponsiveContainer>
                   <RadialBarChart innerRadius="75%" outerRadius="100%" data={scoreData} startAngle={90} endAngle={-270}>
                     <RadialBar dataKey="value" cornerRadius={10} />
@@ -290,6 +297,34 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ child, onNavigate, onStar
               subtitle="Age-appropriate"
               color="bg-gradient-to-br from-blue-400 to-indigo-500 text-white"
               onClick={() => onNavigate('recipes')}
+            />
+            <QuickActionCard
+              icon={Stethoscope}
+              title="Health Hub"
+              subtitle="Find specialists"
+              color="bg-gradient-to-br from-red-400 to-rose-500 text-white"
+              onClick={() => onNavigate('HEALTH_HUB')}
+            />
+            <QuickActionCard
+              icon={Library}
+              title="Resources"
+              subtitle="Activities & more"
+              color="bg-gradient-to-br from-teal-400 to-cyan-500 text-white"
+              onClick={() => onNavigate('RESOURCES_LIBRARY')}
+            />
+            <QuickActionCard
+              icon={FileText}
+              title="Reports"
+              subtitle="For your doctor"
+              color="bg-gradient-to-br from-slate-500 to-gray-600 text-white"
+              onClick={() => onNavigate('PEDIATRICIAN_REPORT')}
+            />
+            <QuickActionCard
+              icon={BarChart3}
+              title="Insights"
+              subtitle="Development trends"
+              color="bg-gradient-to-br from-violet-400 to-purple-500 text-white"
+              onClick={() => onNavigate('DEVELOPMENT_INSIGHTS')}
             />
           </div>
         </div>
