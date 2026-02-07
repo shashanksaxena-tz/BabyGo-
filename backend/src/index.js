@@ -16,6 +16,7 @@ import recommendationsRoutes from './routes/recommendations.js';
 import uploadRoutes from './routes/upload.js';
 import doctorRoutes from './routes/doctors.js';
 import resourceRoutes from './routes/resources.js';
+import reportRoutes from './routes/reports.js';
 import storageService from './services/storageService.js';
 
 // Load environment variables
@@ -78,6 +79,7 @@ app.use('/api/recommendations', recommendationsRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/doctors', doctorRoutes);
 app.use('/api/resources', resourceRoutes);
+app.use('/api/reports', reportRoutes);
 
 // API documentation endpoint
 app.get('/api', (req, res) => {
@@ -132,6 +134,13 @@ app.get('/api', (req, res) => {
       resources: {
         'GET /api/resources/:childId': 'Get improvement resources for child',
         'POST /api/resources/:childId/regenerate': 'Regenerate resources via Gemini AI',
+      },
+      reports: {
+        'GET /api/reports/:childId': 'Get all reports for child',
+        'POST /api/reports/:childId/generate': 'Generate a new pediatrician report',
+        'GET /api/reports/:childId/:id': 'Get specific report',
+        'GET /api/reports/:childId/:id/pdf': 'Get or generate report PDF',
+        'POST /api/reports/:childId/:id/share': 'Share report with pediatrician',
       },
     },
     whoSources: {

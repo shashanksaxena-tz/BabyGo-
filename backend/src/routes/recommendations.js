@@ -1,5 +1,6 @@
 import express from 'express';
 import Child from '../models/Child.js';
+import Analysis from '../models/Analysis.js';
 import { authMiddleware } from '../middleware/auth.js';
 import geminiService from '../services/geminiService.js';
 import whoDataService from '../services/whoDataService.js';
@@ -143,14 +144,87 @@ router.get('/tips/:childId', authMiddleware, async (req, res) => {
   }
 });
 
-// Get WHO sources
-router.get('/sources', (req, res) => {
-  const { region } = req.query;
-  const sources = region
-    ? whoDataService.getSourcesForRegion(region)
-    : whoDataService.getSources();
+// Get WHO sources with enhanced evidence context
+router.get('/sources', async (req, res) => {
+  try {
+    const { context, analysisId, region } = req.query;
 
-  res.json({ sources });
+    // Get base WHO sources
+    let sources = whoDataService.getSources();
+
+    // If region specified, include regional sources
+    if (region) {
+      sources = whoDataService.getSourcesForRegion(region);
+    }
+
+    // If context specified (comma-separated domains), filter sources to matching domains
+    // The base WHO sources don't have a domain field, so we tag them as 'general'
+    // and keep all 'general' sources plus any that match the requested domains
+    let taggedSources = sources.map(s => ({
+      ...s,
+      domain: s.domain || 'general',
+    }));
+
+    if (context) {
+      const contextDomains = context.split(',').map(d => d.trim().toLowerCase());
+      taggedSources = taggedSources.filter(s =>
+        s.domain === 'general' || contextDomains.includes(s.domain)
+      );
+    }
+
+    // If analysisId specified, also fetch analysis sources
+    if (analysisId) {
+      try {
+        const analysis = await Analysis.findById(analysisId);
+        if (analysis && analysis.sources && analysis.sources.length > 0) {
+          const analysisSources = analysis.sources.map(s => ({
+            title: s.title,
+            url: s.url,
+            type: s.type || 'analysis',
+            domain: 'analysis',
+          }));
+          taggedSources = [...taggedSources, ...analysisSources];
+        }
+      } catch (lookupErr) {
+        // Non-fatal: continue without analysis sources
+        console.warn('Could not fetch analysis sources:', lookupErr.message);
+      }
+    }
+
+    // Methodology section
+    const methodology = [
+      {
+        step: 1,
+        title: 'Data Collection',
+        description: 'Photo/video analysis using Google Gemini AI trained on developmental indicators',
+        icon: 'clipboard-list',
+      },
+      {
+        step: 2,
+        title: 'WHO Benchmark Comparison',
+        description: 'Assessment results compared against WHO Child Growth Standards and CDC Developmental Milestones',
+        icon: 'git-compare',
+      },
+      {
+        step: 3,
+        title: 'AI-Powered Analysis',
+        description: 'Machine learning models identify developmental patterns and generate personalized recommendations',
+        icon: 'brain',
+      },
+    ];
+
+    const disclaimer = 'TinySteps AI assessments are for informational purposes only and do not constitute medical advice. '
+      + 'Always consult your pediatrician or qualified healthcare provider for professional guidance on your child\'s development.';
+
+    res.json({
+      sources: taggedSources,
+      methodology,
+      disclaimer,
+    });
+  } catch (error) {
+    console.error('Sources error:', error);
+    res.status(500).json({ error: 'Failed to fetch sources' });
+  }
 });
 
 export default router;
