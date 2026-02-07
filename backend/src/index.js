@@ -13,6 +13,9 @@ import analysisRoutes from './routes/analysis.js';
 import storiesRoutes from './routes/stories.js';
 import timelineRoutes from './routes/timeline.js';
 import recommendationsRoutes from './routes/recommendations.js';
+import uploadRoutes from './routes/upload.js';
+import doctorRoutes from './routes/doctors.js';
+import resourceRoutes from './routes/resources.js';
 import storageService from './services/storageService.js';
 
 // Load environment variables
@@ -72,6 +75,9 @@ app.use('/api/analysis', analysisRoutes);
 app.use('/api/stories', storiesRoutes);
 app.use('/api/timeline', timelineRoutes);
 app.use('/api/recommendations', recommendationsRoutes);
+app.use('/api/upload', uploadRoutes);
+app.use('/api/doctors', doctorRoutes);
+app.use('/api/resources', resourceRoutes);
 
 // API documentation endpoint
 app.get('/api', (req, res) => {
@@ -115,6 +121,17 @@ app.get('/api', (req, res) => {
         'GET /api/recommendations/activities/:childId': 'Get activity suggestions',
         'GET /api/recommendations/recipes/:childId': 'Get age-appropriate recipes',
         'GET /api/recommendations/tips/:childId': 'Get parenting tips',
+      },
+      upload: {
+        'POST /api/upload/image': 'Upload an image to MinIO storage',
+      },
+      doctors: {
+        'GET /api/doctors': 'List all doctors with optional filtering',
+        'GET /api/doctors/recommended/:childId': 'Get analysis-based doctor recommendations',
+      },
+      resources: {
+        'GET /api/resources/:childId': 'Get improvement resources for child',
+        'POST /api/resources/:childId/regenerate': 'Regenerate resources via Gemini AI',
       },
     },
     whoSources: {

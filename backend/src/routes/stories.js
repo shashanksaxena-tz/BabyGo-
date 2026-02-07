@@ -4,6 +4,7 @@ import Child from '../models/Child.js';
 import Story from '../models/Story.js';
 import { authMiddleware } from '../middleware/auth.js';
 import geminiService from '../services/geminiService.js';
+import storageService, { BUCKETS } from '../services/storageService.js';
 
 const router = express.Router();
 
@@ -127,6 +128,47 @@ router.get('/:childId/:id', authMiddleware, async (req, res) => {
     // Increment read count
     story.timesRead += 1;
     await story.save();
+
+    // Persist illustrations if not already done
+    if (!story.illustrationsGenerated) {
+      try {
+        const pagesNeedingIllustration = story.pages.filter(
+          page => page.illustrationPrompt && !page.illustrationUrl
+        );
+
+        if (pagesNeedingIllustration.length > 0 && storageService.initialized) {
+          const apiKey = req.user.geminiApiKey || process.env.GEMINI_API_KEY;
+          if (apiKey) {
+            geminiService.initialize(apiKey);
+
+            for (const page of pagesNeedingIllustration) {
+              try {
+                const imageBuffer = await geminiService.generateIllustration(page.illustrationPrompt);
+                if (imageBuffer) {
+                  const { url } = await storageService.uploadBuffer(
+                    BUCKETS.STORIES,
+                    imageBuffer,
+                    'image/png',
+                    `story-${story._id}-page-${page.pageNumber}.png`
+                  );
+                  page.illustrationUrl = url;
+                }
+              } catch (illustrationErr) {
+                // Individual illustration failure is non-blocking, skip this page
+                console.warn(`Failed to generate illustration for page ${page.pageNumber}:`, illustrationErr.message);
+              }
+            }
+          }
+        }
+
+        // Mark as generated so we don't retry on every read
+        story.illustrationsGenerated = true;
+        await story.save();
+      } catch (persistErr) {
+        // Illustration persistence is non-blocking
+        console.warn('Illustration persistence error:', persistErr.message);
+      }
+    }
 
     res.json({ story });
   } catch (error) {

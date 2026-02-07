@@ -2,6 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import Child from '../models/Child.js';
 import Analysis from '../models/Analysis.js';
+import Resource from '../models/Resource.js';
 import TimelineEntry from '../models/Timeline.js';
 import { authMiddleware } from '../middleware/auth.js';
 import geminiService from '../services/geminiService.js';
@@ -118,6 +119,41 @@ router.post('/', authMiddleware, upload.array('media', 10), async (req, res) => 
       data: { analysisId: analysis._id, score: analysisResult.overallScore },
     });
     await timelineEntry.save();
+
+    // Auto-generate resources based on the new analysis (non-blocking)
+    try {
+      // Mark old resources as not current
+      await Resource.updateMany(
+        { childId: child._id, isCurrent: true },
+        { $set: { isCurrent: false } }
+      );
+
+      // Generate new resources via Gemini
+      const generatedResources = await geminiService.generateImprovementResources(child, analysis);
+
+      if (generatedResources.length > 0) {
+        const resourceDocs = generatedResources.map(r => ({
+          childId: child._id,
+          analysisId: analysis._id,
+          domain: r.domain,
+          type: r.type,
+          title: r.title,
+          description: r.description,
+          tags: r.tags,
+          ageRange: r.ageRange,
+          duration: r.duration,
+          difficulty: r.difficulty,
+          priority: r.priority,
+          isCurrent: true,
+        }));
+
+        await Resource.insertMany(resourceDocs);
+        console.log(`Auto-generated ${resourceDocs.length} resources for child ${child._id}`);
+      }
+    } catch (resourceErr) {
+      // Resource generation failure is non-blocking
+      console.warn('Auto resource generation failed:', resourceErr.message);
+    }
 
     res.status(201).json({
       message: 'Analysis completed',

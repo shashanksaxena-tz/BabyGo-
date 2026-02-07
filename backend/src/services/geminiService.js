@@ -334,6 +334,127 @@ Respond in JSON format:
     }
   }
 
+  /**
+   * Generate an illustration from a text prompt.
+   * The Gemini text model cannot generate images directly, so we store the
+   * prompt itself as a placeholder URL and mark the story as processed so it
+   * doesn't retry on every read.  If a future Gemini image generation API
+   * becomes available, swap this implementation.
+   *
+   * @param {string} prompt - The illustration description prompt
+   * @returns {Promise<Buffer|null>} Image buffer or null if generation unsupported
+   */
+  async generateIllustration(prompt) {
+    // Gemini text models do not support image generation.
+    // Return null so the caller knows no image was produced.
+    // The story route will still mark illustrationsGenerated = true
+    // to prevent retrying.
+    return null;
+  }
+
+  /**
+   * Generate improvement resources for a child based on their latest analysis.
+   * Produces activities, books, videos, toys, and apps per developmental domain.
+   *
+   * @param {Object} child - Child document (with dateOfBirth, achievedMilestones, etc.)
+   * @param {Object} analysis - Analysis document with domain assessments
+   * @returns {Promise<Array>} Array of resource objects
+   */
+  async generateImprovementResources(child, analysis) {
+    if (!this.model) {
+      throw new Error('Gemini service not initialized');
+    }
+
+    const ageMonths = Math.floor(
+      (Date.now() - new Date(child.dateOfBirth).getTime()) / (30.44 * 24 * 60 * 60 * 1000)
+    );
+
+    const domains = ['motor', 'language', 'cognitive', 'social'];
+    const allResources = [];
+
+    for (const domain of domains) {
+      const assessment = analysis[`${domain}Assessment`];
+      if (!assessment) continue;
+
+      const isFlagged = assessment.score < 80 ||
+        assessment.status === 'emerging' ||
+        assessment.status === 'needs_support';
+      const resourceCount = isFlagged ? 12 : 6;
+
+      const achievedMilestoneIds = (child.achievedMilestones || [])
+        .map(m => m.milestoneId)
+        .join(', ');
+
+      const prompt = `
+You are a child development specialist. Generate exactly ${resourceCount} improvement resources for the "${domain}" developmental domain for a ${ageMonths}-month-old child.
+
+CHILD CONTEXT:
+- Age: ${ageMonths} months
+- Domain: ${domain}
+- Assessment Score: ${assessment.score}/100
+- Status: ${assessment.status}
+- Strengths: ${(assessment.strengths || []).join(', ') || 'None noted'}
+- Areas to support: ${(assessment.areasToSupport || []).join(', ') || 'None noted'}
+- Already achieved milestones: ${achievedMilestoneIds || 'None recorded'}
+
+IMPORTANT:
+- Do NOT suggest resources for already-achieved milestones
+- Focus on areas that need support and upcoming milestones
+- Mix resource types: activities, books, videos, toys, apps
+- Each resource should be practical and age-appropriate
+- For flagged domains (score < 80), prioritize high-priority resources
+
+Respond in this JSON format:
+{
+  "resources": [
+    {
+      "type": "activity",
+      "title": "Resource Title",
+      "description": "Clear description of the resource and how it helps development",
+      "tags": ["tag1", "tag2"],
+      "ageRange": "${ageMonths - 2}-${ageMonths + 4} months",
+      "duration": "10-15 min",
+      "difficulty": "easy",
+      "priority": "high"
+    }
+  ]
+}
+
+Valid types: activity, book, video, toy, app
+Valid difficulties: easy, moderate, challenging
+Valid priorities: high, medium, low
+`;
+
+      try {
+        const result = await this.model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text();
+
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const data = JSON.parse(jsonMatch[0]);
+          const resources = (data.resources || []).map(r => ({
+            type: r.type || 'activity',
+            title: r.title || 'Untitled Resource',
+            description: r.description || '',
+            tags: r.tags || [],
+            ageRange: r.ageRange || `${ageMonths}-${ageMonths + 6} months`,
+            duration: r.duration || '10-15 min',
+            difficulty: r.difficulty || 'easy',
+            priority: r.priority || 'medium',
+            domain,
+          }));
+          allResources.push(...resources);
+        }
+      } catch (domainError) {
+        console.error(`Resource generation error for ${domain}:`, domainError.message);
+        // Continue with other domains
+      }
+    }
+
+    return allResources;
+  }
+
   _buildMilestoneContext(milestones, ageMonths) {
     const byDomain = {};
     for (const m of milestones) {
