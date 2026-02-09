@@ -155,6 +155,14 @@ class ApiService {
     }
   }
 
+  // Save a pre-computed analysis result (from browser-side Gemini) to backend
+  async saveAnalysisResult(childId: string, analysisData: any) {
+    return this.request('/analysis/save', {
+      method: 'POST',
+      body: JSON.stringify({ childId, analysisData }),
+    });
+  }
+
   async getAnalyses(childId: string) {
     return this.request(`/analysis/${childId}`);
   }
@@ -328,7 +336,10 @@ class ApiService {
   // ============ RESOURCES ============
 
   async getResources(childId: string, params?: { domain?: string; type?: string }) {
-    const query = new URLSearchParams(params as Record<string, string>).toString();
+    const filteredParams: Record<string, string> = {};
+    if (params?.domain) filteredParams.domain = params.domain;
+    if (params?.type) filteredParams.type = params.type;
+    const query = new URLSearchParams(filteredParams).toString();
     return this.request(`/resources/${childId}${query ? `?${query}` : ''}`);
   }
 

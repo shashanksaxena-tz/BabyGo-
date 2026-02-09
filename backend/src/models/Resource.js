@@ -8,13 +8,12 @@ const whoSourceSchema = new mongoose.Schema({
 
 const resourceSchema = new mongoose.Schema({
   childId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Child',
+    type: String,
     required: true,
+    index: true,
   },
   analysisId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Analysis',
+    type: String,
     required: true,
   },
   domain: {

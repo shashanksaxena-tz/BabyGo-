@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { AppStep, ChildProfile, AnalysisResult } from './types';
-import { getCurrentChild, isOnboardingComplete, setOnboardingComplete, saveAnalysis, getAnalysisById, getChildren } from './services/storageService';
+import { getCurrentChild, isOnboardingComplete, setOnboardingComplete, saveAnalysis, getAnalysisById, getChildren, isMongoId, syncLocalChildToBackend } from './services/storageService';
 import { analyzeDevelopment } from './services/geminiService';
+import apiService from './services/apiService';
 
 // Components
 import ProfileSetup from './components/ProfileSetup';
@@ -38,6 +39,7 @@ const App: React.FC = () => {
   const [currentChild, setCurrentChild] = useState<ChildProfile | null>(null);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   // Upload state
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
@@ -51,14 +53,32 @@ const App: React.FC = () => {
     // Check if onboarding is complete and load current child
     const child = getCurrentChild();
     if (child && isOnboardingComplete()) {
-      setCurrentChild(child);
-      setStep(AppStep.HOME);
+      // Check if the child has a local ID (not MongoDB ObjectId) and migrate
+      if (!isMongoId(child.id)) {
+        syncLocalChildToBackend(child)
+          .then((syncedChild) => {
+            setCurrentChild(syncedChild);
+            setSyncError(null);
+            setStep(AppStep.HOME);
+          })
+          .catch((err) => {
+            console.error('Failed to sync local child to backend:', err);
+            setSyncError('Could not connect to server. Please check your connection and try again.');
+            // Still show the child from localStorage so the UI isn't blank,
+            // but features that require a MongoDB ID will not work
+            setCurrentChild(child);
+            setStep(AppStep.HOME);
+          });
+      } else {
+        setCurrentChild(child);
+        setStep(AppStep.HOME);
+      }
     } else {
       setStep(AppStep.ONBOARDING);
     }
   }, []);
 
-  const handleProfileComplete = (child: ChildProfile) => {
+  const handleProfileComplete = async (child: ChildProfile) => {
     setCurrentChild(child);
     setOnboardingComplete();
     setStep(AppStep.HOME);
@@ -79,6 +99,11 @@ const App: React.FC = () => {
       return;
     }
 
+    if (!isMongoId(currentChild.id)) {
+      setError('Child profile is not synced with the server. Please restart the app or re-create the profile.');
+      return;
+    }
+
     setStep(AppStep.ANALYZING);
     setError(null);
 
@@ -93,6 +118,14 @@ const App: React.FC = () => {
       const savedAnalysis = saveAnalysis(analysisResult);
       setResult(savedAnalysis);
       setStep(AppStep.RESULTS);
+
+      // Save pre-computed analysis result to backend (non-blocking)
+      apiService.saveAnalysisResult(currentChild.id, {
+        ...analysisResult,
+        childAgeMonths: currentChild.ageMonths,
+      }).catch((err) => {
+        console.error('Failed to save analysis to backend:', err);
+      });
     } catch (err) {
       console.error('Analysis failed:', err);
       setError('Analysis failed. Please try again.');
@@ -200,13 +233,41 @@ const App: React.FC = () => {
   // Home Dashboard
   if (step === AppStep.HOME && currentChild) {
     return (
-      <HomeDashboard
-        child={currentChild}
-        onNavigate={handleNavigate}
-        onStartAnalysis={() => setStep(AppStep.UPLOAD)}
-        onSwitchChild={handleSwitchChild}
-        onAddChild={handleAddChild}
-      />
+      <>
+        {syncError && (
+          <div className="bg-amber-50 border-b border-amber-200 px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-amber-800 text-sm">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <span>{syncError}</span>
+            </div>
+            <button
+              onClick={() => {
+                setSyncError(null);
+                if (!isMongoId(currentChild.id)) {
+                  syncLocalChildToBackend(currentChild)
+                    .then((syncedChild) => {
+                      setCurrentChild(syncedChild);
+                      setSyncError(null);
+                    })
+                    .catch(() => {
+                      setSyncError('Still unable to connect to the server.');
+                    });
+                }
+              }}
+              className="text-amber-700 text-sm font-medium underline ml-2 flex-shrink-0"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+        <HomeDashboard
+          child={currentChild}
+          onNavigate={handleNavigate}
+          onStartAnalysis={() => setStep(AppStep.UPLOAD)}
+          onSwitchChild={handleSwitchChild}
+          onAddChild={handleAddChild}
+        />
+      </>
     );
   }
 

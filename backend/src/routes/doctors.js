@@ -33,14 +33,22 @@ router.get('/', authMiddleware, async (req, res) => {
 // Get doctors with analysis-based recommendations
 router.get('/recommended/:childId', authMiddleware, async (req, res) => {
   try {
-    // 1. Find child
-    const child = await Child.findOne({ _id: req.params.childId });
+    // 1. Find child (safely handles non-ObjectId string IDs)
+    const child = await Child.findByAnyId(req.params.childId);
     if (!child) {
-      return res.status(404).json({ error: 'Child not found' });
+      // Child not in DB (e.g., web app local ID not synced) — fallback to all doctors
+      const doctors = await Doctor.find({ isActive: true }).sort({ rating: -1 });
+      return res.json({
+        flaggedDomains: [],
+        domainScores: {},
+        childName: '',
+        recommended: [],
+        others: doctors.map(d => d.toObject()),
+      });
     }
 
     // 2. Get latest analysis for child
-    const latestAnalysis = await Analysis.findOne({ childId: child._id })
+    const latestAnalysis = await Analysis.findOne({ childId: String(child._id) })
       .sort({ createdAt: -1 });
 
     if (!latestAnalysis) {

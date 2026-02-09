@@ -13,13 +13,11 @@ router.get('/:childId', authMiddleware, async (req, res) => {
   try {
     const { domain, type } = req.query;
 
-    const child = await Child.findOne({ _id: req.params.childId });
-    if (!child) {
-      return res.status(404).json({ error: 'Child not found' });
-    }
+    const child = await Child.findByAnyId(req.params.childId);
 
-    // Build filter for current resources
-    const filter = { childId: child._id, isCurrent: true };
+    // Build filter for current resources — use string childId directly
+    const childIdForQuery = child ? String(child._id) : req.params.childId;
+    const filter = { childId: childIdForQuery, isCurrent: true };
     if (domain) {
       filter.domain = domain;
     }
@@ -32,11 +30,11 @@ router.get('/:childId', authMiddleware, async (req, res) => {
     // Get domain and type counts via aggregation
     const [domainCounts, typeCounts] = await Promise.all([
       Resource.aggregate([
-        { $match: { childId: child._id, isCurrent: true } },
+        { $match: { childId: childIdForQuery, isCurrent: true } },
         { $group: { _id: '$domain', count: { $sum: 1 } } },
       ]),
       Resource.aggregate([
-        { $match: { childId: child._id, isCurrent: true } },
+        { $match: { childId: childIdForQuery, isCurrent: true } },
         { $group: { _id: '$type', count: { $sum: 1 } } },
       ]),
     ]);
@@ -70,12 +68,12 @@ router.get('/:childId', authMiddleware, async (req, res) => {
 router.post('/:childId/regenerate', authMiddleware, async (req, res) => {
   try {
     // 1. Find child and latest analysis
-    const child = await Child.findOne({ _id: req.params.childId });
+    const child = await Child.findByAnyId(req.params.childId);
     if (!child) {
-      return res.status(404).json({ error: 'Child not found' });
+      return res.status(400).json({ error: 'Child profile not synced to server. Run an analysis first.' });
     }
 
-    const latestAnalysis = await Analysis.findOne({ childId: child._id })
+    const latestAnalysis = await Analysis.findOne({ childId: String(child._id) })
       .sort({ createdAt: -1 });
 
     if (!latestAnalysis) {
@@ -91,7 +89,7 @@ router.post('/:childId/regenerate', authMiddleware, async (req, res) => {
 
     // 2. Mark old resources as not current
     await Resource.updateMany(
-      { childId: child._id, isCurrent: true },
+      { childId: String(child._id), isCurrent: true },
       { $set: { isCurrent: false } }
     );
 
@@ -100,8 +98,8 @@ router.post('/:childId/regenerate', authMiddleware, async (req, res) => {
 
     // 4. Save new resources with isCurrent=true
     const resourceDocs = generatedResources.map(r => ({
-      childId: child._id,
-      analysisId: latestAnalysis._id,
+      childId: String(child._id),
+      analysisId: String(latestAnalysis._id),
       domain: r.domain,
       type: r.type,
       title: r.title,

@@ -52,14 +52,11 @@ const growthPercentileSchema = new mongoose.Schema({
 
 const analysisSchema = new mongoose.Schema({
   childId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Child',
+    type: String,
     required: true,
   },
   userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
+    type: String,
   },
   mediaFiles: [{
     url: String,
@@ -95,7 +92,7 @@ const analysisSchema = new mongoose.Schema({
   sources: [{
     title: String,
     url: String,
-    type: String,
+    type: { type: String },
   }],
   childAgeAtAnalysis: {
     type: Number, // months

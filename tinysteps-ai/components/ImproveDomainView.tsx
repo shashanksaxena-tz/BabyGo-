@@ -23,10 +23,30 @@ interface Resource {
   imageUrl?: string;
   duration?: string;
   ageRange?: string;
-  priority?: number;
+  priority?: string;
+  difficulty?: string;
   url?: string;
-  rating?: number;
-  source?: string;
+  tags?: string[];
+  whoSources?: Array<{ title: string; url: string; domain: string }>;
+}
+
+// Maps a backend resource object to the frontend Resource interface
+function mapResource(r: any): Resource {
+  return {
+    id: r._id || r.id,
+    title: r.title,
+    description: r.description,
+    type: r.type,
+    domain: r.domain,
+    imageUrl: r.imageUrl,
+    duration: r.duration,
+    ageRange: r.ageRange,
+    priority: r.priority,
+    difficulty: r.difficulty,
+    url: r.sourceUrl || r.url,
+    tags: r.tags,
+    whoSources: r.whoSources,
+  };
 }
 
 interface ImproveDomainViewProps {
@@ -111,7 +131,12 @@ const ImproveDomainView: React.FC<ImproveDomainViewProps> = ({
         type: activeTab,
       });
       if (result.data) {
-        setResources(Array.isArray(result.data) ? result.data : []);
+        // Backend returns { resources: [...], counts: {...} }
+        const responseData = result.data as any;
+        const rawResources = Array.isArray(responseData.resources)
+          ? responseData.resources
+          : Array.isArray(responseData) ? responseData : [];
+        setResources(rawResources.map(mapResource));
       }
     } catch (err) {
       console.error('Failed to fetch resources:', err);
@@ -123,7 +148,11 @@ const ImproveDomainView: React.FC<ImproveDomainViewProps> = ({
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await apiService.regenerateResources(childId);
+      const result = await apiService.regenerateResources(childId);
+      if (result.error) {
+        console.error('Regenerate error:', result.error);
+      }
+      // Fetch fresh resources after regeneration
       await fetchResources();
     } catch (err) {
       console.error('Failed to regenerate resources:', err);
@@ -248,10 +277,10 @@ const ImproveDomainView: React.FC<ImproveDomainViewProps> = ({
                         {featuredResource.duration}
                       </span>
                     )}
-                    {featuredResource.rating && (
-                      <span className="flex items-center gap-1">
+                    {featuredResource.difficulty && (
+                      <span className="flex items-center gap-1 capitalize">
                         <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                        {featuredResource.rating}
+                        {featuredResource.difficulty}
                       </span>
                     )}
                     {featuredResource.ageRange && (
@@ -296,10 +325,10 @@ const ImproveDomainView: React.FC<ImproveDomainViewProps> = ({
                             {resource.duration}
                           </span>
                         )}
-                        {resource.rating && (
-                          <span className="flex items-center gap-1">
+                        {resource.difficulty && (
+                          <span className="flex items-center gap-1 capitalize">
                             <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
-                            {resource.rating}
+                            {resource.difficulty}
                           </span>
                         )}
                       </div>

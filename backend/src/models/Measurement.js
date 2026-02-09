@@ -2,13 +2,12 @@ import mongoose from 'mongoose';
 
 const measurementSchema = new mongoose.Schema({
   childId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Child',
+    type: String,
     required: true,
+    index: true,
   },
   userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    type: String,
     required: true,
   },
   date: {

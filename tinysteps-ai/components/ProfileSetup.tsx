@@ -13,11 +13,12 @@ import {
   Check,
   Camera,
   Upload,
+  AlertCircle,
 } from 'lucide-react';
 import { ChildProfile, Interest, Region } from '../types';
 import { REGIONS } from '../services/whoDataService';
 import { AVAILABLE_INTERESTS, INTEREST_CATEGORIES, POPULAR_CHARACTERS, FAVORITE_COLORS } from '../data/interests';
-import { saveChild, getChildren } from '../services/storageService';
+import { saveChildAsync, getChildren } from '../services/storageService';
 
 interface ProfileSetupProps {
   onComplete: (child: ChildProfile) => void;
@@ -97,27 +98,39 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ onComplete, onBack }) => {
     }));
   };
 
-  const handleSubmit = () => {
-    if (!selectedRegion) return;
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-    const child = saveChild({
-      name: formData.name,
-      nickname: formData.nickname || undefined,
-      dateOfBirth: formData.dateOfBirth,
-      ageMonths,
-      gender: formData.gender as 'male' | 'female' | 'other',
-      weight: parseFloat(formData.weight) || 0,
-      height: parseFloat(formData.height) || 0,
-      headCircumference: formData.headCircumference ? parseFloat(formData.headCircumference) : undefined,
-      region: selectedRegion,
-      interests: formData.interests,
-      favoriteCharacters: formData.favoriteCharacters,
-      favoriteToys: formData.favoriteToys,
-      favoriteColors: formData.favoriteColors,
-      profilePhoto: formData.profilePhoto || undefined,
-    });
+  const handleSubmit = async () => {
+    if (!selectedRegion || isSubmitting) return;
 
-    onComplete(child);
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      const child = await saveChildAsync({
+        name: formData.name,
+        nickname: formData.nickname || undefined,
+        dateOfBirth: formData.dateOfBirth,
+        ageMonths,
+        gender: formData.gender as 'male' | 'female' | 'other',
+        weight: parseFloat(formData.weight) || 0,
+        height: parseFloat(formData.height) || 0,
+        headCircumference: formData.headCircumference ? parseFloat(formData.headCircumference) : undefined,
+        region: selectedRegion,
+        interests: formData.interests,
+        favoriteCharacters: formData.favoriteCharacters,
+        favoriteToys: formData.favoriteToys,
+        favoriteColors: formData.favoriteColors,
+        profilePhoto: formData.profilePhoto || undefined,
+      });
+
+      onComplete(child);
+    } catch (err) {
+      console.error('Failed to save child:', err);
+      setSubmitError('Could not create profile. Please check your internet connection and make sure the server is running, then try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const canProceed = () => {
@@ -553,6 +566,14 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ onComplete, onBack }) => {
                 )}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Error */}
+        {submitError && (
+          <div className="flex items-center gap-2 text-red-600 bg-red-50 p-4 rounded-xl mt-6">
+            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+            <span className="text-sm">{submitError}</span>
           </div>
         )}
 

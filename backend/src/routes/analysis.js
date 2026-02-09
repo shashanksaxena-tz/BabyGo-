@@ -10,6 +10,49 @@ import whoDataService from '../services/whoDataService.js';
 
 const router = express.Router();
 
+// Map frontend status strings to backend enum values
+function mapStatus(status) {
+  const statusMap = {
+    'ahead': 'on_track',
+    'on-track': 'on_track',
+    'on_track': 'on_track',
+    'monitor': 'emerging',
+    'emerging': 'emerging',
+    'discuss': 'needs_support',
+    'needs_support': 'needs_support',
+    'needs-support': 'needs_support',
+  };
+  return statusMap[status] || 'on_track';
+}
+
+// Map frontend domain data to backend assessment schema
+function mapDomainAssessment(domainData, domainName) {
+  if (!domainData) return { domain: domainName, score: 0, status: 'on_track', observations: [], strengths: [], areasToSupport: [], activities: [] };
+
+  return {
+    domain: domainName,
+    score: domainData.score || 0,
+    status: mapStatus(domainData.status || 'on_track'),
+    observations: domainData.observations || [],
+    strengths: domainData.observations?.slice(0, 2) || [],
+    areasToSupport: domainData.recommendations || [],
+    activities: domainData.recommendations || [],
+  };
+}
+
+// Map frontend physical growth to backend growth percentiles
+function mapGrowthPercentiles(physicalGrowth) {
+  if (!physicalGrowth) return [];
+  const percentiles = [];
+  if (physicalGrowth.weightPercentile != null) {
+    percentiles.push({ metric: 'weight', value: 0, percentile: physicalGrowth.weightPercentile, interpretation: physicalGrowth.description || '' });
+  }
+  if (physicalGrowth.heightPercentile != null) {
+    percentiles.push({ metric: 'height', value: 0, percentile: physicalGrowth.heightPercentile, interpretation: physicalGrowth.description || '' });
+  }
+  return percentiles;
+}
+
 // Configure multer for file uploads
 const storage = multer.memoryStorage();
 const upload = multer({
@@ -63,15 +106,109 @@ router.post('/growth-percentiles', authMiddleware, async (req, res) => {
   }
 });
 
+// Save pre-computed analysis result (from browser-side Gemini)
+router.post('/save', authMiddleware, async (req, res) => {
+  try {
+    const { childId, analysisData } = req.body;
+
+    if (!childId || !analysisData) {
+      return res.status(400).json({ error: 'childId and analysisData are required' });
+    }
+
+    // Find child (support both ObjectId and string IDs)
+    const child = await Child.findByAnyId(childId);
+    if (!child) {
+      return res.status(404).json({ error: 'Child not found. Please sync profile first.' });
+    }
+
+    // Map frontend analysis format to backend schema
+    const analysis = new Analysis({
+      childId: child._id.toString(),
+      userId: req.user?._id?.toString() || '',
+      overallScore: analysisData.overallScore || 0,
+      overallStatus: mapStatus(analysisData.overallStatus || analysisData.motorSkills?.status || 'on_track'),
+      summary: analysisData.headline || analysisData.reassurance || 'Development analysis completed',
+      motorAssessment: mapDomainAssessment(analysisData.motorSkills, 'motor'),
+      languageAssessment: mapDomainAssessment(analysisData.languageSkills, 'language'),
+      cognitiveAssessment: mapDomainAssessment(analysisData.cognitiveSkills, 'cognitive'),
+      socialAssessment: mapDomainAssessment(analysisData.socialEmotional, 'social'),
+      growthPercentiles: mapGrowthPercentiles(analysisData.physicalGrowth),
+      personalizedTips: (analysisData.tips || []).map(t => typeof t === 'string' ? t : t.title || t.description || ''),
+      activities: (analysisData.tips || []).flatMap(t => t.materials || []),
+      sources: (analysisData.sources || []).map(s => ({
+        title: s.title,
+        url: s.url,
+        type: s.type || 'guideline',
+      })),
+      childAgeAtAnalysis: analysisData.childAgeMonths || child.ageInMonths || 0,
+    });
+
+    await analysis.save();
+
+    // Add timeline entry
+    const timelineEntry = new TimelineEntry({
+      childId: child._id.toString(),
+      userId: req.user?._id?.toString() || '',
+      type: 'analysis',
+      date: new Date(),
+      title: 'Development Analysis',
+      description: analysisData.headline || 'Development analysis completed',
+      data: { analysisId: analysis._id.toString(), score: analysisData.overallScore },
+    });
+    await timelineEntry.save();
+
+    // Auto-generate resources (non-blocking, same as existing POST route)
+    try {
+      const apiKey = req.user?.geminiApiKey || process.env.GEMINI_API_KEY;
+      if (apiKey) {
+        geminiService.initialize(apiKey);
+
+        await Resource.updateMany(
+          { childId: child._id.toString(), isCurrent: true },
+          { $set: { isCurrent: false } }
+        );
+
+        const generatedResources = await geminiService.generateImprovementResources(child, analysis);
+        if (generatedResources.length > 0) {
+          const resourceDocs = generatedResources.map(r => ({
+            childId: child._id.toString(),
+            analysisId: analysis._id.toString(),
+            domain: r.domain,
+            type: r.type,
+            title: r.title,
+            description: r.description,
+            tags: r.tags,
+            ageRange: r.ageRange,
+            duration: r.duration,
+            difficulty: r.difficulty,
+            priority: r.priority,
+            isCurrent: true,
+          }));
+          await Resource.insertMany(resourceDocs);
+          console.log(`Auto-generated ${resourceDocs.length} resources for child ${child._id}`);
+        }
+      }
+    } catch (resourceErr) {
+      console.warn('Auto resource generation failed:', resourceErr.message);
+    }
+
+    res.status(201).json({
+      message: 'Analysis saved successfully',
+      analysis,
+    });
+  } catch (error) {
+    console.error('Save analysis error:', error);
+    res.status(500).json({ error: 'Failed to save analysis: ' + error.message });
+  }
+});
+
 // Create new analysis
 router.post('/', authMiddleware, upload.array('media', 10), async (req, res) => {
   try {
     const { childId } = req.body;
 
     // Get child
-    const child = await Child.findOne({
-      _id: childId
-    });
+    const child = await Child.findByAnyId(childId);
 
     if (!child) {
       return res.status(404).json({ error: 'Child not found' });
@@ -97,8 +234,8 @@ router.post('/', authMiddleware, upload.array('media', 10), async (req, res) => 
 
     // Save analysis
     const analysis = new Analysis({
-      childId: child._id,
-      userId: req.user._id,
+      childId: String(child._id),
+      userId: String(req.user._id),
       mediaFiles: mediaData.map((m, i) => ({
         filename: m.filename,
         type: m.mimeType.startsWith('video') ? 'video' : 'image',
@@ -110,13 +247,13 @@ router.post('/', authMiddleware, upload.array('media', 10), async (req, res) => 
 
     // Add timeline entry
     const timelineEntry = new TimelineEntry({
-      childId: child._id,
-      userId: req.user._id,
+      childId: String(child._id),
+      userId: String(req.user._id),
       type: 'analysis',
       date: new Date(),
       title: 'Development Analysis',
       description: analysisResult.summary,
-      data: { analysisId: analysis._id, score: analysisResult.overallScore },
+      data: { analysisId: String(analysis._id), score: analysisResult.overallScore },
     });
     await timelineEntry.save();
 
@@ -124,7 +261,7 @@ router.post('/', authMiddleware, upload.array('media', 10), async (req, res) => 
     try {
       // Mark old resources as not current
       await Resource.updateMany(
-        { childId: child._id, isCurrent: true },
+        { childId: String(child._id), isCurrent: true },
         { $set: { isCurrent: false } }
       );
 
@@ -133,8 +270,8 @@ router.post('/', authMiddleware, upload.array('media', 10), async (req, res) => 
 
       if (generatedResources.length > 0) {
         const resourceDocs = generatedResources.map(r => ({
-          childId: child._id,
-          analysisId: analysis._id,
+          childId: String(child._id),
+          analysisId: String(analysis._id),
           domain: r.domain,
           type: r.type,
           title: r.title,
@@ -168,15 +305,7 @@ router.post('/', authMiddleware, upload.array('media', 10), async (req, res) => 
 // Get analyses for child
 router.get('/:childId', authMiddleware, async (req, res) => {
   try {
-    const child = await Child.findOne({
-      _id: req.params.childId
-    });
-
-    if (!child) {
-      return res.status(404).json({ error: 'Child not found' });
-    }
-
-    const analyses = await Analysis.find({ childId: child._id })
+    const analyses = await Analysis.find({ childId: req.params.childId })
       .sort({ createdAt: -1 })
       .limit(50);
 

@@ -18,7 +18,7 @@ router.get('/:childId', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Child not found' });
     }
 
-    const entries = await TimelineEntry.find({ childId: child._id })
+    const entries = await TimelineEntry.find({ childId: String(child._id) })
       .sort({ date: -1 })
       .limit(100);
 
@@ -51,8 +51,8 @@ router.post('/', authMiddleware, [
     }
 
     const entry = new TimelineEntry({
-      childId: child._id,
-      userId: req.user._id,
+      childId: String(child._id),
+      userId: String(req.user._id),
       type,
       date: date || new Date(),
       title,
@@ -108,8 +108,8 @@ router.post('/measurement', authMiddleware, [
 
     // Save measurement
     const measurement = new Measurement({
-      childId: child._id,
-      userId: req.user._id,
+      childId: String(child._id),
+      userId: String(req.user._id),
       date: date || new Date(),
       weight,
       height,
@@ -127,13 +127,13 @@ router.post('/measurement', authMiddleware, [
 
     // Add timeline entry
     const entry = new TimelineEntry({
-      childId: child._id,
-      userId: req.user._id,
+      childId: String(child._id),
+      userId: String(req.user._id),
       type: 'measurement',
       date: date || new Date(),
       title: 'Growth Measurement',
       description: `Weight: ${weight || '-'} kg, Height: ${height || '-'} cm`,
-      data: { measurementId: measurement._id, weight, height, headCircumference },
+      data: { measurementId: String(measurement._id), weight, height, headCircumference },
     });
     await entry.save();
 
@@ -158,7 +158,7 @@ router.get('/measurements/:childId', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Child not found' });
     }
 
-    const measurements = await Measurement.find({ childId: child._id })
+    const measurements = await Measurement.find({ childId: String(child._id) })
       .sort({ date: 1 });
 
     res.json({ measurements });

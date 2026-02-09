@@ -36,7 +36,7 @@ router.get('/:childId', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Child not found' });
     }
 
-    const stories = await Story.find({ childId: child._id })
+    const stories = await Story.find({ childId: String(child._id) })
       .sort({ createdAt: -1 })
       .limit(50);
 
@@ -87,8 +87,8 @@ router.post('/', authMiddleware, [
 
     // Save story
     const story = new Story({
-      childId: child._id,
-      userId: req.user._id,
+      childId: String(child._id),
+      userId: String(req.user._id),
       title: storyData.title,
       theme: {
         id: theme.id,

@@ -24,7 +24,7 @@ import {
   BarChart3,
 } from 'lucide-react';
 import { ChildProfile, AnalysisResult, TimelineEntry, Notification } from '../types';
-import { getTimeline, getAnalyses, getNotifications, getChildren, setCurrentChild } from '../services/storageService';
+import { getTimeline, getAnalyses, getNotifications, getChildren, setCurrentChild, fetchAnalyses, fetchTimeline } from '../services/storageService';
 import { getMilestonesForAge, getUpcomingMilestones, assessGrowth } from '../services/whoDataService';
 import { getPersonalizedGreeting, getThemedNotification } from '../data/interests';
 import { RadialBarChart, RadialBar, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from 'recharts';
@@ -47,10 +47,21 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ child, onNavigate, onStar
 
   useEffect(() => {
     setGreeting(getPersonalizedGreeting(child.name, child.interests));
+
+    // Load from localStorage immediately for fast display
     setTimeline(getTimeline(child.id).slice(0, 5));
     setAnalyses(getAnalyses(child.id).slice(0, 3));
     setNotifications(getNotifications(child.id).filter(n => !n.read).slice(0, 3));
     setAllChildren(getChildren());
+
+    // Then fetch from API and update (non-blocking)
+    fetchAnalyses(child.id).then((apiAnalyses) => {
+      setAnalyses(apiAnalyses.slice(0, 3));
+    }).catch(() => {});
+
+    fetchTimeline(child.id).then((apiTimeline) => {
+      setTimeline(apiTimeline.slice(0, 5));
+    }).catch(() => {});
   }, [child]);
 
   const milestones = getMilestonesForAge(child.ageMonths);
@@ -192,10 +203,10 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ child, onNavigate, onStar
 
               <div className="flex-1 space-y-2">
                 {[
-                  { label: 'Motor', value: latestAnalysis.motorSkills.score, color: 'emerald' },
-                  { label: 'Cognitive', value: latestAnalysis.cognitiveSkills.score, color: 'blue' },
-                  { label: 'Language', value: latestAnalysis.languageSkills.score, color: 'purple' },
-                  { label: 'Social', value: latestAnalysis.socialEmotional.score, color: 'pink' },
+                  { label: 'Motor', value: latestAnalysis.motorSkills?.score ?? 0, color: 'emerald' },
+                  { label: 'Cognitive', value: latestAnalysis.cognitiveSkills?.score ?? 0, color: 'blue' },
+                  { label: 'Language', value: latestAnalysis.languageSkills?.score ?? 0, color: 'purple' },
+                  { label: 'Social', value: latestAnalysis.socialEmotional?.score ?? 0, color: 'pink' },
                 ].map(item => (
                   <div key={item.label} className="flex items-center gap-2">
                     <span className="text-xs text-gray-500 w-16">{item.label}</span>

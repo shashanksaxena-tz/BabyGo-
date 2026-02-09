@@ -18,6 +18,7 @@ import doctorRoutes from './routes/doctors.js';
 import resourceRoutes from './routes/resources.js';
 import reportRoutes from './routes/reports.js';
 import storageService from './services/storageService.js';
+import { runMigrations } from './services/migrationRunner.js';
 
 // Load environment variables
 dotenv.config();
@@ -183,6 +184,14 @@ const connectDB = async () => {
 // Start server
 const startServer = async () => {
   await connectDB();
+
+  // Run database migrations (non-blocking - server starts even if migrations fail)
+  try {
+    await runMigrations();
+  } catch (error) {
+    console.warn('⚠️ Migration runner encountered an error:', error.message);
+    console.warn('   Server will continue starting without completed migrations.');
+  }
 
   // Initialize MinIO storage (non-blocking - app works without it)
   try {

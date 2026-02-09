@@ -16,7 +16,7 @@ import {
   Image as ImageIcon,
 } from 'lucide-react';
 import { ChildProfile, BedtimeStory } from '../types';
-import { getStories, saveStory, updateStory } from '../services/storageService';
+import { getStories, saveStory, updateStory, fetchStories } from '../services/storageService';
 import { generateBedtimeStory, generateStoryIllustration } from '../services/geminiService';
 
 interface BedtimeStoriesProps {
@@ -35,7 +35,13 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
   const [illustrationCache, setIllustrationCache] = useState<Record<string, string>>({});
 
   useEffect(() => {
+    // Load from localStorage immediately
     setStories(getStories(child.id));
+
+    // Then fetch from API
+    fetchStories(child.id).then((apiStories) => {
+      setStories(apiStories);
+    }).catch(() => {});
   }, [child.id]);
 
   const storyThemes = [

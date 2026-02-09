@@ -81,3 +81,35 @@ npm run dev
 ## 📚 Documentation
 - See [CLAUDE.md](./CLAUDE.md) for AI Context.
 - See [ARCHITECTURE.md](./ARCHITECTURE.md) for System Design.
+
+
+Future prompt :
+From the Home Dashboard (Quick Actions grid):                                                                                                                            
+  ┌──────────────────────┬───────────────────────────────────────────┬───────────────┐                                                                                       
+  │        Screen        │               How to reach                │ Card position │                                                                                       
+  ├──────────────────────┼───────────────────────────────────────────┼───────────────┤
+  │ Health Hub           │ "Health Hub" card (Stethoscope icon, red) │ Row 3, left   │
+  ├──────────────────────┼───────────────────────────────────────────┼───────────────┤
+  │ Resources Library    │ "Resources" card (Library icon, teal)     │ Row 3, right  │
+  ├──────────────────────┼───────────────────────────────────────────┼───────────────┤
+  │ Pediatrician Report  │ "Reports" card (FileText icon, gray)      │ Row 4, left   │
+  ├──────────────────────┼───────────────────────────────────────────┼───────────────┤
+  │ Development Insights │ "Insights" card (BarChart3 icon, purple)  │ Row 4, right  │
+  └──────────────────────┴───────────────────────────────────────────┴───────────────┘
+  Also from the Development Overview section at the top of the home page:
+  - "View Report" link (top right) → Pediatrician Report (only if an analysis exists)
+  - Click the score circle → Development Insights (only if an analysis exists)
+
+  From inside the new screens (deeper navigation):
+  ┌──────────────────┬────────────────────────────────────────────────────────┐
+  │      Screen      │                      How to reach                      │
+  ├──────────────────┼────────────────────────────────────────────────────────┤
+  │ Generated Report │ Click a report inside Pediatrician Report screen       │
+  ├──────────────────┼────────────────────────────────────────────────────────┤
+  │ Improve Domain   │ Click a domain card inside Development Insights screen │
+  ├──────────────────┼────────────────────────────────────────────────────────┤
+  │ WHO Evidence     │ Links from within some new screens                     │
+  └──────────────────┴────────────────────────────────────────────────────────┘
+
+ none of this is visible atlest in the react app.. think logically in workflow which screen makes sense where... think link an experineced PO    
+  and UX designer for the app and advocate changes suggestions based on workflow, think as a parent as well... what would like the workflow too be...  

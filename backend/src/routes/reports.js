@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import PDFDocument from 'pdfkit';
 import Report from '../models/Report.js';
 import Analysis from '../models/Analysis.js';
@@ -235,6 +236,7 @@ async function generateReportPDF(report) {
 // -------------------------------------------------------------------
 router.get('/:childId', authMiddleware, async (req, res) => {
   try {
+    // Use the childId string directly — Report.childId is now a String field
     const reports = await Report.find({ childId: req.params.childId })
       .sort({ createdAt: -1 })
       .limit(20);
@@ -251,13 +253,13 @@ router.get('/:childId', authMiddleware, async (req, res) => {
 // -------------------------------------------------------------------
 router.post('/:childId/generate', authMiddleware, async (req, res) => {
   try {
-    const child = await Child.findOne({ _id: req.params.childId });
+    const child = await Child.findByAnyId(req.params.childId);
     if (!child) {
-      return res.status(404).json({ error: 'Child not found' });
+      return res.status(400).json({ error: 'Child profile not synced to server.' });
     }
 
     // Get the latest analysis for this child
-    const analysis = await Analysis.findOne({ childId: req.params.childId })
+    const analysis = await Analysis.findOne({ childId: String(child._id) })
       .sort({ createdAt: -1 });
 
     if (!analysis) {
@@ -311,9 +313,9 @@ router.post('/:childId/generate', authMiddleware, async (req, res) => {
 
     // Create the report
     const report = new Report({
-      childId: child._id,
-      userId: req.user._id,
-      analysisId: analysis._id,
+      childId: String(child._id),
+      userId: String(req.user._id),
+      analysisId: String(analysis._id),
       reportNumber,
       patientInfo,
       overallScore: analysis.overallScore,
@@ -345,6 +347,11 @@ router.post('/:childId/generate', authMiddleware, async (req, res) => {
 // -------------------------------------------------------------------
 router.get('/:childId/:id', authMiddleware, async (req, res) => {
   try {
+    // Validate report _id is a valid ObjectId before querying
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({ error: 'Report not found' });
+    }
+
     const report = await Report.findOne({
       _id: req.params.id,
       childId: req.params.childId,
@@ -366,6 +373,11 @@ router.get('/:childId/:id', authMiddleware, async (req, res) => {
 // -------------------------------------------------------------------
 router.get('/:childId/:id/pdf', authMiddleware, async (req, res) => {
   try {
+    // Validate report _id is a valid ObjectId before querying
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({ error: 'Report not found' });
+    }
+
     const report = await Report.findOne({
       _id: req.params.id,
       childId: req.params.childId,
@@ -395,6 +407,11 @@ router.get('/:childId/:id/pdf', authMiddleware, async (req, res) => {
 router.post('/:childId/:id/share', authMiddleware, async (req, res) => {
   try {
     const { method, recipient } = req.body;
+
+    // Validate report _id is a valid ObjectId before querying
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({ error: 'Report not found' });
+    }
 
     const report = await Report.findOne({
       _id: req.params.id,

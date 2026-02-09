@@ -12,7 +12,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { ChildProfile, Interest } from '../types';
-import { updateChild, deleteChild } from '../services/storageService';
+import { updateChildAsync, deleteChildAsync } from '../services/storageService';
 import { AVAILABLE_INTERESTS, INTEREST_CATEGORIES, POPULAR_CHARACTERS, FAVORITE_COLORS } from '../data/interests';
 
 interface EditProfileProps {
@@ -82,7 +82,7 @@ const EditProfile: React.FC<EditProfileProps> = ({ child, onSave, onBack, onDele
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const updatedChild = updateChild(child.id, {
+      const updatedChild = await updateChildAsync(child.id, {
         name: formData.name,
         nickname: formData.nickname || undefined,
         weight: parseFloat(formData.weight) || child.weight,
@@ -105,8 +105,9 @@ const EditProfile: React.FC<EditProfileProps> = ({ child, onSave, onBack, onDele
     }
   };
 
-  const handleDelete = () => {
-    if (deleteChild(child.id)) {
+  const handleDelete = async () => {
+    const success = await deleteChildAsync(child.id);
+    if (success) {
       onDelete?.();
     }
   };

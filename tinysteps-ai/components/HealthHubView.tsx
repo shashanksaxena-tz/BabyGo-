@@ -57,6 +57,19 @@ const HealthHubView: React.FC<HealthHubViewProps> = ({
     fetchDoctors();
   }, [childId, activeCategory]);
 
+  const mapDoctor = (d: any): Doctor => ({
+    id: d?._id || d?.id || '',
+    name: d?.name || '',
+    specialty: d?.subSpecialty || d?.specialty || '',
+    rating: d?.rating || 0,
+    experience: typeof d?.experience === 'string' ? d.experience : `${d?.experienceYears || 0} yrs`,
+    distance: typeof d?.distance === 'string' ? d.distance : d?.distance != null ? `${d.distance} km` : undefined,
+    fee: typeof d?.fee === 'string' ? d.fee : d?.consultationFee != null ? `${d?.currency || 'INR'} ${d.consultationFee}` : undefined,
+    qualifications: d?.qualifications,
+    imageUrl: d?.avatarUrl || d?.imageUrl,
+    recommended: d?.isRecommended || false,
+  });
+
   const fetchDoctors = async () => {
     setLoading(true);
     try {
@@ -64,27 +77,44 @@ const HealthHubView: React.FC<HealthHubViewProps> = ({
       if (activeCategory !== 'all') params.specialty = activeCategory;
 
       const [recommendedResult, allResult] = await Promise.all([
-        apiService.getRecommendedDoctors(childId),
-        apiService.getDoctors(params),
+        apiService.getRecommendedDoctors(childId).catch(() => ({ data: null })),
+        apiService.getDoctors(params).catch(() => ({ data: null })),
       ]);
 
       const recommendedIds = new Set<string>();
       const recommendedDocs: Doctor[] = [];
-      if (recommendedResult.data && Array.isArray(recommendedResult.data)) {
-        (recommendedResult.data as Doctor[]).forEach((d) => {
-          recommendedIds.add(d.id);
-          recommendedDocs.push({ ...d, recommended: true });
-        });
-      }
+      const recData = recommendedResult?.data as any;
 
+      // The recommended endpoint returns { recommended: [...], others: [...] }
+      const recList = recData?.recommended || [];
+      (Array.isArray(recList) ? recList : []).forEach((d: any) => {
+        const doc = mapDoctor(d);
+        if (doc.id) {
+          recommendedIds.add(doc.id);
+          recommendedDocs.push({ ...doc, recommended: true });
+        }
+      });
+
+      // Also include "others" from the recommended endpoint
+      const recOthers = recData?.others || [];
+      (Array.isArray(recOthers) ? recOthers : []).forEach((d: any) => {
+        const doc = mapDoctor(d);
+        if (doc.id && !recommendedIds.has(doc.id)) {
+          recommendedIds.add(doc.id);
+          recommendedDocs.push(doc);
+        }
+      });
+
+      // If we got additional doctors from the general endpoint, add any not already seen
       const otherDocs: Doctor[] = [];
-      if (allResult.data && Array.isArray(allResult.data)) {
-        (allResult.data as Doctor[]).forEach((d) => {
-          if (!recommendedIds.has(d.id)) {
-            otherDocs.push(d);
-          }
-        });
-      }
+      const allData = allResult?.data as any;
+      const allList = Array.isArray(allData) ? allData : allData?.doctors || [];
+      (Array.isArray(allList) ? allList : []).forEach((d: any) => {
+        const doc = mapDoctor(d);
+        if (doc.id && !recommendedIds.has(doc.id)) {
+          otherDocs.push(doc);
+        }
+      });
 
       setDoctors([...recommendedDocs, ...otherDocs]);
     } catch (err) {

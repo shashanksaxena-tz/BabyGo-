@@ -21,8 +21,29 @@ interface Resource {
   domain: string;
   imageUrl?: string;
   duration?: string;
-  rating?: number;
+  difficulty?: string;
+  priority?: string;
+  url?: string;
+  tags?: string[];
   createdAt?: string;
+}
+
+// Maps a backend resource object to the frontend Resource interface
+function mapResource(r: any): Resource {
+  return {
+    id: r._id || r.id,
+    title: r.title,
+    description: r.description,
+    type: r.type,
+    domain: r.domain,
+    imageUrl: r.imageUrl,
+    duration: r.duration,
+    difficulty: r.difficulty,
+    priority: r.priority,
+    url: r.sourceUrl || r.url,
+    tags: r.tags,
+    createdAt: r.createdAt,
+  };
 }
 
 interface ResourcesLibraryViewProps {
@@ -63,8 +84,12 @@ const ResourcesLibraryView: React.FC<ResourcesLibraryViewProps> = ({
     try {
       const result = await apiService.getResources(childId);
       if (result.data) {
-        const all = Array.isArray(result.data) ? result.data : [];
-        setRecentResources(all.slice(0, 6));
+        // Backend returns { resources: [...], counts: {...} }
+        const responseData = result.data as any;
+        const rawResources = Array.isArray(responseData.resources)
+          ? responseData.resources
+          : Array.isArray(responseData) ? responseData : [];
+        setRecentResources(rawResources.slice(0, 6).map(mapResource));
       }
     } catch (err) {
       console.error('Failed to fetch resources:', err);
@@ -208,10 +233,10 @@ const ResourcesLibraryView: React.FC<ResourcesLibraryViewProps> = ({
                         <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full capitalize">
                           {resource.domain}
                         </span>
-                        {resource.rating && (
-                          <span className="flex items-center gap-1 text-xs text-gray-400">
+                        {resource.difficulty && (
+                          <span className="flex items-center gap-1 text-xs text-gray-400 capitalize">
                             <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
-                            {resource.rating}
+                            {resource.difficulty}
                           </span>
                         )}
                       </div>

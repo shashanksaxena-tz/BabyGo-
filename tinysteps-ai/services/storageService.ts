@@ -8,6 +8,7 @@ import {
   UserPreferences,
   AppState,
 } from '../types';
+import apiService from './apiService';
 
 const STORAGE_KEYS = {
   CHILDREN: 'tinysteps_children',
@@ -33,6 +34,55 @@ function safeJsonParse<T>(json: string | null, defaultValue: T): T {
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
+
+// Check if an ID is a valid MongoDB ObjectId (24-char hex string)
+export function isMongoId(id: string): boolean {
+  return /^[0-9a-fA-F]{24}$/.test(id);
+}
+
+// Convert backend child data to frontend ChildProfile format
+function backendChildToProfile(backendChild: any): ChildProfile {
+  return {
+    id: backendChild._id || backendChild.id,
+    name: backendChild.name,
+    nickname: backendChild.nickname,
+    dateOfBirth: backendChild.dateOfBirth,
+    ageMonths: backendChild.ageInMonths ?? backendChild.ageMonths ?? 0,
+    gender: backendChild.gender,
+    weight: backendChild.weight,
+    height: backendChild.height,
+    headCircumference: backendChild.headCircumference,
+    region: typeof backendChild.region === 'string'
+      ? { code: backendChild.region.toUpperCase(), name: backendChild.region, whoRegion: backendChild.region.toUpperCase() as any }
+      : backendChild.region,
+    interests: backendChild.interests || [],
+    favoriteCharacters: backendChild.favoriteCharacters || [],
+    favoriteToys: backendChild.favoriteToys || [],
+    favoriteColors: backendChild.favoriteColors || [],
+    profilePhoto: backendChild.profilePhotoUrl || backendChild.profilePhoto,
+    createdAt: backendChild.createdAt,
+    updatedAt: backendChild.updatedAt,
+  };
+}
+
+// Convert frontend ChildProfile to backend API format
+function profileToBackendChild(child: Omit<ChildProfile, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }): any {
+  return {
+    name: child.name,
+    nickname: child.nickname,
+    dateOfBirth: child.dateOfBirth,
+    gender: child.gender,
+    weight: child.weight,
+    height: child.height,
+    headCircumference: child.headCircumference,
+    region: child.region?.whoRegion?.toLowerCase() || 'amro',
+    interests: (child.interests || []).map((i: any) => typeof i === 'string' ? i : i.name),
+    favoriteCharacters: child.favoriteCharacters || [],
+    favoriteToys: child.favoriteToys || [],
+    favoriteColors: child.favoriteColors || [],
+    profilePhotoUrl: child.profilePhoto,
+  };
 }
 
 // Child Profile Functions
@@ -74,6 +124,35 @@ export function saveChild(child: Omit<ChildProfile, 'id' | 'createdAt' | 'update
   return newChild;
 }
 
+// Async API-backed version: creates child in backend first, caches to localStorage.
+// This is the ONLY way to create a child. No local fallback -- children MUST have MongoDB IDs.
+export async function saveChildAsync(child: Omit<ChildProfile, 'id' | 'createdAt' | 'updatedAt'>): Promise<ChildProfile> {
+  const backendData = profileToBackendChild(child as any);
+  const result = await apiService.createChild(backendData);
+  const data = result.data as any;
+
+  if (!data?.child) {
+    throw new Error('Backend did not return a child object. Please check that the server is running.');
+  }
+
+  const newChild = backendChildToProfile(data.child);
+  // Preserve original interests format (with icon/category) for frontend use
+  newChild.interests = child.interests || [];
+  newChild.region = child.region;
+  newChild.profilePhoto = child.profilePhoto;
+
+  // Cache to localStorage
+  const children = getChildren();
+  children.push(newChild);
+  localStorage.setItem(STORAGE_KEYS.CHILDREN, JSON.stringify(children));
+
+  if (children.length === 1) {
+    setCurrentChild(newChild.id);
+  }
+
+  return newChild;
+}
+
 export function updateChild(id: string, updates: Partial<ChildProfile>): ChildProfile | null {
   const children = getChildren();
   const index = children.findIndex((c) => c.id === id);
@@ -86,6 +165,23 @@ export function updateChild(id: string, updates: Partial<ChildProfile>): ChildPr
   };
   localStorage.setItem(STORAGE_KEYS.CHILDREN, JSON.stringify(children));
   return children[index];
+}
+
+// Async API-backed version
+export async function updateChildAsync(id: string, updates: Partial<ChildProfile>): Promise<ChildProfile | null> {
+  // Update localStorage cache first for responsiveness
+  const localResult = updateChild(id, updates);
+
+  if (isMongoId(id)) {
+    try {
+      const backendData = profileToBackendChild({ ...localResult, ...updates } as any);
+      await apiService.updateChild(id, backendData);
+    } catch (err) {
+      console.error('API updateChild failed, localStorage cache updated:', err);
+    }
+  }
+
+  return localResult;
 }
 
 export function deleteChild(id: string): boolean {
@@ -104,6 +200,58 @@ export function deleteChild(id: string): boolean {
   }
 
   return true;
+}
+
+// Async API-backed version
+export async function deleteChildAsync(id: string): Promise<boolean> {
+  // Delete from localStorage cache first
+  const localResult = deleteChild(id);
+
+  if (isMongoId(id)) {
+    try {
+      await apiService.deleteChild(id);
+    } catch (err) {
+      console.error('API deleteChild failed, localStorage cache updated:', err);
+    }
+  }
+
+  return localResult;
+}
+
+// Sync a locally-created child to the backend, returning the new MongoDB-backed child.
+// Throws an error if the sync fails -- callers should handle the error and show UI feedback.
+export async function syncLocalChildToBackend(child: ChildProfile): Promise<ChildProfile> {
+  const backendData = profileToBackendChild(child);
+  const result = await apiService.createChild(backendData);
+  const data = result.data as any;
+
+  if (!data?.child) {
+    throw new Error('Backend did not return a child object during sync.');
+  }
+
+  const newChild = backendChildToProfile(data.child);
+  // Preserve frontend-specific fields
+  newChild.interests = child.interests || [];
+  newChild.region = child.region;
+  newChild.profilePhoto = child.profilePhoto;
+
+  // Replace old local child with new MongoDB-backed one in localStorage
+  const children = getChildren();
+  const index = children.findIndex((c) => c.id === child.id);
+  if (index !== -1) {
+    children[index] = newChild;
+  } else {
+    children.push(newChild);
+  }
+  localStorage.setItem(STORAGE_KEYS.CHILDREN, JSON.stringify(children));
+
+  // Update current child reference
+  const currentId = localStorage.getItem(STORAGE_KEYS.CURRENT_CHILD_ID);
+  if (currentId === child.id) {
+    setCurrentChild(newChild.id);
+  }
+
+  return newChild;
 }
 
 // Analysis Functions
@@ -144,6 +292,115 @@ export function saveAnalysis(analysis: Omit<AnalysisResult, 'id'>): AnalysisResu
   return newAnalysis;
 }
 
+// Map backend status values to frontend status values
+function mapBackendStatus(status: string): string {
+  switch (status) {
+    case 'on_track':
+      return 'on-track';
+    case 'emerging':
+      return 'monitor';
+    case 'needs_support':
+      return 'discuss';
+    default:
+      return status;
+  }
+}
+
+// Map a single backend domain assessment to frontend DomainAssessment format
+function mapBackendDomainAssessment(backendDomain: any, fallbackDomain: string): any {
+  if (!backendDomain) {
+    return {
+      domain: fallbackDomain,
+      score: 0,
+      status: 'monitor',
+      description: '',
+      observations: [],
+      recommendations: [],
+    };
+  }
+
+  return {
+    domain: backendDomain.domain || fallbackDomain,
+    score: backendDomain.score || 0,
+    status: mapBackendStatus(backendDomain.status || 'emerging'),
+    description: backendDomain.description || '',
+    percentile: backendDomain.percentile,
+    ageEquivalent: backendDomain.ageEquivalent,
+    observations: backendDomain.observations || [],
+    // Map areasToSupport -> recommendations (frontend field name in DomainAssessment)
+    recommendations: backendDomain.areasToSupport || backendDomain.recommendations || backendDomain.activities || [],
+  };
+}
+
+// Map a full backend analysis object to frontend AnalysisResult format
+function mapBackendAnalysis(a: any): AnalysisResult {
+  return {
+    id: a._id || a.id,
+    childId: a.childId,
+    timestamp: a.timestamp || a.createdAt,
+    mediaUploads: a.mediaUploads || a.mediaFiles || [],
+    headline: a.headline || a.summary || '',
+    overallScore: a.overallScore || 0,
+    // Map backend domain field names to frontend field names, with status mapping
+    motorSkills: mapBackendDomainAssessment(a.motorSkills || a.motorAssessment, 'motor'),
+    cognitiveSkills: mapBackendDomainAssessment(a.cognitiveSkills || a.cognitiveAssessment, 'cognitive'),
+    languageSkills: mapBackendDomainAssessment(a.languageSkills || a.languageAssessment, 'language'),
+    socialEmotional: mapBackendDomainAssessment(a.socialEmotional || a.socialAssessment, 'social'),
+    physicalGrowth: a.physicalGrowth || {
+      status: mapBackendStatus(a.overallStatus || 'on_track'),
+      description: '',
+      weightPercentile: 0,
+      heightPercentile: 0,
+    },
+    activity: a.activity || { pattern: '', description: '', engagementLevel: 'moderate' as const },
+    milestones: a.milestones || [],
+    tips: a.tips || (a.personalizedTips || []).map((t: string, i: number) => ({
+      id: `tip-${i}`,
+      category: 'activity' as const,
+      title: t,
+      description: t,
+      forAgeMonths: { min: 0, max: 72 },
+      difficulty: 'easy' as const,
+      duration: '10 min',
+    })),
+    reassurance: a.reassurance || a.summary || '',
+    sources: a.sources || [],
+    warnings: a.warnings,
+  };
+}
+
+// Async: Fetch analyses from API and cache to localStorage
+export async function fetchAnalyses(childId: string): Promise<AnalysisResult[]> {
+  // Safety check: don't make API calls with non-MongoDB IDs
+  if (!isMongoId(childId)) {
+    console.warn(`fetchAnalyses called with non-MongoDB ID: ${childId}. Returning empty array.`);
+    return [];
+  }
+
+  try {
+    const result = await apiService.getAnalyses(childId);
+    const data = result.data as any;
+    if (data?.analyses && Array.isArray(data.analyses)) {
+      const analyses: AnalysisResult[] = data.analyses.map(mapBackendAnalysis);
+
+      // Cache to localStorage
+      const allAnalyses = safeJsonParse<AnalysisResult[]>(
+        localStorage.getItem(STORAGE_KEYS.ANALYSES),
+        []
+      );
+      // Remove old entries for this child and add new ones
+      const otherAnalyses = allAnalyses.filter((a) => a.childId !== childId);
+      localStorage.setItem(STORAGE_KEYS.ANALYSES, JSON.stringify([...otherAnalyses, ...analyses]));
+
+      return analyses;
+    }
+  } catch (err) {
+    console.error('API fetchAnalyses failed, falling back to localStorage:', err);
+  }
+
+  return getAnalyses(childId);
+}
+
 // Timeline Functions
 export function getTimeline(childId?: string): TimelineEntry[] {
   const timeline = safeJsonParse<TimelineEntry[]>(
@@ -176,6 +433,47 @@ export function deleteTimelineEntry(id: string): boolean {
   if (filtered.length === timeline.length) return false;
   localStorage.setItem(STORAGE_KEYS.TIMELINE, JSON.stringify(filtered));
   return true;
+}
+
+// Async: Fetch timeline from API and cache to localStorage
+export async function fetchTimeline(childId: string): Promise<TimelineEntry[]> {
+  // Safety check: don't make API calls with non-MongoDB IDs
+  if (!isMongoId(childId)) {
+    console.warn(`fetchTimeline called with non-MongoDB ID: ${childId}. Returning empty array.`);
+    return [];
+  }
+
+  try {
+    const result = await apiService.getTimeline(childId);
+    const data = result.data as any;
+    if (data?.entries && Array.isArray(data.entries)) {
+      const entries: TimelineEntry[] = data.entries.map((e: any) => ({
+        id: e._id || e.id,
+        childId: e.childId,
+        timestamp: e.timestamp || e.date || e.createdAt,
+        type: e.type,
+        title: e.title,
+        description: e.description,
+        mediaUrl: e.mediaUrl,
+        analysisId: e.data?.analysisId || e.analysisId,
+        data: e.data,
+      }));
+
+      // Cache to localStorage
+      const allTimeline = safeJsonParse<TimelineEntry[]>(
+        localStorage.getItem(STORAGE_KEYS.TIMELINE),
+        []
+      );
+      const otherEntries = allTimeline.filter((t) => t.childId !== childId);
+      localStorage.setItem(STORAGE_KEYS.TIMELINE, JSON.stringify([...otherEntries, ...entries]));
+
+      return entries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    }
+  } catch (err) {
+    console.error('API fetchTimeline failed, falling back to localStorage:', err);
+  }
+
+  return getTimeline(childId);
 }
 
 // Story Functions
@@ -218,6 +516,101 @@ export function deleteStory(id: string): boolean {
   if (filtered.length === stories.length) return false;
   localStorage.setItem(STORAGE_KEYS.STORIES, JSON.stringify(filtered));
   return true;
+}
+
+// Async: Fetch stories from API and cache to localStorage
+export async function fetchStories(childId: string): Promise<BedtimeStory[]> {
+  // Safety check: don't make API calls with non-MongoDB IDs
+  if (!isMongoId(childId)) {
+    console.warn(`fetchStories called with non-MongoDB ID: ${childId}. Returning empty array.`);
+    return [];
+  }
+
+  try {
+    const result = await apiService.getStories(childId);
+    const data = result.data as any;
+    if (data?.stories && Array.isArray(data.stories)) {
+      const stories: BedtimeStory[] = data.stories.map((s: any) => ({
+        id: s._id || s.id,
+        childId: s.childId,
+        title: s.title,
+        theme: typeof s.theme === 'object' ? s.theme.name : s.theme,
+        content: s.pages ? s.pages.map((p: any) => p.text || p.content || '') : s.content || [],
+        illustrations: s.pages ? s.pages.map((p: any, i: number) => ({
+          sceneIndex: i,
+          description: p.illustrationPrompt || p.description || '',
+          imageUrl: p.illustrationUrl || p.imageUrl,
+          style: 'storybook' as const,
+        })) : s.illustrations || [],
+        duration: s.duration || 5,
+        createdAt: s.createdAt,
+        characters: s.characters || [],
+        moral: s.moral,
+      }));
+
+      // Cache to localStorage
+      const allStories = safeJsonParse<BedtimeStory[]>(
+        localStorage.getItem(STORAGE_KEYS.STORIES),
+        []
+      );
+      const otherStories = allStories.filter((s) => s.childId !== childId);
+      localStorage.setItem(STORAGE_KEYS.STORIES, JSON.stringify([...otherStories, ...stories]));
+
+      return stories;
+    }
+  } catch (err) {
+    console.error('API fetchStories failed, falling back to localStorage:', err);
+  }
+
+  return getStories(childId);
+}
+
+// Async: Fetch all children from API and cache to localStorage.
+// Backend is the source of truth -- local-only children (without MongoDB IDs) are discarded.
+export async function fetchChildren(): Promise<ChildProfile[]> {
+  try {
+    const result = await apiService.getChildren();
+    const data = result.data as any;
+    if (data?.children && Array.isArray(data.children)) {
+      const backendChildren: ChildProfile[] = data.children.map(backendChildToProfile);
+
+      // Merge with localStorage to preserve frontend-specific fields (interests with icons, etc.)
+      // for children that exist in the backend
+      const localChildren = getChildren();
+      const mergedChildren = backendChildren.map((bc) => {
+        const localMatch = localChildren.find((lc) => lc.id === bc.id);
+        if (localMatch) {
+          // Preserve frontend-specific rich fields from localStorage cache
+          return {
+            ...bc,
+            interests: localMatch.interests?.length ? localMatch.interests : bc.interests,
+            region: localMatch.region || bc.region,
+            profilePhoto: localMatch.profilePhoto || bc.profilePhoto,
+          };
+        }
+        return bc;
+      });
+
+      localStorage.setItem(STORAGE_KEYS.CHILDREN, JSON.stringify(mergedChildren));
+
+      // If the current child ID points to a local-only child that no longer exists,
+      // update it to the first backend child
+      const currentId = localStorage.getItem(STORAGE_KEYS.CURRENT_CHILD_ID);
+      if (currentId && !mergedChildren.find((c) => c.id === currentId)) {
+        if (mergedChildren.length > 0) {
+          setCurrentChild(mergedChildren[0].id);
+        } else {
+          localStorage.removeItem(STORAGE_KEYS.CURRENT_CHILD_ID);
+        }
+      }
+
+      return mergedChildren;
+    }
+  } catch (err) {
+    console.error('API fetchChildren failed, falling back to localStorage:', err);
+  }
+
+  return getChildren();
 }
 
 // Illustration Functions

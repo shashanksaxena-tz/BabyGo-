@@ -10,7 +10,7 @@ import {
   BarChart3,
 } from 'lucide-react';
 import { ChildProfile, AnalysisResult } from '../types';
-import { getAnalyses } from '../services/storageService';
+import { getAnalyses, fetchAnalyses } from '../services/storageService';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 interface DevelopmentInsightsViewProps {
@@ -44,8 +44,13 @@ const DevelopmentInsightsView: React.FC<DevelopmentInsightsViewProps> = ({
   const [analyses, setAnalyses] = useState<AnalysisResult[]>([]);
 
   useEffect(() => {
-    const allAnalyses = getAnalyses(childId);
-    setAnalyses(allAnalyses);
+    // Load from localStorage immediately
+    setAnalyses(getAnalyses(childId));
+
+    // Then fetch from API
+    fetchAnalyses(childId).then((apiAnalyses) => {
+      setAnalyses(apiAnalyses);
+    }).catch(() => {});
   }, [childId]);
 
   const getFilteredAnalyses = () => {
@@ -66,10 +71,10 @@ const DevelopmentInsightsView: React.FC<DevelopmentInsightsViewProps> = ({
     .reverse()
     .map((a) => ({
       date: new Date(a.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-      motor: a.motorSkills.score,
-      cognitive: a.cognitiveSkills.score,
-      language: a.languageSkills.score,
-      social: a.socialEmotional.score,
+      motor: a.motorSkills?.score ?? 0,
+      cognitive: a.cognitiveSkills?.score ?? 0,
+      language: a.languageSkills?.score ?? 0,
+      social: a.socialEmotional?.score ?? 0,
       overall: a.overallScore,
     }));
 
@@ -82,8 +87,8 @@ const DevelopmentInsightsView: React.FC<DevelopmentInsightsViewProps> = ({
       language: 'languageSkills',
       social: 'socialEmotional',
     } as const;
-    const latest = filteredAnalyses[0][domainKey[domain]].score;
-    const previous = filteredAnalyses[1][domainKey[domain]].score;
+    const latest = filteredAnalyses[0][domainKey[domain]]?.score ?? 0;
+    const previous = filteredAnalyses[1][domainKey[domain]]?.score ?? 0;
     if (latest > previous + 2) return 'up';
     if (latest < previous - 2) return 'down';
     return 'stable';
@@ -97,7 +102,7 @@ const DevelopmentInsightsView: React.FC<DevelopmentInsightsViewProps> = ({
       language: 'languageSkills',
       social: 'socialEmotional',
     } as const;
-    return filteredAnalyses[0][domainKey[domain]].score;
+    return filteredAnalyses[0][domainKey[domain]]?.score ?? 0;
   };
 
   const getLatestStatus = (domain: 'motor' | 'cognitive' | 'language' | 'social') => {

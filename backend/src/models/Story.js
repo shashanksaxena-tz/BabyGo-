@@ -19,13 +19,12 @@ const storyPageSchema = new mongoose.Schema({
 
 const storySchema = new mongoose.Schema({
   childId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Child',
+    type: String,
     required: true,
+    index: true,
   },
   userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    type: String,
     required: true,
   },
   title: {

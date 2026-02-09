@@ -18,7 +18,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { ChildProfile, TimelineEntry, AnalysisResult } from '../types';
-import { getTimeline, getAnalyses } from '../services/storageService';
+import { getTimeline, getAnalyses, fetchTimeline, fetchAnalyses } from '../services/storageService';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { calculatePercentile, getMilestoneById, WHO_SOURCES } from '../services/whoDataService';
 
@@ -35,8 +35,18 @@ const TimelineView: React.FC<TimelineViewProps> = ({ child, onBack, onNavigate }
   const [chartMetric, setChartMetric] = useState<'weight' | 'height'>('weight');
 
   useEffect(() => {
+    // Load from localStorage immediately
     setTimeline(getTimeline(child.id));
     setAnalyses(getAnalyses(child.id));
+
+    // Then fetch from API
+    fetchTimeline(child.id).then((apiTimeline) => {
+      setTimeline(apiTimeline);
+    }).catch(() => {});
+
+    fetchAnalyses(child.id).then((apiAnalyses) => {
+      setAnalyses(apiAnalyses);
+    }).catch(() => {});
   }, [child.id]);
 
   const filteredTimeline = filter === 'all'

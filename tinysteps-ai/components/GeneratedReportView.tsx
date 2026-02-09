@@ -31,6 +31,7 @@ interface ReportData {
   generatedAt: string;
   overallScore: number;
   overallStatus: string;
+  overallSummary?: string;
   patientInfo: {
     name: string;
     age: string;
@@ -48,6 +49,109 @@ interface ReportData {
   }[];
   recommendations: string[];
   findings: string[];
+}
+
+/** Domain display labels */
+const DOMAIN_LABELS: Record<string, string> = {
+  motor: 'Motor Skills',
+  cognitive: 'Cognitive Skills',
+  language: 'Language Skills',
+  social: 'Social-Emotional',
+};
+
+/**
+ * Maps backend status values (on_track, emerging, needs_support) to
+ * frontend display values (on-track, monitor, discuss).
+ */
+function mapBackendStatus(status: string): string {
+  switch (status) {
+    case 'on_track': return 'on-track';
+    case 'emerging': return 'monitor';
+    case 'needs_support': return 'discuss';
+    default: return status;
+  }
+}
+
+/** Formats age in months to a human-readable string. */
+function formatAgeMonths(months: number): string {
+  if (months < 12) return `${months} months`;
+  const years = Math.floor(months / 12);
+  const remaining = months % 12;
+  if (remaining === 0) return `${years} year${years > 1 ? 's' : ''}`;
+  return `${years}y ${remaining}m`;
+}
+
+/**
+ * Maps a raw backend report object to the frontend ReportData interface.
+ *
+ * Backend format differences handled:
+ *  - _id → id
+ *  - patientInfo.ageMonths (number) → patientInfo.age (string)
+ *  - patientInfo.weight/height (number) → string with units
+ *  - domainAssessments array → domains array with id, label, mapped status,
+ *    and areasToSupport merged into recommendations
+ *  - recommendations array of { priority, text, domain } → string[]
+ *  - overallStatus underscore format → hyphenated
+ *  - overallSummary → findings array
+ */
+function mapBackendReportToData(raw: any): ReportData {
+  const id = raw?.id || raw?._id || '';
+
+  // Map patient info — backend has numeric values
+  const pi = raw?.patientInfo || {};
+  const patientInfo = {
+    name: pi.name ?? '',
+    age: typeof pi.ageMonths === 'number' ? formatAgeMonths(pi.ageMonths) : (pi.age ?? ''),
+    gender: pi.gender ?? '',
+    weight: pi.weight != null ? `${pi.weight} kg` : undefined,
+    height: pi.height != null ? `${pi.height} cm` : undefined,
+  };
+
+  // Map domain assessments array to the expected domains format
+  const domains: ReportData['domains'] = [];
+  if (Array.isArray(raw?.domainAssessments)) {
+    for (const da of raw.domainAssessments) {
+      const domainId = da.domain ?? 'unknown';
+      domains.push({
+        id: domainId,
+        label: DOMAIN_LABELS[domainId] ?? domainId.charAt(0).toUpperCase() + domainId.slice(1),
+        score: da.score ?? 0,
+        status: mapBackendStatus(da.status ?? ''),
+        observations: [
+          ...(Array.isArray(da.observations) ? da.observations : []),
+          ...(Array.isArray(da.strengths) ? da.strengths.map((s: string) => `Strength: ${s}`) : []),
+        ],
+        recommendations: Array.isArray(da.areasToSupport) ? da.areasToSupport : [],
+      });
+    }
+  }
+
+  // Map recommendations — backend has { priority, text, domain }
+  let recommendations: string[] = [];
+  if (Array.isArray(raw?.recommendations)) {
+    recommendations = raw.recommendations.map((r: any) =>
+      typeof r === 'string' ? r : r?.text ?? ''
+    ).filter(Boolean);
+  }
+
+  // Build findings from overallSummary
+  const findings: string[] = [];
+  if (raw?.overallSummary) {
+    findings.push(raw.overallSummary);
+  }
+
+  return {
+    id: String(id),
+    childId: raw?.childId ?? '',
+    generatedAt: raw?.generatedAt ?? raw?.createdAt ?? new Date().toISOString(),
+    overallScore: raw?.overallScore ?? 0,
+    overallStatus: mapBackendStatus(raw?.overallStatus ?? ''),
+    overallSummary: raw?.overallSummary,
+    patientInfo,
+    domains,
+    recommendations,
+    findings,
+  };
 }
 
 const GeneratedReportView: React.FC<GeneratedReportViewProps> = ({
@@ -79,7 +183,27 @@ const GeneratedReportView: React.FC<GeneratedReportViewProps> = ({
       }
 
       if (result.data) {
-        setReport(result.data as ReportData);
+        // Backend wraps response as { report: {...} } or { reports: [...] }
+        // The apiService.request puts the whole JSON body into result.data
+        const payload = result.data as any;
+        let rawReport: any = null;
+
+        if (payload?.report) {
+          // Single report response: { report: {...} }
+          rawReport = payload.report;
+        } else if (Array.isArray(payload?.reports) && payload.reports.length > 0) {
+          // List response: { reports: [...] }
+          rawReport = payload.reports[0];
+        } else if (payload?._id || payload?.reportNumber) {
+          // Direct report object (unlikely but handled)
+          rawReport = payload;
+        }
+
+        if (rawReport) {
+          setReport(mapBackendReportToData(rawReport));
+        } else {
+          setError('Report data is empty or in an unexpected format.');
+        }
       } else if (result.error) {
         setError(result.error);
       }
@@ -95,8 +219,10 @@ const GeneratedReportView: React.FC<GeneratedReportViewProps> = ({
     if (!report) return;
     try {
       const result = await apiService.getReportPdf(childId, report.id);
-      if (result.data && (result.data as any).url) {
-        window.open((result.data as any).url, '_blank');
+      const pdfPayload = result.data as any;
+      const pdfUrl = pdfPayload?.pdfUrl || pdfPayload?.url;
+      if (pdfUrl) {
+        window.open(pdfUrl, '_blank');
       }
     } catch (err) {
       console.error('Failed to export PDF:', err);
@@ -220,7 +346,7 @@ const GeneratedReportView: React.FC<GeneratedReportViewProps> = ({
           </span>
           <span className="flex items-center gap-1">
             <FileText className="w-4 h-4" />
-            ID: {report.id.slice(0, 8)}
+            ID: {report.id?.slice(0, 8) ?? ''}
           </span>
         </div>
       </div>
@@ -238,20 +364,26 @@ const GeneratedReportView: React.FC<GeneratedReportViewProps> = ({
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="bg-gray-50 rounded-xl p-3">
               <p className="text-gray-500 text-xs">Name</p>
-              <p className="font-medium text-gray-800">{report.patientInfo.name}</p>
+              <p className="font-medium text-gray-800">{report.patientInfo?.name ?? ''}</p>
             </div>
             <div className="bg-gray-50 rounded-xl p-3">
               <p className="text-gray-500 text-xs">Age</p>
-              <p className="font-medium text-gray-800">{report.patientInfo.age}</p>
+              <p className="font-medium text-gray-800">{report.patientInfo?.age ?? ''}</p>
             </div>
             <div className="bg-gray-50 rounded-xl p-3">
               <p className="text-gray-500 text-xs">Gender</p>
-              <p className="font-medium text-gray-800 capitalize">{report.patientInfo.gender}</p>
+              <p className="font-medium text-gray-800 capitalize">{report.patientInfo?.gender ?? ''}</p>
             </div>
-            {report.patientInfo.weight && (
+            {report.patientInfo?.weight && (
               <div className="bg-gray-50 rounded-xl p-3">
                 <p className="text-gray-500 text-xs">Weight</p>
                 <p className="font-medium text-gray-800">{report.patientInfo.weight}</p>
+              </div>
+            )}
+            {report.patientInfo?.height && (
+              <div className="bg-gray-50 rounded-xl p-3">
+                <p className="text-gray-500 text-xs">Height</p>
+                <p className="font-medium text-gray-800">{report.patientInfo.height}</p>
               </div>
             )}
           </div>
@@ -272,7 +404,7 @@ const GeneratedReportView: React.FC<GeneratedReportViewProps> = ({
                 {report.overallStatus === 'on-track' ? 'On Track' : report.overallStatus.charAt(0).toUpperCase() + report.overallStatus.slice(1)}
               </span>
               <p className="text-sm text-gray-600 mt-2">
-                Development is being tracked across motor, cognitive, language, and social-emotional domains.
+                {report.overallSummary || 'Development is being tracked across motor, cognitive, language, and social-emotional domains.'}
               </p>
             </div>
           </div>
@@ -281,7 +413,7 @@ const GeneratedReportView: React.FC<GeneratedReportViewProps> = ({
         {/* Domain Assessment Details */}
         <div className="space-y-4">
           <h3 className="font-bold text-gray-800 text-lg">Domain Assessment Details</h3>
-          {report.domains.map((domain) => (
+          {(report.domains ?? []).map((domain) => (
             <div key={domain.id} className="bg-white rounded-2xl shadow-sm p-5">
               <div className="flex items-center justify-between mb-3">
                 <h4 className="font-bold text-gray-800">{domain.label}</h4>
@@ -302,11 +434,11 @@ const GeneratedReportView: React.FC<GeneratedReportViewProps> = ({
                 />
               </div>
 
-              {domain.observations.length > 0 && (
+              {(domain.observations?.length ?? 0) > 0 && (
                 <div className="mb-3">
                   <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Observations</p>
                   <ul className="space-y-1.5">
-                    {domain.observations.map((obs, i) => (
+                    {(domain.observations ?? []).map((obs, i) => (
                       <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
                         <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                         {obs}
@@ -316,11 +448,11 @@ const GeneratedReportView: React.FC<GeneratedReportViewProps> = ({
                 </div>
               )}
 
-              {domain.recommendations.length > 0 && (
+              {(domain.recommendations?.length ?? 0) > 0 && (
                 <div>
                   <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Recommendations</p>
                   <ul className="space-y-1.5">
-                    {domain.recommendations.map((rec, i) => (
+                    {(domain.recommendations ?? []).map((rec, i) => (
                       <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
                         <TrendingUp className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
                         {rec}
@@ -334,11 +466,11 @@ const GeneratedReportView: React.FC<GeneratedReportViewProps> = ({
         </div>
 
         {/* General Recommendations */}
-        {report.recommendations && report.recommendations.length > 0 && (
+        {(report.recommendations?.length ?? 0) > 0 && (
           <div className="bg-white rounded-2xl shadow-sm p-6">
             <h3 className="font-bold text-gray-800 mb-4">Recommendations</h3>
             <div className="space-y-2">
-              {report.recommendations.map((rec, i) => (
+              {(report.recommendations ?? []).map((rec, i) => (
                 <div key={i} className="flex items-start gap-2 p-3 bg-teal-50 rounded-xl text-sm text-teal-800">
                   <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
                   {rec}

@@ -37,7 +37,7 @@ interface ResultsViewProps {
   result: AnalysisResult;
   child: ChildProfile;
   onReset: () => void;
-  onNavigate?: (screen: string) => void;
+  onNavigate?: (screen: string, data?: any) => void;
 }
 
 const ResultsView: React.FC<ResultsViewProps> = ({ result, child, onReset, onNavigate }) => {
@@ -170,6 +170,20 @@ const ResultsView: React.FC<ResultsViewProps> = ({ result, child, onReset, onNav
                 <span>Percentile rank: {domain.percentile}th (compared to children of same age)</span>
               </div>
             )}
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onNavigate?.('IMPROVE_DOMAIN', {
+                  domain: title.toLowerCase().replace('-', '').replace('social emotional', 'social'),
+                  score: domain.score,
+                  status: domain.status,
+                });
+              }}
+              className="w-full mt-3 py-2.5 bg-emerald-50 text-emerald-600 rounded-xl text-sm font-medium hover:bg-emerald-100 transition-colors"
+            >
+              Improve {title} →
+            </button>
           </div>
         )}
       </div>
@@ -177,11 +191,9 @@ const ResultsView: React.FC<ResultsViewProps> = ({ result, child, onReset, onNav
   };
 
   const SourceCard: React.FC<{ source: WHOSource }> = ({ source }) => (
-    <a
-      href={source.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+    <button
+      onClick={() => onNavigate?.('WHO_EVIDENCE', { context: source.title })}
+      className="w-full flex items-start gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors text-left"
     >
       <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
         source.organization === 'WHO' ? 'bg-blue-100 text-blue-600' :
@@ -206,7 +218,7 @@ const ResultsView: React.FC<ResultsViewProps> = ({ result, child, onReset, onNav
         </div>
       </div>
       <ExternalLink className="w-4 h-4 text-gray-400 flex-shrink-0" />
-    </a>
+    </button>
   );
 
   return (
@@ -416,6 +428,45 @@ const ResultsView: React.FC<ResultsViewProps> = ({ result, child, onReset, onNav
           >
             New Analysis
           </button>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="space-y-3">
+          <h3 className="font-bold text-gray-800 text-sm">What's Next?</h3>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => onNavigate?.('PEDIATRICIAN_REPORT')}
+              className="p-4 bg-white rounded-xl border border-gray-200 hover:border-emerald-300 hover:bg-emerald-50 transition-all text-left"
+            >
+              <Download className="w-5 h-5 text-emerald-500 mb-2" />
+              <p className="text-sm font-medium text-gray-800">Generate Report</p>
+              <p className="text-xs text-gray-500 mt-1">Create pediatrician report</p>
+            </button>
+            <button
+              onClick={() => onNavigate?.('DEVELOPMENT_INSIGHTS')}
+              className="p-4 bg-white rounded-xl border border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-all text-left"
+            >
+              <TrendingUp className="w-5 h-5 text-purple-500 mb-2" />
+              <p className="text-sm font-medium text-gray-800">View Insights</p>
+              <p className="text-xs text-gray-500 mt-1">Development trends</p>
+            </button>
+            <button
+              onClick={() => onNavigate?.('WHO_EVIDENCE', { analysisId: result.id })}
+              className="p-4 bg-white rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all text-left"
+            >
+              <BookOpen className="w-5 h-5 text-blue-500 mb-2" />
+              <p className="text-sm font-medium text-gray-800">WHO Evidence</p>
+              <p className="text-xs text-gray-500 mt-1">Research & guidelines</p>
+            </button>
+            <button
+              onClick={() => onNavigate?.('HEALTH_HUB')}
+              className="p-4 bg-white rounded-xl border border-gray-200 hover:border-amber-300 hover:bg-amber-50 transition-all text-left"
+            >
+              <Star className="w-5 h-5 text-amber-500 mb-2" />
+              <p className="text-sm font-medium text-gray-800">Health Hub</p>
+              <p className="text-xs text-gray-500 mt-1">Find specialists</p>
+            </button>
+          </div>
         </div>
 
         {/* Disclaimer */}

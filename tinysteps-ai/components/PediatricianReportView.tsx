@@ -12,7 +12,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { ChildProfile, AnalysisResult } from '../types';
-import { getAnalyses } from '../services/storageService';
+import { getAnalyses, fetchAnalyses } from '../services/storageService';
 import apiService from '../services/apiService';
 
 interface PediatricianReportViewProps {
@@ -28,6 +28,7 @@ interface Report {
   generatedAt: string;
   status: 'ready' | 'generating' | 'expired';
   overallScore?: number;
+  reportNumber?: string;
   domains?: {
     motor: { score: number; status: string };
     cognitive: { score: number; status: string };
@@ -35,6 +36,48 @@ interface Report {
     social: { score: number; status: string };
   };
   findings?: string[];
+}
+
+/**
+ * Maps backend status values (on_track, emerging, needs_support) to
+ * frontend display values (on-track, monitor, discuss).
+ */
+function mapBackendStatus(status: string): string {
+  switch (status) {
+    case 'on_track': return 'on-track';
+    case 'emerging': return 'monitor';
+    case 'needs_support': return 'discuss';
+    default: return status;
+  }
+}
+
+/**
+ * Maps a backend report object to the frontend Report interface.
+ * Handles _id → id, missing status field, and domainAssessments array → domains object.
+ */
+function mapBackendReport(raw: any): Report {
+  const id = raw.id || raw._id || '';
+  const domains: Report['domains'] = { motor: { score: 0, status: 'monitor' }, cognitive: { score: 0, status: 'monitor' }, language: { score: 0, status: 'monitor' }, social: { score: 0, status: 'monitor' } };
+
+  if (Array.isArray(raw.domainAssessments)) {
+    for (const da of raw.domainAssessments) {
+      const key = da.domain as keyof NonNullable<Report['domains']>;
+      if (domains[key]) {
+        domains[key] = { score: da.score ?? 0, status: mapBackendStatus(da.status ?? '') };
+      }
+    }
+  }
+
+  return {
+    id: String(id),
+    childId: raw.childId ?? '',
+    generatedAt: raw.generatedAt ?? raw.createdAt ?? new Date().toISOString(),
+    status: 'ready', // backend reports are always generated / ready
+    overallScore: raw.overallScore,
+    reportNumber: raw.reportNumber,
+    domains,
+    findings: raw.overallSummary ? [raw.overallSummary] : [],
+  };
 }
 
 const PediatricianReportView: React.FC<PediatricianReportViewProps> = ({
@@ -55,19 +98,29 @@ const PediatricianReportView: React.FC<PediatricianReportViewProps> = ({
   const loadData = async () => {
     setLoading(true);
     try {
-      // Load latest analysis from local storage
-      const analyses = getAnalyses(childId);
+      // Load latest analysis - try API first, fall back to localStorage
+      const analyses = await fetchAnalyses(childId);
       if (analyses.length > 0) {
         setLatestAnalysis(analyses[0]);
       }
 
       // Fetch reports from API
+      // Backend returns { reports: [...] }, which gets wrapped as result.data = { reports: [...] }
       const result = await apiService.getReports(childId);
-      if (result.data && Array.isArray(result.data)) {
-        setReports(result.data);
-      }
+      const reportsPayload = result.data as any;
+      const rawReports = Array.isArray(reportsPayload)
+        ? reportsPayload
+        : Array.isArray(reportsPayload?.reports)
+          ? reportsPayload.reports
+          : [];
+      setReports(rawReports.map(mapBackendReport));
     } catch (err) {
       console.error('Failed to load data:', err);
+      // Fall back to localStorage for analyses
+      const localAnalyses = getAnalyses(childId);
+      if (localAnalyses.length > 0) {
+        setLatestAnalysis(localAnalyses[0]);
+      }
     } finally {
       setLoading(false);
     }
@@ -203,10 +256,10 @@ const PediatricianReportView: React.FC<PediatricianReportViewProps> = ({
                   </div>
                   <div className="flex-1 space-y-3">
                     {[
-                      { label: 'Motor', score: latestAnalysis.motorSkills.score, status: latestAnalysis.motorSkills.status },
-                      { label: 'Cognitive', score: latestAnalysis.cognitiveSkills.score, status: latestAnalysis.cognitiveSkills.status },
-                      { label: 'Language', score: latestAnalysis.languageSkills.score, status: latestAnalysis.languageSkills.status },
-                      { label: 'Social', score: latestAnalysis.socialEmotional.score, status: latestAnalysis.socialEmotional.status },
+                      { label: 'Motor', score: latestAnalysis.motorSkills?.score ?? 0, status: latestAnalysis.motorSkills?.status ?? 'emerging' },
+                      { label: 'Cognitive', score: latestAnalysis.cognitiveSkills?.score ?? 0, status: latestAnalysis.cognitiveSkills?.status ?? 'emerging' },
+                      { label: 'Language', score: latestAnalysis.languageSkills?.score ?? 0, status: latestAnalysis.languageSkills?.status ?? 'emerging' },
+                      { label: 'Social', score: latestAnalysis.socialEmotional?.score ?? 0, status: latestAnalysis.socialEmotional?.status ?? 'emerging' },
                     ].map((domain) => (
                       <div key={domain.label}>
                         <div className="flex items-center justify-between text-xs mb-1">

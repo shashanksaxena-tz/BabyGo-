@@ -62,18 +62,16 @@ const sharedWithSchema = new mongoose.Schema({
 
 const reportSchema = new mongoose.Schema({
   childId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Child',
+    type: String,
     required: true,
+    index: true,
   },
   userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    type: String,
     required: true,
   },
   analysisId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Analysis',
+    type: String,
     required: true,
   },
   reportNumber: {

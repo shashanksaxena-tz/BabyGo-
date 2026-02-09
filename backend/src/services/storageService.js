@@ -21,6 +21,8 @@ class StorageService {
   constructor() {
     this.client = null;
     this.initialized = false;
+    /** @type {string|null} Base URL for browser-facing/public URLs */
+    this.publicBaseUrl = null;
   }
 
   /**
@@ -42,6 +44,15 @@ class StorageService {
       secretKey,
     });
 
+    // Determine the public base URL for browser-facing responses.
+    // MINIO_PUBLIC_URL should be the externally reachable URL (e.g. http://localhost:9000).
+    // Falls back to constructing from endpoint:port (works for local dev without Docker).
+    const protocol = useSSL ? 'https' : 'http';
+    this.publicBaseUrl = process.env.MINIO_PUBLIC_URL
+      || `${protocol}://${endpoint}:${port}`;
+    // Strip trailing slash if present
+    this.publicBaseUrl = this.publicBaseUrl.replace(/\/+$/, '');
+
     // Create buckets if they don't exist and set public read policy
     const buckets = [BUCKETS.PROFILES, BUCKETS.STORIES, BUCKETS.REPORTS];
     for (const bucket of buckets) {
@@ -50,6 +61,7 @@ class StorageService {
 
     this.initialized = true;
     console.log(`Connected to MinIO at ${endpoint}:${port}`);
+    console.log(`Public MinIO URL: ${this.publicBaseUrl}`);
     console.log(`Buckets ready: ${buckets.join(', ')}`);
   }
 
@@ -134,17 +146,25 @@ class StorageService {
   }
 
   /**
-   * Build the public URL for an object. This assumes the bucket has a
-   * public read policy (set during initialization).
+   * Build the public URL for an object. Uses MINIO_PUBLIC_URL so that
+   * browser-facing responses point to the externally reachable host
+   * (not the Docker-internal hostname).
    * @param {string} bucket - Bucket name
    * @param {string} objectName - Object key
    * @returns {string} Public URL
    */
   getPublicUrl(bucket, objectName) {
-    const endpoint = process.env.MINIO_ENDPOINT || 'localhost';
-    const port = parseInt(process.env.MINIO_PORT || '9000', 10);
-    const protocol = process.env.MINIO_USE_SSL === 'true' ? 'https' : 'http';
-    return `${protocol}://${endpoint}:${port}/${bucket}/${objectName}`;
+    // After initialize(), publicBaseUrl is always set.
+    // Before initialize() (shouldn't happen), fall back safely.
+    const base = this.publicBaseUrl || (() => {
+      const protocol = process.env.MINIO_USE_SSL === 'true' ? 'https' : 'http';
+      const publicUrl = process.env.MINIO_PUBLIC_URL;
+      if (publicUrl) return publicUrl.replace(/\/+$/, '');
+      const endpoint = process.env.MINIO_ENDPOINT || 'localhost';
+      const port = process.env.MINIO_PORT || '9000';
+      return `${protocol}://${endpoint}:${port}`;
+    })();
+    return `${base}/${bucket}/${objectName}`;
   }
 
   /**
@@ -160,14 +180,30 @@ class StorageService {
 
   /**
    * Generate a presigned URL for temporary access to a private object.
+   * The MinIO client generates the URL using the internal endpoint, so we
+   * rewrite the origin to the public URL for browser accessibility.
    * @param {string} bucket - Bucket name
    * @param {string} objectName - Object key
    * @param {number} [expiry=3600] - Expiry time in seconds (default 1 hour)
-   * @returns {Promise<string>} Presigned URL
+   * @returns {Promise<string>} Presigned URL (publicly accessible)
    */
   async getPresignedUrl(bucket, objectName, expiry = 3600) {
     this._assertInitialized();
-    return this.client.presignedGetObject(bucket, objectName, expiry);
+    const internalUrl = await this.client.presignedGetObject(bucket, objectName, expiry);
+
+    // Replace the internal Docker hostname with the public URL.
+    // The MinIO client builds URLs like http://minio:9000/bucket/obj?X-Amz-...
+    // We need http://localhost:9000/bucket/obj?X-Amz-...
+    if (this.publicBaseUrl) {
+      const parsed = new URL(internalUrl);
+      const publicParsed = new URL(this.publicBaseUrl);
+      parsed.protocol = publicParsed.protocol;
+      parsed.hostname = publicParsed.hostname;
+      parsed.port = publicParsed.port;
+      return parsed.toString();
+    }
+
+    return internalUrl;
   }
 
   /**

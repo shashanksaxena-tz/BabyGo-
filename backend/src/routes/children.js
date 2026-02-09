@@ -38,7 +38,7 @@ router.post('/', authMiddleware, [
 
     const child = new Child({
       ...req.body,
-      userId: req.user._id,
+      userId: String(req.user._id),
     });
 
     await child.save();
@@ -197,8 +197,8 @@ router.post('/:childId/milestones/:milestoneId', authMiddleware, [
       try {
         const milestoneData = whoDataService.getAllMilestones().find(m => m.id === milestoneId);
         const timelineEntry = new Timeline({
-          childId,
-          userId: req.user._id,
+          childId: String(childId),
+          userId: String(req.user._id),
           type: 'milestone',
           title: milestoneData ? `${milestoneData.title} achieved!` : 'Milestone achieved!',
           description: milestoneData

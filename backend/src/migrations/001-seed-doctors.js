@@ -1,0 +1,268 @@
+import Doctor from '../models/Doctor.js';
+
+const doctors = [
+  // Pediatricians (3)
+  {
+    name: 'Dr. Ananya Reddy',
+    specialty: 'Pediatrician',
+    subSpecialty: 'General Pediatrics',
+    rating: 4.8,
+    experienceYears: 15,
+    distance: 3.2,
+    consultationFee: 1000,
+    currency: 'INR',
+    domains: ['general', 'motor', 'cognitive'],
+    tags: ['Top Rated', 'Available Today'],
+    qualifications: ['MBBS', 'MD Pediatrics', 'IAP Fellow'],
+    location: {
+      clinic: 'Rainbow Children\'s Hospital',
+      address: 'Marathahalli, Outer Ring Road',
+      city: 'Bangalore',
+    },
+    availableDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+    isActive: true,
+  },
+  {
+    name: 'Dr. Vikram Patel',
+    specialty: 'Pediatrician',
+    subSpecialty: 'Neonatal Care',
+    rating: 4.6,
+    experienceYears: 12,
+    distance: 5.1,
+    consultationFee: 900,
+    currency: 'INR',
+    domains: ['general', 'motor'],
+    tags: ['Neonatal Expert'],
+    qualifications: ['MBBS', 'DCH', 'DNB Pediatrics'],
+    location: {
+      clinic: 'Cloudnine Hospital',
+      address: 'Jayanagar 4th Block',
+      city: 'Bangalore',
+    },
+    availableDays: ['Monday', 'Wednesday', 'Friday', 'Saturday'],
+    isActive: true,
+  },
+  {
+    name: 'Dr. Meera Krishnan',
+    specialty: 'Pediatrician',
+    subSpecialty: 'Pediatric Nutrition',
+    rating: 4.7,
+    experienceYears: 10,
+    distance: 2.8,
+    consultationFee: 800,
+    currency: 'INR',
+    domains: ['general'],
+    tags: ['Nutrition Specialist'],
+    qualifications: ['MBBS', 'MD Pediatrics', 'PG Diploma in Nutrition'],
+    location: {
+      clinic: 'Manipal Hospital',
+      address: 'Old Airport Road, Murugeshpalya',
+      city: 'Bangalore',
+    },
+    availableDays: ['Tuesday', 'Thursday', 'Saturday'],
+    isActive: true,
+  },
+
+  // Speech-Language Pathologists (2)
+  {
+    name: 'Dr. Priya Sharma',
+    specialty: 'Speech-Language Pathologist',
+    subSpecialty: 'Pediatric Speech Therapy',
+    rating: 4.9,
+    experienceYears: 8,
+    distance: 4.0,
+    consultationFee: 1200,
+    currency: 'INR',
+    domains: ['language'],
+    tags: ['Recommended', 'Language watch area detected'],
+    qualifications: ['MASLP', 'RCI Certified', 'PROMPT Trained'],
+    location: {
+      clinic: 'Speech & Beyond Clinic',
+      address: 'Indiranagar, 12th Main',
+      city: 'Bangalore',
+    },
+    availableDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+    isActive: true,
+  },
+  {
+    name: 'Dr. Kavitha Iyer',
+    specialty: 'Speech-Language Pathologist',
+    subSpecialty: 'Early Intervention',
+    rating: 4.5,
+    experienceYears: 6,
+    distance: 6.3,
+    consultationFee: 1000,
+    currency: 'INR',
+    domains: ['language', 'cognitive'],
+    tags: ['Early Intervention'],
+    qualifications: ['BASLP', 'MASLP', 'Hanen Certified'],
+    location: {
+      clinic: 'Little Voices Therapy Center',
+      address: 'HSR Layout, Sector 2',
+      city: 'Bangalore',
+    },
+    availableDays: ['Monday', 'Wednesday', 'Thursday', 'Saturday'],
+    isActive: true,
+  },
+
+  // Occupational Therapists (2)
+  {
+    name: 'Dr. Rajesh Nair',
+    specialty: 'Occupational Therapist',
+    subSpecialty: 'Pediatric Sensory Integration',
+    rating: 4.7,
+    experienceYears: 11,
+    distance: 3.5,
+    consultationFee: 1100,
+    currency: 'INR',
+    domains: ['motor', 'cognitive'],
+    tags: ['Sensory Integration Expert'],
+    qualifications: ['BOT', 'MOT', 'SI Certified'],
+    location: {
+      clinic: 'KidStart Therapy Hub',
+      address: 'Koramangala 5th Block',
+      city: 'Bangalore',
+    },
+    availableDays: ['Monday', 'Tuesday', 'Thursday', 'Friday', 'Saturday'],
+    isActive: true,
+  },
+  {
+    name: 'Dr. Sneha Gupta',
+    specialty: 'Occupational Therapist',
+    subSpecialty: 'Fine Motor Development',
+    rating: 4.4,
+    experienceYears: 7,
+    distance: 4.8,
+    consultationFee: 900,
+    currency: 'INR',
+    domains: ['motor'],
+    tags: ['Fine Motor Specialist'],
+    qualifications: ['BOT', 'MOT', 'NDT Certified'],
+    location: {
+      clinic: 'Happy Hands Clinic',
+      address: 'Whitefield Main Road',
+      city: 'Bangalore',
+    },
+    availableDays: ['Tuesday', 'Wednesday', 'Friday', 'Saturday'],
+    isActive: true,
+  },
+
+  // Child Psychologists (2)
+  {
+    name: 'Dr. Deepa Menon',
+    specialty: 'Child Psychologist',
+    subSpecialty: 'Developmental Psychology',
+    rating: 4.8,
+    experienceYears: 14,
+    distance: 5.5,
+    consultationFee: 1500,
+    currency: 'INR',
+    domains: ['cognitive', 'social'],
+    tags: ['Top Rated', 'Developmental Expert'],
+    qualifications: ['MA Psychology', 'PhD Child Psychology', 'RCI Licensed'],
+    location: {
+      clinic: 'MindBloom Child Development Center',
+      address: 'Sadashivanagar, Palace Road',
+      city: 'Bangalore',
+    },
+    availableDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+    isActive: true,
+  },
+  {
+    name: 'Dr. Arjun Das',
+    specialty: 'Child Psychologist',
+    subSpecialty: 'Behavioral Therapy',
+    rating: 4.6,
+    experienceYears: 9,
+    distance: 7.2,
+    consultationFee: 1300,
+    currency: 'INR',
+    domains: ['social', 'cognitive'],
+    tags: ['Behavioral Specialist'],
+    qualifications: ['MPhil Clinical Psychology', 'RCI Licensed', 'CBT Certified'],
+    location: {
+      clinic: 'Bright Minds Clinic',
+      address: 'Bannerghatta Road, Arekere',
+      city: 'Bangalore',
+    },
+    availableDays: ['Monday', 'Wednesday', 'Friday', 'Saturday'],
+    isActive: true,
+  },
+
+  // Developmental Pediatrician (1)
+  {
+    name: 'Dr. Sunita Rao',
+    specialty: 'Developmental Pediatrician',
+    subSpecialty: 'Neurodevelopmental Disorders',
+    rating: 4.9,
+    experienceYears: 18,
+    distance: 6.0,
+    consultationFee: 2000,
+    currency: 'INR',
+    domains: ['motor', 'language', 'cognitive', 'social'],
+    tags: ['Top Specialist', 'All Domains'],
+    qualifications: ['MBBS', 'MD Pediatrics', 'Fellowship in Developmental Pediatrics'],
+    location: {
+      clinic: 'NIMHANS Child Development Unit',
+      address: 'Hosur Road, Lakkasandra',
+      city: 'Bangalore',
+    },
+    availableDays: ['Tuesday', 'Thursday', 'Saturday'],
+    isActive: true,
+  },
+
+  // Physiotherapist (1)
+  {
+    name: 'Dr. Arun Kumar',
+    specialty: 'Physiotherapist',
+    subSpecialty: 'Pediatric Physiotherapy',
+    rating: 4.5,
+    experienceYears: 10,
+    distance: 3.9,
+    consultationFee: 800,
+    currency: 'INR',
+    domains: ['motor'],
+    tags: ['Gross Motor Expert'],
+    qualifications: ['BPT', 'MPT Pediatrics', 'Bobath Certified'],
+    location: {
+      clinic: 'Active Kids Physiotherapy',
+      address: 'BTM Layout 2nd Stage',
+      city: 'Bangalore',
+    },
+    availableDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+    isActive: true,
+  },
+
+  // Pediatric Neurologist (1)
+  {
+    name: 'Dr. Lakshmi Venkatesh',
+    specialty: 'Pediatric Neurologist',
+    subSpecialty: 'Pediatric Epilepsy & Neurodevelopment',
+    rating: 4.8,
+    experienceYears: 16,
+    distance: 8.1,
+    consultationFee: 1800,
+    currency: 'INR',
+    domains: ['motor', 'cognitive'],
+    tags: ['Neuro Specialist'],
+    qualifications: ['MBBS', 'MD Pediatrics', 'DM Neurology', 'Fellowship Pediatric Neurology'],
+    location: {
+      clinic: 'Aster CMI Hospital',
+      address: 'Hebbal, Outer Ring Road',
+      city: 'Bangalore',
+    },
+    availableDays: ['Monday', 'Wednesday', 'Friday'],
+    isActive: true,
+  },
+];
+
+export async function up() {
+  const count = await Doctor.countDocuments();
+  if (count > 0) {
+    console.log(`    Doctors collection already has ${count} documents, skipping seed.`);
+    return;
+  }
+
+  const inserted = await Doctor.insertMany(doctors);
+  console.log(`    Seeded ${inserted.length} doctors.`);
+}

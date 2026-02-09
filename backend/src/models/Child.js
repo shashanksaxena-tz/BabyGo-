@@ -36,8 +36,7 @@ const watchedMilestoneSchema = new mongoose.Schema({
 
 const childSchema = new mongoose.Schema({
   userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    type: String,
     required: true,
   },
   name: {
@@ -137,6 +136,16 @@ childSchema.pre('save', function(next) {
   this.updatedAt = new Date();
   next();
 });
+
+// Static method to safely find a child by ID, handling both ObjectId and string IDs
+childSchema.statics.findByAnyId = async function(id) {
+  // Check if valid ObjectId format
+  if (mongoose.Types.ObjectId.isValid(id) && String(new mongoose.Types.ObjectId(id)) === String(id)) {
+    return this.findById(id);
+  }
+  // For non-ObjectId strings (like web app local IDs), return null gracefully
+  return null;
+};
 
 // Index for user queries
 childSchema.index({ userId: 1 });

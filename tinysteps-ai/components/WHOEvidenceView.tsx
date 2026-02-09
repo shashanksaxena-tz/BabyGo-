@@ -54,6 +54,49 @@ const METHODOLOGY_STEPS = [
   },
 ];
 
+const FALLBACK_SOURCES: WHOSource[] = [
+  {
+    id: 'who-motor',
+    title: 'WHO Motor Development Study',
+    url: 'https://www.who.int/publications/i/item/WHO-TRS-1006',
+    organization: 'WHO',
+    type: 'study',
+    description: 'WHO Multicentre Growth Reference Study: Motor development milestones',
+  },
+  {
+    id: 'who-growth',
+    title: 'WHO Child Growth Standards',
+    url: 'https://www.who.int/tools/child-growth-standards',
+    organization: 'WHO',
+    type: 'standard',
+    description: 'WHO Child Growth Standards: Methods and development',
+  },
+  {
+    id: 'who-milestones',
+    title: 'WHO Developmental Milestones',
+    url: 'https://www.who.int/publications/i/item/9789241596503',
+    organization: 'WHO',
+    type: 'study',
+    description: 'WHO Motor Development Study: Windows of achievement',
+  },
+  {
+    id: 'unicef-ecd',
+    title: 'UNICEF Early Childhood Development',
+    url: 'https://www.unicef.org/early-childhood-development',
+    organization: 'UNICEF',
+    type: 'reference',
+    description: 'Evidence-based early childhood development resources',
+  },
+  {
+    id: 'cdc-milestones',
+    title: 'CDC Developmental Milestones',
+    url: 'https://www.cdc.gov/ncbddd/actearly/milestones/index.html',
+    organization: 'CDC',
+    type: 'reference',
+    description: 'Learn the Signs. Act Early. Developmental milestones',
+  },
+];
+
 const WHOEvidenceView: React.FC<WHOEvidenceViewProps> = ({
   context,
   analysisId,
@@ -68,6 +111,28 @@ const WHOEvidenceView: React.FC<WHOEvidenceViewProps> = ({
     fetchSources();
   }, [context, analysisId, region]);
 
+  const inferOrganization = (source: any): string => {
+    const title = (source?.title || '').toLowerCase();
+    const url = (source?.url || '').toLowerCase();
+    if (title.includes('who') || url.includes('who.int')) return 'WHO';
+    if (title.includes('cdc') || url.includes('cdc.gov')) return 'CDC';
+    if (title.includes('aap') || url.includes('aap.org')) return 'AAP';
+    if (title.includes('unicef') || url.includes('unicef.org')) return 'UNICEF';
+    return 'Research';
+  };
+
+  const mapSource = (s: any, index: number): WHOSource => ({
+    id: s?._id || s?.id || `source-${index}`,
+    title: s?.title || 'Untitled Source',
+    url: s?.url || '#',
+    organization: s?.organization || inferOrganization(s),
+    year: s?.year,
+    type: s?.type || 'reference',
+    description: s?.description,
+    domain: s?.domain,
+    citation: s?.citation,
+  });
+
   const fetchSources = async () => {
     setLoading(true);
     try {
@@ -77,11 +142,17 @@ const WHOEvidenceView: React.FC<WHOEvidenceViewProps> = ({
       if (region) params.region = region;
 
       const result = await apiService.getWHOEvidence(params);
-      if (result.data && Array.isArray(result.data)) {
-        setSources(result.data);
+      const data = result?.data as any;
+
+      if (data) {
+        // Backend returns { sources: [...], methodology: [...], disclaimer: "..." }
+        const rawSources = Array.isArray(data) ? data : data?.sources || [];
+        setSources(rawSources.map((s: any, i: number) => mapSource(s, i)));
       }
     } catch (err) {
       console.error('Failed to fetch WHO evidence:', err);
+      // On failure, show fallback static sources so the page isn't blank
+      setSources(FALLBACK_SOURCES);
     } finally {
       setLoading(false);
     }
