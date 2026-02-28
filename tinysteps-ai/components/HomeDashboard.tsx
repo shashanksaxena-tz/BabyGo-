@@ -22,6 +22,7 @@ import {
   Library,
   FileText,
   BarChart3,
+  LogOut,
 } from 'lucide-react';
 import { ChildProfile, AnalysisResult, TimelineEntry, Notification } from '../types';
 import { getTimeline, getAnalyses, getNotifications, getChildren, setCurrentChild, fetchAnalyses, fetchTimeline } from '../services/storageService';
@@ -35,9 +36,10 @@ interface HomeDashboardProps {
   onStartAnalysis: () => void;
   onSwitchChild: (childId: string) => void;
   onAddChild: () => void;
+  onLogout?: () => void;
 }
 
-const HomeDashboard: React.FC<HomeDashboardProps> = ({ child, onNavigate, onStartAnalysis, onSwitchChild, onAddChild }) => {
+const HomeDashboard: React.FC<HomeDashboardProps> = ({ child, onNavigate, onStartAnalysis, onSwitchChild, onAddChild, onLogout }) => {
   const [greeting, setGreeting] = useState('');
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [analyses, setAnalyses] = useState<AnalysisResult[]>([]);
@@ -150,6 +152,15 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ child, onNavigate, onStar
             >
               <Settings className="w-5 h-5" />
             </button>
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                title="Sign out"
+                className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center hover:bg-white/30 transition-colors"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
+            )}
           </div>
         </div>
 

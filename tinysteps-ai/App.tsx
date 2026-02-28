@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { AppStep, ChildProfile, AnalysisResult } from './types';
-import { getCurrentChild, isOnboardingComplete, setOnboardingComplete, saveAnalysis, getAnalysisById, getChildren, isMongoId, syncLocalChildToBackend } from './services/storageService';
+import { getCurrentChild, isOnboardingComplete, setOnboardingComplete, saveAnalysis, getAnalysisById, getChildren, isMongoId, syncLocalChildToBackend, mapBackendAnalysis, generateId } from './services/storageService';
 import { analyzeDevelopment } from './services/geminiService';
 import apiService from './services/apiService';
 
 // Components
+import AuthScreen from './components/AuthScreen';
 import ProfileSetup from './components/ProfileSetup';
 import HomeDashboard from './components/HomeDashboard';
 import MediaUploader from './components/MediaUploader';
@@ -35,6 +36,9 @@ import {
 import RecordButton from './components/RecordButton';
 
 const App: React.FC = () => {
+  // null = checking, false = needs auth, true = authenticated
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+
   const [step, setStep] = useState<AppStep>(AppStep.ONBOARDING);
   const [currentChild, setCurrentChild] = useState<ChildProfile | null>(null);
   const [result, setResult] = useState<AnalysisResult | null>(null);
@@ -50,6 +54,14 @@ const App: React.FC = () => {
   const [navData, setNavData] = useState<any>(null);
 
   useEffect(() => {
+    // Gate on auth token first — no token means show login screen
+    const token = localStorage.getItem('tinysteps_token');
+    if (!token) {
+      setIsAuthenticated(false);
+      return;
+    }
+    setIsAuthenticated(true);
+
     // Check if onboarding is complete and load current child
     const child = getCurrentChild();
     if (child && isOnboardingComplete()) {
@@ -64,8 +76,6 @@ const App: React.FC = () => {
           .catch((err) => {
             console.error('Failed to sync local child to backend:', err);
             setSyncError('Could not connect to server. Please check your connection and try again.');
-            // Still show the child from localStorage so the UI isn't blank,
-            // but features that require a MongoDB ID will not work
             setCurrentChild(child);
             setStep(AppStep.HOME);
           });
@@ -77,6 +87,28 @@ const App: React.FC = () => {
       setStep(AppStep.ONBOARDING);
     }
   }, []);
+
+  const handleAuthenticated = () => {
+    setIsAuthenticated(true);
+    // After login/register, check if they already have a child profile
+    const child = getCurrentChild();
+    if (child && isOnboardingComplete()) {
+      setCurrentChild(child);
+      setStep(AppStep.HOME);
+    } else {
+      setStep(AppStep.ONBOARDING);
+    }
+  };
+
+  const handleLogout = () => {
+    apiService.clearToken();
+    setIsAuthenticated(false);
+    setCurrentChild(null);
+    setStep(AppStep.ONBOARDING);
+    setResult(null);
+    setError(null);
+    setSyncError(null);
+  };
 
   const handleProfileComplete = async (child: ChildProfile) => {
     setCurrentChild(child);
@@ -115,17 +147,25 @@ const App: React.FC = () => {
         babyAudio
       );
 
-      const savedAnalysis = saveAnalysis(analysisResult);
-      setResult(savedAnalysis);
-      setStep(AppStep.RESULTS);
+      // Save to backend first to get a stable MongoDB ID
+      let finalAnalysis: AnalysisResult;
+      try {
+        const backendResult = await apiService.saveAnalysisResult(currentChild.id, {
+          ...analysisResult,
+          childAgeMonths: currentChild.ageMonths,
+        });
+        const backendData = (backendResult as any).data;
+        finalAnalysis = backendData?.analysis
+          ? mapBackendAnalysis(backendData.analysis)
+          : { ...analysisResult, id: generateId() };
+      } catch (err) {
+        console.error('Failed to save analysis to backend, saving locally:', err);
+        finalAnalysis = { ...analysisResult, id: generateId() };
+      }
 
-      // Save pre-computed analysis result to backend (non-blocking)
-      apiService.saveAnalysisResult(currentChild.id, {
-        ...analysisResult,
-        childAgeMonths: currentChild.ageMonths,
-      }).catch((err) => {
-        console.error('Failed to save analysis to backend:', err);
-      });
+      saveAnalysis(finalAnalysis);
+      setResult(finalAnalysis);
+      setStep(AppStep.RESULTS);
     } catch (err) {
       console.error('Analysis failed:', err);
       setError('Analysis failed. Please try again.');
@@ -207,6 +247,19 @@ const App: React.FC = () => {
     }
   };
 
+  // Auth gate — show loading spinner, auth screen, or the app
+  if (isAuthenticated === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 to-teal-50">
+        <Loader2 className="animate-spin text-emerald-500" size={32} />
+      </div>
+    );
+  }
+
+  if (isAuthenticated === false) {
+    return <AuthScreen onAuthenticated={handleAuthenticated} />;
+  }
+
   // Onboarding / Profile Setup
   if (step === AppStep.ONBOARDING || step === AppStep.PROFILE_SETUP) {
     return (
@@ -266,6 +319,7 @@ const App: React.FC = () => {
           onStartAnalysis={() => setStep(AppStep.UPLOAD)}
           onSwitchChild={handleSwitchChild}
           onAddChild={handleAddChild}
+          onLogout={handleLogout}
         />
       </>
     );

@@ -50,7 +50,7 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
     { id: 'animals', name: 'Animals', icon: '🐻', color: 'from-emerald-400 to-teal-500' },
     { id: 'space', name: 'Space', icon: '🚀', color: 'from-indigo-400 to-purple-500' },
     { id: 'ocean', name: 'Ocean', icon: '🐠', color: 'from-blue-400 to-cyan-500' },
-    { id: 'fairy', name: 'Fairy Tale', icon: '🧚', color: 'from-pink-400 to-rose-500' },
+    { id: 'magic', name: 'Fairy Tale', icon: '🧚', color: 'from-pink-400 to-rose-500' },
     { id: 'dinosaurs', name: 'Dinosaurs', icon: '🦕', color: 'from-green-400 to-emerald-500' },
   ];
 
@@ -422,7 +422,7 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
               {allThemes.map(theme => (
                 <button
                   key={theme.id}
-                  onClick={() => handleGenerateStory(theme.name)}
+                  onClick={() => handleGenerateStory(theme.id)}
                   className={`p-4 rounded-xl bg-gradient-to-br ${theme.color} text-white text-left transition-transform hover:scale-[1.02] active:scale-[0.98]`}
                 >
                   <span className="text-3xl block mb-2">{theme.icon}</span>
