@@ -17,7 +17,8 @@ import {
 } from 'lucide-react';
 import { ChildProfile, BedtimeStory } from '../types';
 import { getStories, saveStory, updateStory, fetchStories } from '../services/storageService';
-import { generateBedtimeStory, generateStoryIllustration } from '../services/geminiService';
+import { generateStoryIllustration } from '../services/geminiService';
+import apiService, { dataUrlToFile } from '../services/apiService';
 
 interface BedtimeStoriesProps {
   child: ChildProfile;
@@ -69,16 +70,37 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
   const handleGenerateStory = async (theme: string) => {
     setIsGenerating(true);
     setSelectedTheme(theme);
-
     try {
-      const storyData = await generateBedtimeStory(child, theme);
-      const newStory = saveStory(storyData);
+      const result = await apiService.generateStory(child.id, theme);
+      const data = (result as any).data;
+      if (!data?.story) {
+        throw new Error((result as any).error || 'Story generation failed');
+      }
+      const s = data.story;
+      const newStory: BedtimeStory = {
+        id: s._id || s.id,
+        childId: s.childId,
+        title: s.title,
+        theme: typeof s.theme === 'object' ? s.theme.name : s.theme,
+        content: s.pages ? s.pages.map((p: any) => p.text || '') : [],
+        illustrations: s.pages ? s.pages.map((p: any, i: number) => ({
+          sceneIndex: i,
+          description: p.illustrationPrompt || '',
+          imageUrl: p.illustrationUrl,
+          style: 'storybook' as const,
+        })) : [],
+        duration: s.pages ? Math.ceil(s.pages.length * 0.5) : 5,
+        createdAt: s.createdAt,
+        characters: [],
+        moral: s.moral,
+      };
+      saveStory(newStory);
       setStories([newStory, ...stories]);
       setSelectedStory(newStory);
       setCurrentPage(0);
     } catch (error) {
       console.error('Failed to generate story:', error);
-      alert('Failed to generate story. Please try again.');
+      alert('Failed to generate story. Please check your connection and try again.');
     } finally {
       setIsGenerating(false);
     }
@@ -108,11 +130,7 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
     if (!selectedStory || !child.profilePhoto) return;
 
     const cacheKey = `${selectedStory.id}-${pageIndex}`;
-
-    // Check if already cached or already has imageUrl
-    if (illustrationCache[cacheKey] || selectedStory.illustrations[pageIndex]?.imageUrl) {
-      return;
-    }
+    if (illustrationCache[cacheKey] || selectedStory.illustrations[pageIndex]?.imageUrl) return;
 
     const illustration = selectedStory.illustrations[pageIndex];
     if (!illustration?.description) return;
@@ -127,36 +145,48 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
         illustration.style || 'storybook'
       );
 
-      if (imageUrl) {
-        // Cache the illustration
-        setIllustrationCache(prev => ({
-          ...prev,
-          [cacheKey]: imageUrl
-        }));
+      if (!imageUrl) return;
 
-        // Update the story with the new illustration
-        const updatedIllustrations = [...selectedStory.illustrations];
-        updatedIllustrations[pageIndex] = {
-          ...updatedIllustrations[pageIndex],
-          imageUrl
-        };
+      // Update local state immediately for instant display
+      setIllustrationCache(prev => ({ ...prev, [cacheKey]: imageUrl }));
 
-        const updatedStory = {
-          ...selectedStory,
-          illustrations: updatedIllustrations
-        };
+      // Persist to MinIO + MongoDB in background (non-blocking so UI stays responsive)
+      (async () => {
+        try {
+          const file = dataUrlToFile(imageUrl, `story-${selectedStory.id}-page-${pageIndex}.png`);
+          const uploadResult = await apiService.uploadImage(file, 'stories');
+          const persistedUrl = uploadResult?.url;
 
-        // Update in storage and state
-        updateStory(updatedStory);
-        setSelectedStory(updatedStory);
-        setStories(prev => prev.map(s => s.id === updatedStory.id ? updatedStory : s));
-      }
+          if (persistedUrl) {
+            // Backend pages are 1-indexed (pageNumber starts at 1)
+            const pageNumber = pageIndex + 1;
+
+            await apiService.updateStoryPageIllustration(
+              child.id,
+              selectedStory.id,
+              pageNumber,
+              persistedUrl
+            );
+
+            // Update localStorage cache with the persistent MinIO URL
+            const updatedIllustrations = [...selectedStory.illustrations];
+            updatedIllustrations[pageIndex] = { ...updatedIllustrations[pageIndex], imageUrl: persistedUrl };
+            const updatedStory = { ...selectedStory, illustrations: updatedIllustrations };
+            updateStory(updatedStory);
+            setSelectedStory(updatedStory);
+            setStories(prev => prev.map(s => s.id === updatedStory.id ? updatedStory : s));
+          }
+        } catch (persistErr) {
+          console.error('Failed to persist illustration to backend:', persistErr);
+          // UI still shows locally-generated image via illustrationCache
+        }
+      })();
     } catch (error) {
       console.error('Failed to generate illustration:', error);
     } finally {
       setGeneratingIllustration(null);
     }
-  }, [selectedStory, child.profilePhoto, child.name, illustrationCache]);
+  }, [selectedStory, child.profilePhoto, child.name, child.id, illustrationCache]);
 
   // Auto-generate illustration when page changes
   useEffect(() => {
