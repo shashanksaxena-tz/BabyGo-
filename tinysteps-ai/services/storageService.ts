@@ -32,7 +32,7 @@ function safeJsonParse<T>(json: string | null, defaultValue: T): T {
   }
 }
 
-function generateId(): string {
+export function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
@@ -287,7 +287,7 @@ export function saveAnalysis(analysis: Omit<AnalysisResult, 'id'>): AnalysisResu
     title: analysis.headline,
     description: `Development analysis completed with score ${analysis.overallScore}/100`,
     analysisId: newAnalysis.id,
-  });
+  }).catch(err => console.error('Timeline entry for analysis failed:', err));
 
   return newAnalysis;
 }
@@ -333,7 +333,7 @@ function mapBackendDomainAssessment(backendDomain: any, fallbackDomain: string):
 }
 
 // Map a full backend analysis object to frontend AnalysisResult format
-function mapBackendAnalysis(a: any): AnalysisResult {
+export function mapBackendAnalysis(a: any): AnalysisResult {
   return {
     id: a._id || a.id,
     childId: a.childId,
@@ -415,13 +415,55 @@ export function getTimeline(childId?: string): TimelineEntry[] {
   return timeline.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 }
 
-export function addTimelineEntry(entry: Omit<TimelineEntry, 'id' | 'timestamp'>): TimelineEntry {
-  const timeline = getTimeline();
+export async function addTimelineEntry(
+  entry: Omit<TimelineEntry, 'id' | 'timestamp'>
+): Promise<TimelineEntry> {
+  // Write to backend first; use returned MongoDB _id
+  if (isMongoId(entry.childId)) {
+    try {
+      const result = await apiService.addTimelineEntry({
+        childId: entry.childId,
+        type: entry.type,
+        title: entry.title,
+        description: entry.description,
+        mediaUrl: entry.mediaUrl,
+        data: entry.data,
+      });
+      const data = result.data as any;
+      if (data?.entry) {
+        const saved: TimelineEntry = {
+          id: data.entry._id || data.entry.id,
+          childId: data.entry.childId,
+          timestamp: data.entry.date || data.entry.createdAt || new Date().toISOString(),
+          type: data.entry.type,
+          title: data.entry.title,
+          description: data.entry.description,
+          mediaUrl: data.entry.mediaUrl,
+          analysisId: data.entry.data?.analysisId,
+          data: data.entry.data,
+        };
+        // Cache to localStorage
+        const timeline = safeJsonParse<TimelineEntry[]>(
+          localStorage.getItem(STORAGE_KEYS.TIMELINE), []
+        );
+        timeline.push(saved);
+        localStorage.setItem(STORAGE_KEYS.TIMELINE, JSON.stringify(timeline));
+        return saved;
+      }
+    } catch (err) {
+      console.error('API addTimelineEntry failed, falling back to localStorage:', err);
+    }
+  }
+
+  // Fallback: local-only entry (offline or non-MongoDB child)
   const newEntry: TimelineEntry = {
     ...entry,
     id: generateId(),
     timestamp: new Date().toISOString(),
   };
+  const timeline = safeJsonParse<TimelineEntry[]>(
+    localStorage.getItem(STORAGE_KEYS.TIMELINE), []
+  );
   timeline.push(newEntry);
   localStorage.setItem(STORAGE_KEYS.TIMELINE, JSON.stringify(timeline));
   return newEntry;

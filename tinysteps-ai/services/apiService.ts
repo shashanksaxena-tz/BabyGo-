@@ -220,6 +220,18 @@ class ApiService {
     });
   }
 
+  async updateStoryPageIllustration(
+    childId: string,
+    storyId: string,
+    pageNumber: number,
+    illustrationUrl: string
+  ) {
+    return this.request(`/stories/${childId}/${storyId}/page/${pageNumber}/illustration`, {
+      method: 'PATCH',
+      body: JSON.stringify({ illustrationUrl }),
+    });
+  }
+
   // Timeline
   async getTimeline(childId: string) {
     return this.request(`/timeline/${childId}`);
@@ -398,3 +410,12 @@ class ApiService {
 
 export const apiService = new ApiService();
 export default apiService;
+
+export function dataUrlToFile(dataUrl: string, filename: string): File {
+  const [header, data] = dataUrl.split(',');
+  const mime = header.match(/:(.*?);/)?.[1] || 'image/png';
+  const binary = atob(data);
+  const array = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) array[i] = binary.charCodeAt(i);
+  return new File([array], filename, { type: mime });
+}
