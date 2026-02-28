@@ -167,4 +167,20 @@ router.put('/preferences', authMiddleware, async (req, res) => {
   }
 });
 
+// PATCH /api/auth/language — Update user preferred language
+router.patch('/language', authMiddleware, async (req, res) => {
+  try {
+    const { language } = req.body;
+    const validLanguages = ['en-IN', 'hi-IN', 'bn-IN', 'gu-IN', 'kn-IN', 'ml-IN', 'mr-IN', 'od-IN', 'pa-IN', 'ta-IN', 'te-IN'];
+    if (!validLanguages.includes(language)) {
+      return res.status(400).json({ error: 'Invalid language code' });
+    }
+    await User.findByIdAndUpdate(req.user._id || req.user.id, { 'preferences.language': language });
+    res.json({ success: true, language });
+  } catch (error) {
+    console.error('Update language error:', error);
+    res.status(500).json({ error: 'Failed to update language preference' });
+  }
+});
+
 export default router;

@@ -1,9 +1,12 @@
 import express from 'express';
 import Child from '../models/Child.js';
 import Analysis from '../models/Analysis.js';
+import RecipeCache from '../models/RecipeCache.js';
 import { authMiddleware } from '../middleware/auth.js';
 import geminiService from '../services/geminiService.js';
 import whoDataService from '../services/whoDataService.js';
+
+const RECIPE_CACHE_TTL_DAYS = 7;
 
 const router = express.Router();
 
@@ -79,35 +82,68 @@ router.get('/activities/:childId', authMiddleware, async (req, res) => {
   }
 });
 
-// Get recipes
+// Get recipes — returns MongoDB cache if fresh, else generates and caches
 router.get('/recipes/:childId', authMiddleware, async (req, res) => {
   try {
-    const { count = 3 } = req.query;
+    const child = await Child.findOne({ _id: req.params.childId });
+    if (!child) return res.status(404).json({ error: 'Child not found' });
 
-    const child = await Child.findOne({
-      _id: req.params.childId
-    });
-
-    if (!child) {
-      return res.status(404).json({ error: 'Child not found' });
+    // Check cache
+    const cached = await RecipeCache.findOne({ childId: String(child._id) });
+    if (cached) {
+      const ageMs = Date.now() - new Date(cached.cachedAt).getTime();
+      const ttlMs = RECIPE_CACHE_TTL_DAYS * 24 * 60 * 60 * 1000;
+      if (ageMs < ttlMs) {
+        return res.json({ childAge: child.ageInMonths, recipes: cached.recipes, fromCache: true });
+      }
     }
 
+    // Cache miss or stale — generate fresh
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return res.status(400).json({ error: 'Gemini API key not configured' });
-    }
-
+    if (!apiKey) return res.status(400).json({ error: 'Gemini API key not configured' });
     geminiService.initialize(apiKey);
 
-    const recipes = await geminiService.generateRecipes(child, parseInt(count));
+    const recipes = await geminiService.generateRecipes(child, 9);
 
-    res.json({
-      childAge: child.ageInMonths,
-      recipes,
-    });
+    // Upsert cache (non-blocking)
+    RecipeCache.findOneAndUpdate(
+      { childId: String(child._id) },
+      { recipes, cachedAt: new Date() },
+      { upsert: true }
+    ).catch((err) => console.error('RecipeCache upsert failed:', err));
+
+    res.json({ childAge: child.ageInMonths, recipes });
   } catch (error) {
     console.error('Recipes error:', error);
     res.status(500).json({ error: 'Failed to get recipes' });
+  }
+});
+
+// Force-regenerate recipes (called by refresh button, supports filter params)
+router.post('/recipes/:childId/regenerate', authMiddleware, async (req, res) => {
+  try {
+    const child = await Child.findOne({ _id: req.params.childId });
+    if (!child) return res.status(404).json({ error: 'Child not found' });
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return res.status(400).json({ error: 'Gemini API key not configured' });
+    geminiService.initialize(apiKey);
+
+    const { excludeAllergens, dietaryPreferences, foodLikings } = req.body;
+    const filters = { excludeAllergens, dietaryPreferences, foodLikings };
+
+    const recipes = await geminiService.generateRecipes(child, 9, filters);
+
+    await RecipeCache.findOneAndUpdate(
+      { childId: String(child._id) },
+      { recipes, cachedAt: new Date() },
+      { upsert: true }
+    );
+
+    res.json({ childAge: child.ageInMonths, recipes });
+  } catch (error) {
+    console.error('Recipe regenerate error:', error);
+    res.status(500).json({ error: 'Failed to regenerate recipes' });
   }
 });
 

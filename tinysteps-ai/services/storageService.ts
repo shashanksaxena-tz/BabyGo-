@@ -530,14 +530,22 @@ export function getStories(childId?: string): BedtimeStory[] {
   return stories;
 }
 
-export function saveStory(story: Omit<BedtimeStory, 'id' | 'createdAt'>): BedtimeStory {
+export function saveStory(story: Omit<BedtimeStory, 'id' | 'createdAt'> & { id?: string; createdAt?: string }): BedtimeStory {
   const stories = getStories();
+  // Preserve existing MongoDB ID if provided; only generate a local ID for offline-created stories
+  const id = story.id || generateId();
   const newStory: BedtimeStory = {
     ...story,
-    id: generateId(),
-    createdAt: new Date().toISOString(),
+    id,
+    createdAt: story.createdAt || new Date().toISOString(),
   };
-  stories.push(newStory);
+  // Upsert: replace existing entry if same id already cached, otherwise push
+  const existingIndex = stories.findIndex((s) => s.id === id);
+  if (existingIndex !== -1) {
+    stories[existingIndex] = newStory;
+  } else {
+    stories.push(newStory);
+  }
   localStorage.setItem(STORAGE_KEYS.STORIES, JSON.stringify(stories));
   return newStory;
 }
@@ -638,7 +646,8 @@ export async function fetchChildren(): Promise<ChildProfile[]> {
       // If the current child ID points to a local-only child that no longer exists,
       // update it to the first backend child
       const currentId = localStorage.getItem(STORAGE_KEYS.CURRENT_CHILD_ID);
-      if (currentId && !mergedChildren.find((c) => c.id === currentId)) {
+      // Set current child if: no current set yet, OR current points to a child not in backend
+      if (!currentId || !mergedChildren.find((c) => c.id === currentId)) {
         if (mergedChildren.length > 0) {
           setCurrentChild(mergedChildren[0].id);
         } else {

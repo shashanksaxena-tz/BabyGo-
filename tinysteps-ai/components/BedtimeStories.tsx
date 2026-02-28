@@ -19,6 +19,7 @@ import { ChildProfile, BedtimeStory } from '../types';
 import { getStories, saveStory, updateStory, fetchStories } from '../services/storageService';
 import { generateStoryIllustration } from '../services/geminiService';
 import apiService, { dataUrlToFile } from '../services/apiService';
+import LanguagePicker from './LanguagePicker';
 
 interface BedtimeStoriesProps {
   child: ChildProfile;
@@ -34,6 +35,9 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
   const [selectedTheme, setSelectedTheme] = useState('');
   const [generatingIllustration, setGeneratingIllustration] = useState<number | null>(null);
   const [illustrationCache, setIllustrationCache] = useState<Record<string, string>>({});
+  const [selectedLanguage, setSelectedLanguage] = useState('en-IN');
+  const [translatedPages, setTranslatedPages] = useState<string[] | null>(null);
+  const [isTranslating, setIsTranslating] = useState(false);
 
   useEffect(() => {
     // Load from localStorage immediately
@@ -44,6 +48,30 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
       setStories(apiStories);
     }).catch(() => {});
   }, [child.id]);
+
+  useEffect(() => {
+    if (!selectedStory || selectedLanguage === 'en-IN') {
+      setTranslatedPages(null);
+      return;
+    }
+    let cancelled = false;
+    const translate = async () => {
+      setIsTranslating(true);
+      setTranslatedPages(null);
+      const translated = await Promise.all(
+        selectedStory.content.map(async (pageText) => {
+          const result = await apiService.translateText(pageText, selectedLanguage);
+          return result.translatedText || pageText;
+        })
+      );
+      if (!cancelled) {
+        setTranslatedPages(translated);
+        setIsTranslating(false);
+      }
+    };
+    translate();
+    return () => { cancelled = true; };
+  }, [selectedStory?.id, selectedLanguage]);
 
   const storyThemes = [
     { id: 'adventure', name: 'Adventure', icon: '🌟', color: 'from-amber-400 to-orange-500' },
@@ -106,23 +134,51 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
     }
   };
 
-  const speakText = (text: string) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-
-      if (isReading) {
-        setIsReading(false);
-        return;
-      }
-
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.9;
-      utterance.pitch = 1.1;
-      utterance.onend = () => setIsReading(false);
-
-      window.speechSynthesis.speak(utterance);
-      setIsReading(true);
+  const speakText = async (text: string) => {
+    // Stop any existing speech
+    window.speechSynthesis.cancel();
+    if (isReading) {
+      setIsReading(false);
+      return;
     }
+
+    if (selectedLanguage === 'en-IN') {
+      // English: use browser SpeechSynthesis (unchanged behavior)
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 0.9;
+        utterance.pitch = 1.1;
+        utterance.onend = () => setIsReading(false);
+        window.speechSynthesis.speak(utterance);
+        setIsReading(true);
+      }
+    } else {
+      // Regional language: use Sarvam TTS
+      setIsReading(true);
+      try {
+        const result = await apiService.getAudio(text, selectedLanguage);
+        if (result.audioChunks && result.audioChunks.length > 0) {
+          // Play audio chunks sequentially
+          for (const chunk of result.audioChunks) {
+            await new Promise<void>((resolve) => {
+              const audio = new Audio(`data:audio/mp3;base64,${chunk}`);
+              audio.onended = () => resolve();
+              audio.onerror = () => resolve();
+              audio.play().catch(() => resolve());
+            });
+          }
+        }
+      } catch {
+        // Silent fail - TTS is optional
+      } finally {
+        setIsReading(false);
+      }
+    }
+  };
+
+  const handleLanguageChange = (lang: string) => {
+    setSelectedLanguage(lang);
+    apiService.updateUserLanguage(lang).catch(() => {}); // persist, non-blocking
   };
 
   // Generate illustration for current page
@@ -201,6 +257,7 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
     const content = selectedStory.content;
     const totalPages = content.length;
     const currentContent = content[currentPage];
+    const displayContent = translatedPages ? (translatedPages[currentPage] || currentContent) : currentContent;
 
     return (
       <div className="min-h-screen bg-gradient-to-b from-indigo-900 via-purple-900 to-slate-900">
@@ -211,6 +268,7 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
               onClick={() => {
                 window.speechSynthesis.cancel();
                 setIsReading(false);
+                setTranslatedPages(null);
                 setSelectedStory(null);
               }}
               className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-white hover:bg-white/20"
@@ -222,12 +280,13 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
               <p className="text-purple-200 text-sm">{selectedStory.duration} min read</p>
             </div>
             <button
-              onClick={() => speakText(currentContent)}
+              onClick={() => speakText(displayContent)}
               className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isReading ? 'bg-amber-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'
                 }`}
             >
               {isReading ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
             </button>
+            <LanguagePicker value={selectedLanguage} onChange={handleLanguageChange} dark={true} />
           </div>
         </div>
 
@@ -293,9 +352,16 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
 
           {/* Story Text */}
           <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 min-h-[200px]">
-            <p className="text-white text-lg leading-relaxed font-serif">
-              {currentContent}
-            </p>
+            {isTranslating ? (
+              <div className="flex items-center gap-3 text-white/60">
+                <Loader2 className="w-5 h-5 animate-spin flex-shrink-0" />
+                <p className="text-sm">Translating story...</p>
+              </div>
+            ) : (
+              <p className="text-white text-lg leading-relaxed font-serif">
+                {displayContent}
+              </p>
+            )}
           </div>
 
           {/* Moral (on last page) */}

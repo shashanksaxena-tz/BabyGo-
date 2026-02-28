@@ -18,11 +18,11 @@ class GeminiService {
   /// Initialize with API key
   Future<void> initialize(String apiKey) async {
     _model = GenerativeModel(
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.5-flash',
       apiKey: apiKey,
     );
     _visionModel = GenerativeModel(
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.5-flash',
       apiKey: apiKey,
     );
     _isInitialized = true;

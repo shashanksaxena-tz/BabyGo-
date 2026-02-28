@@ -17,6 +17,7 @@ import uploadRoutes from './routes/upload.js';
 import doctorRoutes from './routes/doctors.js';
 import resourceRoutes from './routes/resources.js';
 import reportRoutes from './routes/reports.js';
+import sarvamRoutes from './routes/sarvam.js';
 import storageService from './services/storageService.js';
 import { runMigrations } from './services/migrationRunner.js';
 
@@ -81,6 +82,7 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/doctors', doctorRoutes);
 app.use('/api/resources', resourceRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/sarvam', sarvamRoutes);
 
 // API documentation endpoint
 app.get('/api', (req, res) => {

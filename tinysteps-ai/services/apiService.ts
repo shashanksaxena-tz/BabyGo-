@@ -265,8 +265,15 @@ class ApiService {
     return this.request(`/recommendations/activities/${childId}${params}`);
   }
 
-  async getRecipes(childId: string, count: number = 3) {
-    return this.request(`/recommendations/recipes/${childId}?count=${count}`);
+  async getRecipes(childId: string) {
+    return this.request(`/recommendations/recipes/${childId}`);
+  }
+
+  async regenerateRecipes(childId: string, filters?: { excludeAllergens?: string[]; dietaryPreferences?: string[]; foodLikings?: string }) {
+    return this.request(`/recommendations/recipes/${childId}/regenerate`, {
+      method: 'POST',
+      body: JSON.stringify(filters || {}),
+    });
   }
 
   async getParentingTips(childId: string, focusArea?: string) {
@@ -405,6 +412,32 @@ class ApiService {
       body: formData,
     });
     return response.json();
+  }
+
+  // ============ SARVAM LANGUAGE ============
+
+  async translateText(text: string, targetLanguageCode: string): Promise<{ translatedText?: string; error?: string }> {
+    const result = await this.request<{ translatedText: string }>('/sarvam/translate', {
+      method: 'POST',
+      body: JSON.stringify({ text, targetLanguageCode }),
+    });
+    return result.data ? { translatedText: result.data.translatedText } : { error: result.error };
+  }
+
+  async getAudio(text: string, targetLanguageCode: string): Promise<{ audioChunks?: string[]; error?: string }> {
+    const result = await this.request<{ audioChunks: string[] }>('/sarvam/tts', {
+      method: 'POST',
+      body: JSON.stringify({ text, targetLanguageCode }),
+    });
+    return result.data ? { audioChunks: result.data.audioChunks } : { error: result.error };
+  }
+
+  async updateUserLanguage(language: string): Promise<{ success?: boolean; error?: string }> {
+    const result = await this.request<{ success: boolean; language: string }>('/auth/language', {
+      method: 'PATCH',
+      body: JSON.stringify({ language }),
+    });
+    return result.data ? { success: true } : { error: result.error };
   }
 }
 

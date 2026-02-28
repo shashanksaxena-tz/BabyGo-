@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { ChildProfile } from '../types';
 import * as geminiService from '../services/geminiService';
+import LanguagePicker from './LanguagePicker';
+import apiService from '../services/apiService';
 
 interface Product {
   name: string;
@@ -51,6 +53,19 @@ interface RecommendationsViewProps {
   onBack: () => void;
 }
 
+interface TranslatedActivity {
+  name: string;
+  description: string;
+  materials: string[];
+  skills: string[];
+  steps: string[];
+}
+
+interface TranslatedTip {
+  title: string;
+  content: string;
+}
+
 type TabType = 'products' | 'activities' | 'tips';
 
 const RecommendationsView: React.FC<RecommendationsViewProps> = ({
@@ -63,10 +78,87 @@ const RecommendationsView: React.FC<RecommendationsViewProps> = ({
   const [tips, setTips] = useState<ParentingTip[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedActivity, setExpandedActivity] = useState<number | null>(null);
+  const [selectedLanguage, setSelectedLanguage] = useState('en-IN');
+  const [translatedActivities, setTranslatedActivities] = useState<TranslatedActivity[] | null>(null);
+  const [translatedTips, setTranslatedTips] = useState<TranslatedTip[] | null>(null);
+  const [isTranslating, setIsTranslating] = useState(false);
 
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (selectedLanguage === 'en-IN') {
+      setTranslatedActivities(null);
+      setTranslatedTips(null);
+      return;
+    }
+    if (activities.length === 0 && tips.length === 0) return;
+    let cancelled = false;
+    const translateContent = async () => {
+      setIsTranslating(true);
+      setTranslatedActivities(null);
+      setTranslatedTips(null);
+
+      const [translatedActs, translatedTipsArr] = await Promise.all([
+        Promise.all(
+          activities.map(async (activity) => {
+            const [nameResult, descResult, materialsResult, skillsResult, stepsResult] = await Promise.all([
+              apiService.translateText(activity.name, selectedLanguage),
+              apiService.translateText(activity.description, selectedLanguage),
+              activity.materials.length > 0
+                ? apiService.translateText(activity.materials.join('\n'), selectedLanguage)
+                : Promise.resolve({ translatedText: '' }),
+              activity.skills.length > 0
+                ? apiService.translateText(activity.skills.join('\n'), selectedLanguage)
+                : Promise.resolve({ translatedText: '' }),
+              activity.steps.length > 0
+                ? apiService.translateText(activity.steps.join('\n'), selectedLanguage)
+                : Promise.resolve({ translatedText: '' }),
+            ]);
+            return {
+              name: nameResult.translatedText || activity.name,
+              description: descResult.translatedText || activity.description,
+              materials: materialsResult.translatedText
+                ? materialsResult.translatedText.split('\n').filter(Boolean)
+                : activity.materials,
+              skills: skillsResult.translatedText
+                ? skillsResult.translatedText.split('\n').filter(Boolean)
+                : activity.skills,
+              steps: stepsResult.translatedText
+                ? stepsResult.translatedText.split('\n').filter(Boolean)
+                : activity.steps,
+            };
+          })
+        ),
+        Promise.all(
+          tips.map(async (tip) => {
+            const [titleResult, contentResult] = await Promise.all([
+              apiService.translateText(tip.title, selectedLanguage),
+              apiService.translateText(tip.content, selectedLanguage),
+            ]);
+            return {
+              title: titleResult.translatedText || tip.title,
+              content: contentResult.translatedText || tip.content,
+            };
+          })
+        ),
+      ]);
+
+      if (!cancelled) {
+        setTranslatedActivities(translatedActs);
+        setTranslatedTips(translatedTipsArr);
+        setIsTranslating(false);
+      }
+    };
+    translateContent();
+    return () => { cancelled = true; };
+  }, [activities, tips, selectedLanguage]);
+
+  const handleLanguageChange = (lang: string) => {
+    setSelectedLanguage(lang);
+    apiService.updateUserLanguage(lang).catch(() => {}); // persist, non-blocking
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -140,6 +232,7 @@ const RecommendationsView: React.FC<RecommendationsViewProps> = ({
               Personalized for {child.name}
             </p>
           </div>
+          <LanguagePicker value={selectedLanguage} onChange={handleLanguageChange} />
           <button
             onClick={loadData}
             className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center text-white shadow-lg"
@@ -172,6 +265,14 @@ const RecommendationsView: React.FC<RecommendationsViewProps> = ({
               <Sparkles className="w-10 h-10 text-white animate-pulse" />
             </div>
             <p className="text-gray-600 font-medium">Finding recommendations...</p>
+          </div>
+        )}
+
+        {/* Translating indicator */}
+        {!loading && isTranslating && (
+          <div className="flex items-center gap-2 mb-4 text-sm text-gray-500 bg-purple-50 px-4 py-2 rounded-xl">
+            <RefreshCw className="w-4 h-4 animate-spin text-purple-500" />
+            Translating content...
           </div>
         )}
 
@@ -249,6 +350,12 @@ const RecommendationsView: React.FC<RecommendationsViewProps> = ({
               {activities.map((activity, index) => {
                 const colors = getDomainColor(activity.domain);
                 const isExpanded = expandedActivity === index;
+                const ta = translatedActivities ? translatedActivities[index] : null;
+                const displayName = ta ? ta.name : activity.name;
+                const displayDescription = ta ? ta.description : activity.description;
+                const displayMaterials = ta ? ta.materials : activity.materials;
+                const displaySkills = ta ? ta.skills : activity.skills;
+                const displaySteps = ta ? ta.steps : activity.steps;
 
                 return (
                   <motion.div
@@ -271,7 +378,7 @@ const RecommendationsView: React.FC<RecommendationsViewProps> = ({
                         </div>
                         <div className="flex-1">
                           <h3 className={`font-bold ${colors.text}`}>
-                            {activity.name}
+                            {displayName}
                           </h3>
                           <div className="flex items-center gap-3 mt-1">
                             <span
@@ -290,17 +397,17 @@ const RecommendationsView: React.FC<RecommendationsViewProps> = ({
                     {/* Content */}
                     <div className="p-4">
                       <p className="text-gray-600 text-sm mb-3">
-                        {activity.description}
+                        {displayDescription}
                       </p>
 
                       {/* Materials */}
-                      {activity.materials && activity.materials.length > 0 && (
+                      {displayMaterials && displayMaterials.length > 0 && (
                         <div className="mb-3">
                           <p className="text-xs font-semibold text-gray-500 mb-1">
                             Materials:
                           </p>
                           <div className="flex flex-wrap gap-1">
-                            {activity.materials.map((m, i) => (
+                            {displayMaterials.map((m, i) => (
                               <span
                                 key={i}
                                 className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-lg"
@@ -313,13 +420,13 @@ const RecommendationsView: React.FC<RecommendationsViewProps> = ({
                       )}
 
                       {/* Skills */}
-                      {activity.skills && activity.skills.length > 0 && (
+                      {displaySkills && displaySkills.length > 0 && (
                         <div className="mb-3">
                           <p className="text-xs font-semibold text-gray-500 mb-1">
                             Skills developed:
                           </p>
                           <div className="flex flex-wrap gap-1">
-                            {activity.skills.map((s, i) => (
+                            {displaySkills.map((s, i) => (
                               <span
                                 key={i}
                                 className={`text-xs px-2 py-1 rounded-lg ${colors.bg} ${colors.text}`}
@@ -333,7 +440,7 @@ const RecommendationsView: React.FC<RecommendationsViewProps> = ({
 
                       {/* Steps (expanded) */}
                       <AnimatePresence>
-                        {isExpanded && activity.steps && activity.steps.length > 0 && (
+                        {isExpanded && displaySteps && displaySteps.length > 0 && (
                           <motion.div
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: 'auto' }}
@@ -344,7 +451,7 @@ const RecommendationsView: React.FC<RecommendationsViewProps> = ({
                               How to do it:
                             </p>
                             <ol className="space-y-2">
-                              {activity.steps.map((step, i) => (
+                              {displaySteps.map((step, i) => (
                                 <li key={i} className="flex gap-2 text-sm">
                                   <span
                                     className={`w-5 h-5 ${colors.bg} ${colors.text} rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0`}
@@ -370,38 +477,43 @@ const RecommendationsView: React.FC<RecommendationsViewProps> = ({
         {!loading && activeTab === 'tips' && (
           <div className="space-y-4">
             <AnimatePresence>
-              {tips.map((tip, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="bg-white rounded-2xl shadow-sm p-5"
-                >
-                  <div className="flex gap-4">
-                    <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                      <span className="text-2xl">{tip.emoji}</span>
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-bold text-gray-800">{tip.title}</h3>
+              {tips.map((tip, index) => {
+                const tt = translatedTips ? translatedTips[index] : null;
+                const displayTitle = tt ? tt.title : tip.title;
+                const displayContent = tt ? tt.content : tip.content;
+                return (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="bg-white rounded-2xl shadow-sm p-5"
+                  >
+                    <div className="flex gap-4">
+                      <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <span className="text-2xl">{tip.emoji}</span>
                       </div>
-                      <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
-                        {tip.category}
-                      </span>
-                      <p className="text-gray-600 text-sm mt-3 leading-relaxed">
-                        {tip.content}
-                      </p>
-                      {tip.source && (
-                        <div className="flex items-center gap-1 mt-3 text-xs text-gray-400">
-                          <Award className="w-3 h-3" />
-                          <span>Source: {typeof tip.source === 'object' ? tip.source.organization : tip.source}</span>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-bold text-gray-800">{displayTitle}</h3>
                         </div>
-                      )}
+                        <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+                          {tip.category}
+                        </span>
+                        <p className="text-gray-600 text-sm mt-3 leading-relaxed">
+                          {displayContent}
+                        </p>
+                        {tip.source && (
+                          <div className="flex items-center gap-1 mt-3 text-xs text-gray-400">
+                            <Award className="w-3 h-3" />
+                            <span>Source: {typeof tip.source === 'object' ? tip.source.organization : tip.source}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                );
+              })}
             </AnimatePresence>
           </div>
         )}

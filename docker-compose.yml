@@ -15,7 +15,6 @@ services:
       - PORT=3001
       - MONGODB_URI=mongodb://mongo:27017/tinysteps
       - JWT_SECRET=${JWT_SECRET:-change-this-in-production}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
       - WEB_APP_URL=http://localhost:3005
       - MINIO_ENDPOINT=minio
       - MINIO_PORT=9000

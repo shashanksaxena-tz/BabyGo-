@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AppStep, ChildProfile, AnalysisResult } from './types';
-import { getCurrentChild, isOnboardingComplete, setOnboardingComplete, saveAnalysis, getAnalysisById, getChildren, isMongoId, syncLocalChildToBackend, mapBackendAnalysis, generateId } from './services/storageService';
+import { getCurrentChild, isOnboardingComplete, setOnboardingComplete, saveAnalysis, getAnalysisById, getChildren, isMongoId, syncLocalChildToBackend, mapBackendAnalysis, generateId, fetchChildren } from './services/storageService';
 import { analyzeDevelopment } from './services/geminiService';
 import apiService from './services/apiService';
 
@@ -63,11 +63,11 @@ const App: React.FC = () => {
     setIsAuthenticated(true);
 
     // Check if onboarding is complete and load current child
-    const child = getCurrentChild();
-    if (child && isOnboardingComplete()) {
+    const localChild = getCurrentChild();
+    if (localChild && isOnboardingComplete()) {
       // Check if the child has a local ID (not MongoDB ObjectId) and migrate
-      if (!isMongoId(child.id)) {
-        syncLocalChildToBackend(child)
+      if (!isMongoId(localChild.id)) {
+        syncLocalChildToBackend(localChild)
           .then((syncedChild) => {
             setCurrentChild(syncedChild);
             setSyncError(null);
@@ -76,28 +76,51 @@ const App: React.FC = () => {
           .catch((err) => {
             console.error('Failed to sync local child to backend:', err);
             setSyncError('Could not connect to server. Please check your connection and try again.');
-            setCurrentChild(child);
+            setCurrentChild(localChild);
             setStep(AppStep.HOME);
           });
       } else {
-        setCurrentChild(child);
+        setCurrentChild(localChild);
         setStep(AppStep.HOME);
       }
     } else {
-      setStep(AppStep.ONBOARDING);
+      // localStorage empty (new browser/device) — fetch from backend before showing onboarding
+      fetchChildren().then((children) => {
+        if (children.length > 0) {
+          setOnboardingComplete();
+          setCurrentChild(children[0]);
+          setStep(AppStep.HOME);
+        } else {
+          setStep(AppStep.ONBOARDING);
+        }
+      }).catch(() => {
+        setStep(AppStep.ONBOARDING);
+      });
     }
   }, []);
 
   const handleAuthenticated = () => {
     setIsAuthenticated(true);
-    // After login/register, check if they already have a child profile
-    const child = getCurrentChild();
-    if (child && isOnboardingComplete()) {
-      setCurrentChild(child);
-      setStep(AppStep.HOME);
-    } else {
-      setStep(AppStep.ONBOARDING);
-    }
+    // After login/register, fetch from backend first (localStorage is empty on a new device)
+    fetchChildren().then((children) => {
+      if (children.length > 0) {
+        setOnboardingComplete();
+        setCurrentChild(children[0]);
+        setStep(AppStep.HOME);
+      } else {
+        // No children in DB either — show onboarding
+        setStep(AppStep.ONBOARDING);
+      }
+    }).catch(() => {
+      // Offline fallback: check localStorage
+      const child = getCurrentChild();
+      if (child && isOnboardingComplete()) {
+        setCurrentChild(child);
+        setStep(AppStep.HOME);
+      } else {
+        setStep(AppStep.ONBOARDING);
+      }
+    });
   };
 
   const handleLogout = () => {

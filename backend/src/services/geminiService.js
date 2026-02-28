@@ -9,8 +9,8 @@ class GeminiService {
 
   initialize(apiKey) {
     const genAI = new GoogleGenerativeAI(apiKey);
-    this.model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-    this.visionModel = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    this.model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    this.visionModel = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
   }
 
   isInitialized() {
