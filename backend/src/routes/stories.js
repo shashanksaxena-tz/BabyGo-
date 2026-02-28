@@ -215,4 +215,36 @@ router.delete('/:childId/:id', authMiddleware, async (req, res) => {
   }
 });
 
+// Update illustration URL for a specific story page (called after client-side illustration upload)
+router.patch('/:childId/:id/page/:pageNumber/illustration', authMiddleware, async (req, res) => {
+  try {
+    const { illustrationUrl } = req.body;
+    if (!illustrationUrl) {
+      return res.status(400).json({ error: 'illustrationUrl is required' });
+    }
+
+    const story = await Story.findOne({
+      _id: req.params.id,
+      childId: req.params.childId,
+    });
+
+    if (!story) {
+      return res.status(404).json({ error: 'Story not found' });
+    }
+
+    const pageNumber = parseInt(req.params.pageNumber, 10);
+    const page = story.pages.find(p => p.pageNumber === pageNumber);
+    if (!page) {
+      return res.status(404).json({ error: 'Page not found' });
+    }
+
+    page.illustrationUrl = illustrationUrl;
+    await story.save();
+
+    res.json({ message: 'Illustration updated', illustrationUrl });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update illustration' });
+  }
+});
+
 export default router;
