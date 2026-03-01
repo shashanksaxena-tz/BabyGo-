@@ -194,6 +194,102 @@ Respond in this JSON format:
     }
   }
 
+  /**
+   * Describe a character/toy image using Gemini Vision.
+   * Returns a 1-2 sentence visual description suitable for embedding in story prompts.
+   *
+   * @param {string} imageBase64 - Base64-encoded image data (no data URL prefix)
+   * @param {string} mimeType - e.g. 'image/jpeg'
+   * @returns {Promise<string>}
+   */
+  async describeImage(imageBase64, mimeType = 'image/jpeg') {
+    if (!this.visionModel) throw new Error('Gemini service not initialized');
+    const parts = [
+      {
+        text: "Describe this toy or character in 1-2 sentences for a children's bedtime story illustration. "
+          + 'Focus on visual appearance: shape, colour, notable features. Keep it imaginative and child-friendly.',
+      },
+      { inlineData: { data: imageBase64, mimeType } },
+    ];
+    const result = await this.visionModel.generateContent(parts);
+    return result.response.text().trim();
+  }
+
+  /**
+   * Generate a fully custom bedtime story based on user-defined parameters.
+   *
+   * @param {Object} child - Child document
+   * @param {Object} opts
+   * @param {string}   opts.customPrompt        - Free-form user instructions
+   * @param {string[]} opts.characters          - Extra character names
+   * @param {string}   opts.setting             - Setting/place
+   * @param {string}   opts.action              - Plot driver
+   * @param {string[]} opts.characterDescriptions - Gemini Vision descriptions of character images
+   * @param {string}   opts.childAvatarDescription - Vision description of child's story avatar
+   * @returns {Promise<Object>} { title, coverImageDescription, pages, moral }
+   */
+  async generateCustomStory(child, opts = {}) {
+    if (!this.model) throw new Error('Gemini service not initialized');
+
+    const {
+      customPrompt = '',
+      characters = [],
+      setting = '',
+      action = '',
+      characterDescriptions = [],
+      childAvatarDescription = '',
+    } = opts;
+
+    const characterLines = characters
+      .map((name, i) => characterDescriptions[i] ? `- ${name}: ${characterDescriptions[i]}` : `- ${name}`)
+      .join('\n');
+
+    const prompt = `
+Create a custom bedtime story for a ${child.ageInMonths}-month-old child named ${child.name}.
+
+MANDATORY PROTAGONIST:
+- ${child.name} is the hero of this story (always featured on every page)
+${childAvatarDescription ? `- ${child.name}'s appearance: ${childAvatarDescription}` : ''}
+
+STORY REQUIREMENTS:
+- Setting: ${setting || 'a magical, cosy world'}
+- Plot / action: ${action || 'a gentle adventure that ends in sleep'}
+${characters.length > 0 ? `- Additional characters:\n${characterLines}` : ''}
+- Use simple, age-appropriate language suitable for a toddler bedtime story
+- Story should be calming and gently lead towards sleep
+- 4-6 pages, each with 2-3 short paragraphs
+- Include a gentle moral or lesson
+- End with ${child.name} falling peacefully asleep
+${customPrompt ? `\nSPECIAL INSTRUCTIONS FROM PARENT:\n${customPrompt}` : ''}
+
+Respond in this JSON format:
+{
+  "title": "Story Title",
+  "coverImageDescription": "Vivid 1-sentence description for the cover art showing ${child.name} in the main scene",
+  "pages": [
+    {
+      "pageNumber": 1,
+      "text": "Story text for page 1...",
+      "illustrationPrompt": "Detailed description for page illustration including ${child.name} and the scene"
+    }
+  ],
+  "moral": "The gentle lesson of the story"
+}
+`;
+
+    const result = await this.model.generateContent(prompt);
+    const text = result.response.text();
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('Invalid response format from AI');
+    const data = JSON.parse(jsonMatch[0]);
+    return {
+      title: data.title || `${child.name}'s Special Story`,
+      coverImageDescription: data.coverImageDescription || '',
+      pages: data.pages || [],
+      moral: data.moral || '',
+    };
+  }
+
   async generateRecommendations(child, category) {
     if (!this.model) {
       throw new Error('Gemini service not initialized');

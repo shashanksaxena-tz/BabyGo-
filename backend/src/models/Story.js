@@ -32,14 +32,23 @@ const storySchema = new mongoose.Schema({
     required: true,
   },
   theme: {
-    id: {
-      type: String,
-      required: true,
-    },
+    id: String,
     name: String,
     emoji: String,
     colorHex: String,
   },
+  // Custom story fields (populated when isCustom = true)
+  isCustom: {
+    type: Boolean,
+    default: false,
+  },
+  customConfig: {
+    characters: [String],    // extra character names
+    setting: String,
+    action: String,
+    customPrompt: String,    // user's free-form instructions
+  },
+  coverImageUrl: String,     // AI-generated cover image stored in MinIO
   pages: [storyPageSchema],
   moral: {
     type: String,

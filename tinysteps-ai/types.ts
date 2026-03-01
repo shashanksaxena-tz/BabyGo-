@@ -203,6 +203,15 @@ export interface BedtimeStory {
   createdAt: string;
   characters: StoryCharacter[];
   moral?: string;
+  // Custom story fields
+  isCustom?: boolean;
+  coverImageUrl?: string;
+  customConfig?: {
+    characters: string[];
+    setting: string;
+    action: string;
+    customPrompt: string;
+  };
 }
 
 export interface StoryCharacter {

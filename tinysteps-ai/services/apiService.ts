@@ -204,6 +204,28 @@ class ApiService {
     });
   }
 
+  async generateCustomStory(params: {
+    childId: string;
+    customPrompt?: string;
+    characters?: string[];
+    setting?: string;
+    action?: string;
+    characterImages?: Array<{ name: string; base64: string; mimeType: string }>;
+    childAvatarImage?: { base64: string; mimeType: string } | null;
+  }) {
+    return this.request('/stories/custom', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  async updateStoryCoverImage(childId: string, storyId: string, coverImageUrl: string) {
+    return this.request(`/stories/${childId}/${storyId}/cover`, {
+      method: 'PATCH',
+      body: JSON.stringify({ coverImageUrl }),
+    });
+  }
+
   async getStory(childId: string, storyId: string) {
     return this.request(`/stories/${childId}/${storyId}`);
   }

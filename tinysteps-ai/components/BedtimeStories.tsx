@@ -9,17 +9,19 @@ import {
   Pause,
   ChevronLeft,
   ChevronRight,
-  Plus,
   Clock,
   Heart,
   Loader2,
   Image as ImageIcon,
+  Wand2,
+  Download,
 } from 'lucide-react';
 import { ChildProfile, BedtimeStory } from '../types';
 import { getStories, saveStory, updateStory, fetchStories } from '../services/storageService';
 import { generateStoryIllustration } from '../services/geminiService';
 import apiService, { dataUrlToFile } from '../services/apiService';
 import LanguagePicker from './LanguagePicker';
+import CustomStoryBuilder from './CustomStoryBuilder';
 
 interface BedtimeStoriesProps {
   child: ChildProfile;
@@ -38,6 +40,7 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
   const [selectedLanguage, setSelectedLanguage] = useState('en-IN');
   const [translatedPages, setTranslatedPages] = useState<string[] | null>(null);
   const [isTranslating, setIsTranslating] = useState(false);
+  const [showCustomBuilder, setShowCustomBuilder] = useState(false);
 
   useEffect(() => {
     // Load from localStorage immediately
@@ -244,20 +247,67 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
     }
   }, [selectedStory, child.profilePhoto, child.name, child.id, illustrationCache]);
 
-  // Auto-generate illustration when page changes
+  // Auto-generate illustration when page changes (skip cover page)
   useEffect(() => {
-    if (selectedStory && child.profilePhoto) {
-      generateIllustrationForPage(currentPage);
+    if (!selectedStory || !child.profilePhoto) return;
+    const hasCover = !!selectedStory.coverImageUrl;
+    const contentIdx = hasCover ? currentPage - 1 : currentPage;
+    if (contentIdx >= 0) {
+      generateIllustrationForPage(contentIdx);
     }
   }, [currentPage, selectedStory?.id]);
+
+  const downloadStoryPDF = () => {
+    if (!selectedStory) return;
+    // Build a printable HTML page and trigger browser print-to-PDF
+    const pages = selectedStory.content.map((text, i) => `
+      <div style="page-break-before:${i === 0 ? 'auto' : 'always'};padding:40px;font-family:Georgia,serif;">
+        <p style="font-size:18px;line-height:1.8;color:#1e1b4b;">${text}</p>
+      </div>
+    `).join('');
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <title>${selectedStory.title}</title>
+  <style>
+    @page { size: A5; margin: 20mm; }
+    body { margin:0; background:#fff; }
+    h1 { font-family:Georgia,serif; color:#6d28d9; text-align:center; padding:40px 40px 20px; }
+    .moral { background:#fef3c7; border-left:4px solid #f59e0b; padding:16px 24px; margin:20px 40px; font-style:italic; }
+  </style>
+</head>
+<body>
+  <h1>${selectedStory.title}</h1>
+  ${pages}
+  ${selectedStory.moral ? `<div class="moral">✨ ${selectedStory.moral}</div>` : ''}
+</body>
+</html>`;
+
+    const w = window.open('', '_blank');
+    if (w) {
+      w.document.write(html);
+      w.document.close();
+      w.onload = () => w.print();
+    }
+  };
 
   const StoryReader = () => {
     if (!selectedStory) return null;
 
+    // If story has a cover, show it as "page -1" (index -1 shifts everything)
+    const hasCover = !!selectedStory.coverImageUrl;
     const content = selectedStory.content;
-    const totalPages = content.length;
-    const currentContent = content[currentPage];
-    const displayContent = translatedPages ? (translatedPages[currentPage] || currentContent) : currentContent;
+    const totalPages = content.length + (hasCover ? 1 : 0);
+    // when hasCover, currentPage=0 → cover, currentPage=1..n → content[0..n-1]
+    const contentPageIndex = hasCover ? currentPage - 1 : currentPage;
+    const isCoverPage = hasCover && currentPage === 0;
+    const currentContent = isCoverPage ? '' : content[contentPageIndex] || '';
+    const displayContent = isCoverPage
+      ? ''
+      : translatedPages
+        ? (translatedPages[contentPageIndex] || currentContent)
+        : currentContent;
 
     return (
       <div className="min-h-screen bg-gradient-to-b from-indigo-900 via-purple-900 to-slate-900">
@@ -279,12 +329,21 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
               <h1 className="text-white font-bold">{selectedStory.title}</h1>
               <p className="text-purple-200 text-sm">{selectedStory.duration} min read</p>
             </div>
+            {!isCoverPage && (
+              <button
+                onClick={() => speakText(displayContent)}
+                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isReading ? 'bg-amber-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'
+                  }`}
+              >
+                {isReading ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+              </button>
+            )}
             <button
-              onClick={() => speakText(displayContent)}
-              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isReading ? 'bg-amber-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'
-                }`}
+              onClick={downloadStoryPDF}
+              className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-white hover:bg-white/20"
+              title="Download as PDF"
             >
-              {isReading ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+              <Download className="w-5 h-5" />
             </button>
             <LanguagePicker value={selectedLanguage} onChange={handleLanguageChange} dark={true} />
           </div>
@@ -292,99 +351,121 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
 
         {/* Story Content */}
         <div className="px-6 pb-32">
-          {/* Illustration */}
-          {(() => {
-            const illustration = selectedStory.illustrations[currentPage];
-            const cacheKey = `${selectedStory.id}-${currentPage}`;
-            const cachedImage = illustrationCache[cacheKey] || illustration?.imageUrl;
-            const isGeneratingThis = generatingIllustration === currentPage;
-
-            if (cachedImage) {
-              // Show generated illustration
-              return (
-                <div className="aspect-video rounded-3xl mb-6 overflow-hidden border border-white/10 shadow-xl">
-                  <img
-                    src={cachedImage}
-                    alt={illustration?.description || 'Story illustration'}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              );
-            }
-
-            if (isGeneratingThis) {
-              // Show loading state
-              return (
-                <div className="aspect-video bg-gradient-to-br from-purple-500/30 to-pink-500/30 rounded-3xl mb-6 flex items-center justify-center border border-white/10">
-                  <div className="text-center text-white/80">
-                    <Loader2 className="w-12 h-12 mx-auto mb-3 animate-spin text-purple-300" />
-                    <p className="text-sm font-medium">Creating illustration...</p>
-                    <p className="text-xs text-white/60 mt-1">Bringing the scene to life</p>
-                  </div>
-                </div>
-              );
-            }
-
-            // Show placeholder with generate button
-            return (
-              <div className="aspect-video bg-gradient-to-br from-purple-500/30 to-pink-500/30 rounded-3xl mb-6 flex items-center justify-center border border-white/10">
-                <div className="text-center text-white/60">
-                  {child.profilePhoto ? (
-                    <button
-                      onClick={() => generateIllustrationForPage(currentPage)}
-                      className="flex flex-col items-center hover:text-white/80 transition-colors"
-                    >
-                      <ImageIcon className="w-12 h-12 mx-auto mb-2" />
-                      <p className="text-sm font-medium">Tap to generate illustration</p>
-                      <p className="text-xs mt-1 max-w-[200px]">{illustration?.description || 'Imagine the scene...'}</p>
-                    </button>
-                  ) : (
-                    <>
-                      <Sparkles className="w-12 h-12 mx-auto mb-2" />
-                      <p className="text-sm">{illustration?.description || 'Imagine the scene...'}</p>
-                      <p className="text-xs mt-2 text-amber-300">Add a profile photo to generate illustrations</p>
-                    </>
-                  )}
-                </div>
+          {/* Cover page */}
+          {isCoverPage ? (
+            <div className="flex flex-col items-center gap-6">
+              <div className="w-full rounded-3xl overflow-hidden border border-white/20 shadow-2xl">
+                <img
+                  src={selectedStory.coverImageUrl}
+                  alt={`Cover: ${selectedStory.title}`}
+                  className="w-full object-cover"
+                />
               </div>
-            );
-          })()}
-
-          {/* Story Text */}
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 min-h-[200px]">
-            {isTranslating ? (
-              <div className="flex items-center gap-3 text-white/60">
-                <Loader2 className="w-5 h-5 animate-spin flex-shrink-0" />
-                <p className="text-sm">Translating story...</p>
+              <div className="text-center">
+                <h2 className="text-white text-2xl font-bold font-serif mb-2">
+                  {selectedStory.title}
+                </h2>
+                <p className="text-purple-200 text-sm">A story starring {child.name}</p>
+                {selectedStory.isCustom && (
+                  <span className="mt-2 inline-flex items-center gap-1 bg-violet-500/30 text-violet-200 text-xs px-3 py-1 rounded-full">
+                    <Sparkles className="w-3 h-3" /> Custom Story
+                  </span>
+                )}
               </div>
-            ) : (
-              <p className="text-white text-lg leading-relaxed font-serif">
-                {displayContent}
-              </p>
-            )}
-          </div>
-
-          {/* Moral (on last page) */}
-          {currentPage === totalPages - 1 && selectedStory.moral && (
-            <div className="mt-4 bg-amber-500/20 rounded-xl p-4 border border-amber-500/30">
-              <p className="text-amber-200 text-sm flex items-start gap-2">
-                <Star className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                <span><strong>Moral:</strong> {selectedStory.moral}</span>
-              </p>
             </div>
+          ) : (
+            <>
+              {/* Illustration */}
+              {(() => {
+                const illustration = selectedStory.illustrations[contentPageIndex];
+                const cacheKey = `${selectedStory.id}-${contentPageIndex}`;
+                const cachedImage = illustrationCache[cacheKey] || illustration?.imageUrl;
+                const isGeneratingThis = generatingIllustration === contentPageIndex;
+
+                if (cachedImage) {
+                  return (
+                    <div className="aspect-video rounded-3xl mb-6 overflow-hidden border border-white/10 shadow-xl">
+                      <img
+                        src={cachedImage}
+                        alt={illustration?.description || 'Story illustration'}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  );
+                }
+
+                if (isGeneratingThis) {
+                  return (
+                    <div className="aspect-video bg-gradient-to-br from-purple-500/30 to-pink-500/30 rounded-3xl mb-6 flex items-center justify-center border border-white/10">
+                      <div className="text-center text-white/80">
+                        <Loader2 className="w-12 h-12 mx-auto mb-3 animate-spin text-purple-300" />
+                        <p className="text-sm font-medium">Creating illustration...</p>
+                        <p className="text-xs text-white/60 mt-1">Bringing the scene to life</p>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="aspect-video bg-gradient-to-br from-purple-500/30 to-pink-500/30 rounded-3xl mb-6 flex items-center justify-center border border-white/10">
+                    <div className="text-center text-white/60">
+                      {child.profilePhoto ? (
+                        <button
+                          onClick={() => generateIllustrationForPage(contentPageIndex)}
+                          className="flex flex-col items-center hover:text-white/80 transition-colors"
+                        >
+                          <ImageIcon className="w-12 h-12 mx-auto mb-2" />
+                          <p className="text-sm font-medium">Tap to generate illustration</p>
+                          <p className="text-xs mt-1 max-w-[200px]">{illustration?.description || 'Imagine the scene...'}</p>
+                        </button>
+                      ) : (
+                        <>
+                          <Sparkles className="w-12 h-12 mx-auto mb-2" />
+                          <p className="text-sm">{illustration?.description || 'Imagine the scene...'}</p>
+                          <p className="text-xs mt-2 text-amber-300">Add a profile photo to generate illustrations</p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Story Text */}
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 min-h-[200px]">
+                {isTranslating ? (
+                  <div className="flex items-center gap-3 text-white/60">
+                    <Loader2 className="w-5 h-5 animate-spin flex-shrink-0" />
+                    <p className="text-sm">Translating story...</p>
+                  </div>
+                ) : (
+                  <p className="text-white text-lg leading-relaxed font-serif">
+                    {displayContent}
+                  </p>
+                )}
+              </div>
+
+              {/* Moral (on last page) */}
+              {currentPage === totalPages - 1 && selectedStory.moral && (
+                <div className="mt-4 bg-amber-500/20 rounded-xl p-4 border border-amber-500/30">
+                  <p className="text-amber-200 text-sm flex items-start gap-2">
+                    <Star className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                    <span><strong>Moral:</strong> {selectedStory.moral}</span>
+                  </p>
+                </div>
+              )}
+            </>
           )}
         </div>
 
         {/* Navigation */}
         <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-slate-900 to-transparent px-6 py-8">
-          {/* Progress */}
+          {/* Progress dots — include cover dot if present */}
           <div className="flex gap-1 justify-center mb-4">
-            {content.map((_, i) => (
+            {Array.from({ length: totalPages }).map((_, i) => (
               <button
                 key={i}
                 onClick={() => setCurrentPage(i)}
-                className={`h-1 rounded-full transition-all ${i === currentPage ? 'w-8 bg-white' : 'w-2 bg-white/30'
-                  }`}
+                className={`h-1 rounded-full transition-all ${i === currentPage ? 'w-8 bg-white' : 'w-2 bg-white/30'}`}
               />
             ))}
           </div>
@@ -423,6 +504,23 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
       </div>
     );
   };
+
+  const handleCustomStoryCreated = (story: BedtimeStory) => {
+    setStories([story, ...stories]);
+    setSelectedStory(story);
+    setCurrentPage(0);
+    setShowCustomBuilder(false);
+  };
+
+  if (showCustomBuilder) {
+    return (
+      <CustomStoryBuilder
+        child={child}
+        onStoryCreated={handleCustomStoryCreated}
+        onCancel={() => setShowCustomBuilder(false)}
+      />
+    );
+  }
 
   if (selectedStory) {
     return <StoryReader />;
@@ -485,6 +583,18 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3">
+              {/* Custom Story card — always first */}
+              <button
+                onClick={() => setShowCustomBuilder(true)}
+                className="col-span-2 p-4 rounded-xl bg-gradient-to-br from-violet-500 to-purple-700 text-white text-left transition-transform hover:scale-[1.01] active:scale-[0.98] border border-purple-400/30 flex items-center gap-3"
+              >
+                <Wand2 className="w-8 h-8 text-amber-300 flex-shrink-0" />
+                <div>
+                  <span className="font-semibold block">Custom Story</span>
+                  <span className="text-xs text-purple-200">Your characters, your setting, your adventure</span>
+                </div>
+              </button>
+
               {allThemes.map(theme => (
                 <button
                   key={theme.id}

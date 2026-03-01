@@ -21,7 +21,7 @@ const STORY_THEMES = [
 ];
 
 // Get available themes
-router.get('/themes', (req, res) => {
+router.get('/themes', (_req, res) => {
   res.json({ themes: STORY_THEMES });
 });
 
@@ -110,6 +110,100 @@ router.post('/', authMiddleware, [
   } catch (error) {
     console.error('Story generation error:', error);
     res.status(500).json({ error: 'Failed to generate story: ' + error.message });
+  }
+});
+
+// Generate custom story
+router.post('/custom', authMiddleware, async (req, res) => {
+  try {
+    const {
+      childId,
+      customPrompt = '',
+      characters = [],        // string[]
+      setting = '',
+      action = '',
+      characterImages = [],   // [{ name, base64, mimeType }]
+      childAvatarImage = null, // { base64, mimeType }
+    } = req.body;
+
+    if (!childId) {
+      return res.status(400).json({ error: 'childId is required' });
+    }
+
+    const child = await Child.findOne({ _id: childId });
+    if (!child) return res.status(404).json({ error: 'Child not found' });
+
+    const apiKey = req.user.geminiApiKey || process.env.GEMINI_API_KEY;
+    if (!apiKey) return res.status(400).json({ error: 'Gemini API key not configured' });
+    geminiService.initialize(apiKey);
+
+    // Describe uploaded character images via Vision
+    const characterDescriptions = [];
+    for (const img of characterImages) {
+      try {
+        const desc = await geminiService.describeImage(img.base64, img.mimeType || 'image/jpeg');
+        characterDescriptions.push(desc);
+      } catch {
+        characterDescriptions.push(''); // non-fatal
+      }
+    }
+
+    // Describe child's story avatar if provided
+    let childAvatarDescription = '';
+    if (childAvatarImage?.base64) {
+      try {
+        childAvatarDescription = await geminiService.describeImage(
+          childAvatarImage.base64,
+          childAvatarImage.mimeType || 'image/jpeg'
+        );
+      } catch { /* non-fatal */ }
+    }
+
+    const storyData = await geminiService.generateCustomStory(child, {
+      customPrompt,
+      characters,
+      setting,
+      action,
+      characterDescriptions,
+      childAvatarDescription,
+    });
+
+    const story = new Story({
+      childId: String(child._id),
+      userId: String(req.user._id),
+      title: storyData.title,
+      theme: { id: 'custom', name: 'Custom Story', emoji: '✨', colorHex: '#8B5CF6' },
+      isCustom: true,
+      customConfig: { characters, setting, action, customPrompt },
+      pages: storyData.pages,
+      moral: storyData.moral,
+      childAgeAtCreation: child.ageInMonths,
+    });
+
+    await story.save();
+
+    res.status(201).json({ message: 'Custom story generated', story });
+  } catch (error) {
+    console.error('Custom story generation error:', error);
+    res.status(500).json({ error: 'Failed to generate custom story: ' + error.message });
+  }
+});
+
+// Update story cover image URL
+router.patch('/:childId/:id/cover', authMiddleware, async (req, res) => {
+  try {
+    const { coverImageUrl } = req.body;
+    if (!coverImageUrl) return res.status(400).json({ error: 'coverImageUrl is required' });
+
+    const story = await Story.findOne({ _id: req.params.id, childId: req.params.childId });
+    if (!story) return res.status(404).json({ error: 'Story not found' });
+
+    story.coverImageUrl = coverImageUrl;
+    await story.save();
+
+    res.json({ message: 'Cover updated', coverImageUrl });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update cover' });
   }
 });
 
