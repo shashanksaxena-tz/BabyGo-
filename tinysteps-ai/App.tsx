@@ -25,6 +25,7 @@ import PediatricianReportView from './components/PediatricianReportView';
 import GeneratedReportView from './components/GeneratedReportView';
 import DevelopmentInsightsView from './components/DevelopmentInsightsView';
 import WHOEvidenceView from './components/WHOEvidenceView';
+import CommunityView from './components/CommunityView';
 
 import {
   Baby,
@@ -264,6 +265,9 @@ const App: React.FC = () => {
         break;
       case 'RESOURCES_LIBRARY':
         setStep(AppStep.RESOURCES_LIBRARY);
+        break;
+      case 'community':
+        setStep(AppStep.COMMUNITY);
         break;
       default:
         break;
@@ -574,6 +578,15 @@ const App: React.FC = () => {
         childId={currentChild.id}
         onBack={() => setStep(AppStep.HOME)}
         onNavigate={handleNavigate}
+      />
+    );
+  }
+
+  // Community
+  if (step === AppStep.COMMUNITY) {
+    return (
+      <CommunityView
+        onBack={() => setStep(AppStep.HOME)}
       />
     );
   }

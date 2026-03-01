@@ -336,9 +336,22 @@ Respond in JSON format:
     }
   }
 
-  async generateRecipes(child, count = 3) {
+  async generateRecipes(child, count = 3, filters = {}) {
     if (!this.model) {
       throw new Error('Gemini service not initialized');
+    }
+
+    const { excludeAllergens, dietaryPreferences, foodLikings } = filters;
+
+    let filterInstructions = '';
+    if (excludeAllergens && excludeAllergens.length > 0) {
+      filterInstructions += `\n- EXCLUDE these allergens entirely: ${Array.isArray(excludeAllergens) ? excludeAllergens.join(', ') : excludeAllergens}. Do not use any ingredients containing these allergens.`;
+    }
+    if (dietaryPreferences && dietaryPreferences.length > 0) {
+      filterInstructions += `\n- Respect these dietary preferences: ${Array.isArray(dietaryPreferences) ? dietaryPreferences.join(', ') : dietaryPreferences}.`;
+    }
+    if (foodLikings && foodLikings.length > 0) {
+      filterInstructions += `\n- Incorporate these food preferences/likings where possible: ${Array.isArray(foodLikings) ? foodLikings.join(', ') : foodLikings}.`;
     }
 
     const prompt = `
@@ -349,6 +362,8 @@ Consider:
 - Nutritional needs for this age
 - Easy preparation
 - WHO feeding guidelines
+- Include a mealType field for each recipe (breakfast, lunch, dinner, or snack)
+${filterInstructions}
 
 Respond in JSON format:
 {
@@ -362,7 +377,8 @@ Respond in JSON format:
       "cookTime": "15 mins",
       "nutritionHighlights": ["Iron-rich", "Good source of protein"],
       "allergens": ["dairy"],
-      "difficulty": "Easy"
+      "difficulty": "Easy",
+      "mealType": "breakfast|lunch|dinner|snack"
     }
   ]
 }

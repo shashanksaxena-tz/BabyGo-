@@ -166,7 +166,7 @@ class ApiService {
   Future<Map<String, dynamic>> createChild(ChildProfile child) async {
     return _request('POST', '/children', body: {
       'name': child.name,
-      'birthDate': child.birthDate.toIso8601String(),
+      'dateOfBirth': child.dateOfBirth.toIso8601String(),
       'gender': child.gender.name,
       'weight': child.weight,
       'height': child.height,
@@ -174,7 +174,7 @@ class ApiService {
       'region': child.region.name,
       'interests': child.interests,
       'favoriteCharacters': child.favoriteCharacters,
-      'photoUrl': child.photoUrl,
+      'profilePhotoUrl': child.photoUrl,
     });
   }
 
@@ -187,7 +187,7 @@ class ApiService {
   Future<Map<String, dynamic>> updateChild(String childId, ChildProfile child) async {
     return _request('PUT', '/children/$childId', body: {
       'name': child.name,
-      'birthDate': child.birthDate.toIso8601String(),
+      'dateOfBirth': child.dateOfBirth.toIso8601String(),
       'gender': child.gender.name,
       'weight': child.weight,
       'height': child.height,
@@ -195,7 +195,7 @@ class ApiService {
       'region': child.region.name,
       'interests': child.interests,
       'favoriteCharacters': child.favoriteCharacters,
-      'photoUrl': child.photoUrl,
+      'profilePhotoUrl': child.photoUrl,
     });
   }
 
@@ -567,6 +567,61 @@ class ApiService {
       '/recommendations/sources',
       queryParams: params.isNotEmpty ? params : null,
     );
+  }
+
+  // ==================== Community ====================
+
+  /// Get community posts with optional filtering
+  Future<Map<String, dynamic>> getCommunityPosts({
+    String? category,
+    String? search,
+    String sort = 'recent',
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    final params = <String, String>{
+      'sort': sort,
+      'limit': limit.toString(),
+      'offset': offset.toString(),
+    };
+    if (category != null) params['category'] = category;
+    if (search != null && search.isNotEmpty) params['search'] = search;
+    return _request('GET', '/community/posts', queryParams: params);
+  }
+
+  /// Create a community post
+  Future<Map<String, dynamic>> createCommunityPost({
+    required String title,
+    required String content,
+    String category = 'general',
+  }) async {
+    return _request('POST', '/community/posts', body: {
+      'title': title,
+      'content': content,
+      'category': category,
+    });
+  }
+
+  /// Get a single community post with its comments
+  Future<Map<String, dynamic>> getCommunityPost(String postId) async {
+    return _request('GET', '/community/posts/$postId');
+  }
+
+  /// Toggle like on a community post
+  Future<Map<String, dynamic>> toggleCommunityPostLike(String postId) async {
+    return _request('POST', '/community/posts/$postId/like');
+  }
+
+  /// Add a comment to a community post
+  Future<Map<String, dynamic>> addCommunityComment(String postId, String content) async {
+    return _request('POST', '/community/posts/$postId/comments', body: {
+      'content': content,
+    });
+  }
+
+  /// Get trending community topics
+  Future<Map<String, dynamic>> getCommunityTopics() async {
+    return _request('GET', '/community/topics');
   }
 
   // ==================== Upload ====================

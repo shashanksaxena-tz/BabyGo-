@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 /// TinySteps AI App Theme - Polished, child-friendly design system
 class AppTheme {
@@ -15,11 +16,34 @@ class AppTheme {
   static const Color secondaryOrange = Color(0xFFF97316);
   static const Color secondaryYellow = Color(0xFFEAB308);
 
-  // Domain Colors
-  static const Color motorColor = Color(0xFF3B82F6);
-  static const Color languageColor = Color(0xFF8B5CF6);
-  static const Color cognitiveColor = Color(0xFFF59E0B);
-  static const Color socialColor = Color(0xFFEC4899);
+  // Domain Colors (V3 Design System)
+  static const Color motorColor = Color(0xFF3B82F6);    // Blue
+  static const Color socialColor = Color(0xFF10B981);    // Green (Emerald)
+  static const Color cognitiveColor = Color(0xFF8B5CF6); // Purple
+  static const Color languageColor = Color(0xFFEC4899);  // Pink
+
+  // V3 Background & Surface Colors
+  static const Color backgroundV3 = Color(0xFFF8FAF9);
+  static const Color cardWhite = Color(0xFFFFFFFF);
+  static const Color textPrimary = Color(0xFF1F2937);
+  static const Color textSecondary = Color(0xFF6B7280);
+  static const Color textTertiary = Color(0xFF9CA3AF);
+  static const Color borderLight = Color(0xFFE5E7EB);
+
+  // V3 Subtle Tints
+  static const Color greenTint = Color(0xFFD1FAE5);
+  static const Color blueTint = Color(0xFFDBEAFE);
+  static const Color purpleTint = Color(0xFFEDE9FE);
+  static const Color pinkTint = Color(0xFFFCE7F3);
+
+  // V3 Card Shadow
+  static List<BoxShadow> get cardShadowV3 => [
+    BoxShadow(
+      color: const Color(0x0A000000),
+      blurRadius: 12,
+      offset: const Offset(0, 2),
+    ),
+  ];
 
   // Neutral Colors
   static const Color neutral50 = Color(0xFFFAFAFA);
@@ -230,8 +254,7 @@ class AppTheme {
       brightness: Brightness.light,
       primaryColor: primaryGreen,
       scaffoldBackgroundColor: neutral50,
-      fontFamily: 'Nunito',
-      textTheme: textTheme.apply(
+      textTheme: GoogleFonts.nunitoTextTheme(textTheme).apply(
         bodyColor: neutral800,
         displayColor: neutral900,
       ),
@@ -268,10 +291,9 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(radiusLg),
           ),
-          textStyle: const TextStyle(
+          textStyle: GoogleFonts.nunito(
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            fontFamily: 'Nunito',
           ),
         ),
       ),
@@ -284,10 +306,9 @@ class AppTheme {
             borderRadius: BorderRadius.circular(radiusLg),
           ),
           side: const BorderSide(color: primaryGreen, width: 2),
-          textStyle: const TextStyle(
+          textStyle: GoogleFonts.nunito(
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            fontFamily: 'Nunito',
           ),
         ),
       ),
@@ -295,10 +316,9 @@ class AppTheme {
         style: TextButton.styleFrom(
           foregroundColor: primaryGreen,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          textStyle: const TextStyle(
+          textStyle: GoogleFonts.nunito(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            fontFamily: 'Nunito',
           ),
         ),
       ),
@@ -327,7 +347,7 @@ class AppTheme {
           fontWeight: FontWeight.w400,
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         elevation: 0,
         color: Colors.white,
         shape: RoundedRectangleBorder(

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -981,7 +982,7 @@ class _EditProfileScreenState extends State<EditProfileScreen>
         fit: BoxFit.cover,
       );
     }
-    if (widget.child.profilePhotoPath != null) {
+    if (!kIsWeb && widget.child.profilePhotoPath != null) {
       return DecorationImage(
         image: FileImage(File(widget.child.profilePhotoPath!)),
         fit: BoxFit.cover,
@@ -1045,7 +1046,9 @@ class _EditProfileScreenState extends State<EditProfileScreen>
     if (pickedFile != null) {
       final bytes = await pickedFile.readAsBytes();
       setState(() {
-        _selectedPhoto = File(pickedFile.path);
+        if (!kIsWeb) {
+          _selectedPhoto = File(pickedFile.path);
+        }
         _photoBase64 = base64Encode(bytes);
       });
       _markChanged();

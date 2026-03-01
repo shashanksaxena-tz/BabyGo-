@@ -1,24 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
+import 'dart:math' as math;
 import '../../models/models.dart';
 import '../../services/storage_service.dart';
-import '../../services/who_data_service.dart';
 import '../../utils/app_theme.dart';
 import '../../animations/custom_animations.dart';
-import '../../widgets/widgets.dart';
+import '../../widgets/child_header_card.dart';
+import '../../widgets/domain_score_ring.dart';
 import '../analysis/media_capture_screen.dart';
-import '../timeline/timeline_screen.dart';
 import '../stories/bedtime_stories_screen.dart';
-import '../profile/profile_screen.dart';
-import '../discover/recipes_screen.dart';
-import '../discover/recommendations_screen.dart';
-import '../discover/resources_library_screen.dart';
 import '../milestones/milestones_screen.dart';
 import '../growth/growth_charts_screen.dart';
-import '../reports/pediatrician_report_screen.dart';
-import '../insights/development_insights_screen.dart';
-import '../health/health_hub_screen.dart';
 
+/// V3 Home Dashboard - matches Pencil design nodeId: 39h1m exactly
+/// Layout: Status bar area -> Header -> Child Info Card -> Overall Score Card
+/// -> Domain Pills -> Recent Activity -> Quick Actions -> BottomNavBar
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -26,959 +21,41 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen>
-    with SingleTickerProviderStateMixin {
-  int _currentIndex = 0;
+class _HomeScreenState extends State<HomeScreen> {
   ChildProfile? _currentChild;
   AnalysisResult? _latestAnalysis;
   bool _isLoading = true;
-
-  late AnimationController _animationController;
+  int _storyCount = 0;
 
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
     _loadData();
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
   }
 
   Future<void> _loadData() async {
     final storage = StorageService();
     final child = await storage.getCurrentChild();
     AnalysisResult? analysis;
+    int storyCount = 0;
 
     if (child != null) {
       analysis = await storage.getLatestAnalysis(child.id);
+      final stories = await storage.getStories(child.id);
+      storyCount = stories.length;
     }
 
-    setState(() {
-      _currentChild = child;
-      _latestAnalysis = analysis;
-      _isLoading = false;
-    });
-
-    _animationController.forward();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(color: AppTheme.primaryGreen),
-        ),
-      );
+    if (mounted) {
+      setState(() {
+        _currentChild = child;
+        _latestAnalysis = analysis;
+        _storyCount = storyCount;
+        _isLoading = false;
+      });
     }
-
-    return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: [
-          _buildHomeDashboard(),
-          const TimelineScreen(),
-          const BedtimeStoriesScreen(),
-          const ProfileScreen(),
-        ],
-      ),
-      bottomNavigationBar: _buildBottomNav(),
-    );
   }
 
-  Widget _buildHomeDashboard() {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: AppTheme.backgroundGradient,
-      ),
-      child: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _loadData,
-          color: AppTheme.primaryGreen,
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header
-                _buildHeader(),
-                const SizedBox(height: 24),
-
-                // Quick Actions
-                _buildQuickActions(),
-                const SizedBox(height: 24),
-
-                // Development Overview Card
-                if (_latestAnalysis != null) ...[
-                  _buildDevelopmentCard(),
-                  const SizedBox(height: 20),
-                ],
-
-                // Growth Percentiles
-                _buildGrowthCard(),
-                const SizedBox(height: 20),
-
-                // Domain Scores
-                if (_latestAnalysis != null) ...[
-                  _buildDomainScores(),
-                  const SizedBox(height: 20),
-                ],
-
-                // Discover Section
-                _buildDiscoverSection(),
-                const SizedBox(height: 20),
-
-                // Recent Activity
-                _buildRecentActivity(),
-                const SizedBox(height: 100),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    final greeting = _getGreeting();
-
-    return StaggeredListAnimation(
-      index: 0,
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  greeting,
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: AppTheme.neutral500,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${_currentChild?.displayName ?? "Baby"}\'s Dashboard',
-                  style: const TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.neutral900,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${_currentChild?.displayAge ?? ""}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.primaryGreen,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          GestureDetector(
-            onTap: () => setState(() => _currentIndex = 3),
-            child: Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                gradient: AppTheme.primaryGradient,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.primaryGreen.withOpacity(0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: Text(
-                  _currentChild?.name.substring(0, 1).toUpperCase() ?? '👶',
-                  style: const TextStyle(
-                    fontSize: 24,
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuickActions() {
-    return StaggeredListAnimation(
-      index: 1,
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildActionButton(
-              icon: Icons.camera_alt_rounded,
-              label: 'New Analysis',
-              color: AppTheme.primaryGreen,
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => MediaCaptureScreen(child: _currentChild!),
-                  ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildActionButton(
-              icon: Icons.auto_stories_rounded,
-              label: 'Bedtime Story',
-              color: AppTheme.secondaryPurple,
-              onTap: () => setState(() => _currentIndex = 2),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildActionButton(
-              icon: Icons.timeline_rounded,
-              label: 'Timeline',
-              color: AppTheme.secondaryBlue,
-              onTap: () => setState(() => _currentIndex = 1),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return AnimatedPressableCard(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      shadow: AppTheme.softShadow,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Column(
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Icon(icon, color: color, size: 26),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.neutral700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDevelopmentCard() {
-    return StaggeredListAnimation(
-      index: 2,
-      child: GestureDetector(
-        onTap: () {
-          if (_currentChild != null) {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => PediatricianReportScreen(
-                  childId: _currentChild!.id,
-                ),
-              ),
-            );
-          }
-        },
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            gradient: AppTheme.primaryGradient,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.primaryGreen.withOpacity(0.3),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Development Score',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.white70,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Based on WHO milestones',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.white54,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  AnimatedProgressRing(
-                    progress: (_latestAnalysis!.overallScore / 100).clamp(0.0, 1.0),
-                    size: 80,
-                    strokeWidth: 8,
-                    backgroundColor: Colors.white24,
-                    progressColor: Colors.white,
-                    duration: const Duration(milliseconds: 1500),
-                    child: AnimatedCounter(
-                      value: _latestAnalysis!.overallScore.round(),
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.check_circle_rounded,
-                        color: Colors.white, size: 18),
-                    const SizedBox(width: 8),
-                    Text(
-                      _getStatusLabel(_latestAnalysis!.overallStatus),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildGrowthCard() {
-    final percentiles = _currentChild != null
-        ? WHODataService.assessGrowth(_currentChild!)
-        : <GrowthPercentile>[];
-
-    return StaggeredListAnimation(
-      index: 3,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: AppTheme.softShadow,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: AppTheme.secondaryBlue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Icon(Icons.show_chart_rounded,
-                      color: AppTheme.secondaryBlue),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Growth Percentiles',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.neutral800,
-                        ),
-                      ),
-                      Text(
-                        'WHO Child Growth Standards',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.neutral500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            ...percentiles.map((p) => _buildPercentileRow(p)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPercentileRow(GrowthPercentile percentile) {
-    final label = percentile.metric == 'weight'
-        ? 'Weight'
-        : percentile.metric == 'height'
-            ? 'Height'
-            : 'Head';
-    final unit = percentile.metric == 'weight' ? 'kg' : 'cm';
-    final color = _getPercentileColor(percentile.percentile);
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '$label: ${percentile.value.toStringAsFixed(1)} $unit',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.neutral700,
-                ),
-              ),
-              Text(
-                '${percentile.percentile.toStringAsFixed(0)}th percentile',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: color,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: percentile.percentile / 100),
-            duration: const Duration(milliseconds: 1000),
-            curve: Curves.easeOutCubic,
-            builder: (context, value, _) {
-              return Container(
-                height: 8,
-                decoration: BoxDecoration(
-                  color: AppTheme.neutral200,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: FractionallySizedBox(
-                  alignment: Alignment.centerLeft,
-                  widthFactor: value,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: color,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDomainScores() {
-    return StaggeredListAnimation(
-      index: 4,
-      child: GestureDetector(
-        onTap: () {
-          if (_currentChild != null) {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => DevelopmentInsightsScreen(
-                  childId: _currentChild!.id,
-                ),
-              ),
-            );
-          }
-        },
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: AppTheme.softShadow,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Development Areas',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.neutral800,
-                    ),
-                  ),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    color: AppTheme.neutral400,
-                    size: 22,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 2,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 1.4,
-                children: [
-                  _buildDomainCard(
-                    'Motor',
-                    _latestAnalysis!.motorAssessment.score,
-                    AppTheme.motorColor,
-                    Icons.directions_run_rounded,
-                  ),
-                  _buildDomainCard(
-                    'Language',
-                    _latestAnalysis!.languageAssessment.score,
-                    AppTheme.languageColor,
-                    Icons.record_voice_over_rounded,
-                  ),
-                  _buildDomainCard(
-                    'Cognitive',
-                    _latestAnalysis!.cognitiveAssessment.score,
-                    AppTheme.cognitiveColor,
-                    Icons.psychology_rounded,
-                  ),
-                  _buildDomainCard(
-                    'Social',
-                    _latestAnalysis!.socialAssessment.score,
-                    AppTheme.socialColor,
-                    Icons.favorite_rounded,
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDomainCard(
-    String label,
-    double score,
-    Color color,
-    IconData icon,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Icon(icon, color: color, size: 24),
-              AnimatedCounter(
-                value: score.round(),
-                suffix: '%',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  color: color,
-                ),
-              ),
-            ],
-          ),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRecentActivity() {
-    return StaggeredListAnimation(
-      index: 5,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: AppTheme.softShadow,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Quick Tips',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.neutral800,
-                  ),
-                ),
-                TextButton(
-                  onPressed: () {},
-                  child: const Text('See All'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (_latestAnalysis != null &&
-                _latestAnalysis!.personalizedTips.isNotEmpty)
-              ..._latestAnalysis!.personalizedTips.take(3).map((tip) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        margin: const EdgeInsets.only(top: 6),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryGreen,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          tip,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: AppTheme.neutral600,
-                            height: 1.5,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              })
-            else
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(20),
-                  child: Text(
-                    'Run an analysis to get personalized tips!',
-                    style: TextStyle(
-                      color: AppTheme.neutral500,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBottomNav() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 20,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(0, Icons.home_rounded, 'Home'),
-              _buildNavItem(1, Icons.timeline_rounded, 'Timeline'),
-              _buildNavItem(2, Icons.auto_stories_rounded, 'Stories'),
-              _buildNavItem(3, Icons.person_rounded, 'Profile'),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem(int index, IconData icon, String label) {
-    final isSelected = _currentIndex == index;
-
-    return GestureDetector(
-      onTap: () => setState(() => _currentIndex = index),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: EdgeInsets.symmetric(
-          horizontal: isSelected ? 20 : 16,
-          vertical: 10,
-        ),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppTheme.primaryGreen.withOpacity(0.1)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? AppTheme.primaryGreen : AppTheme.neutral400,
-              size: 24,
-            ),
-            if (isSelected) ...[
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.primaryGreen,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDiscoverSection() {
-    return StaggeredListAnimation(
-      index: 6,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(left: 4, bottom: 16),
-            child: Text(
-              'Discover',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.neutral800,
-              ),
-            ),
-          ),
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 2,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 1.5,
-            children: [
-              _buildDiscoverCard(
-                icon: Icons.restaurant_rounded,
-                label: 'Recipes',
-                subtitle: 'Healthy meals',
-                color: AppTheme.warning,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const RecipesScreen()),
-                  );
-                },
-              ),
-              _buildDiscoverCard(
-                icon: Icons.lightbulb_rounded,
-                label: 'Recommendations',
-                subtitle: 'Tips & products',
-                color: AppTheme.secondaryPurple,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const RecommendationsScreen()),
-                  );
-                },
-              ),
-              _buildDiscoverCard(
-                icon: Icons.flag_rounded,
-                label: 'Milestones',
-                subtitle: 'Track progress',
-                color: AppTheme.success,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const MilestonesScreen()),
-                  );
-                },
-              ),
-              _buildDiscoverCard(
-                icon: Icons.show_chart_rounded,
-                label: 'Growth Charts',
-                subtitle: 'WHO standards',
-                color: AppTheme.secondaryBlue,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const GrowthChartsScreen()),
-                  );
-                },
-              ),
-              _buildDiscoverCard(
-                icon: Icons.local_hospital_rounded,
-                label: 'Health Hub',
-                subtitle: 'Find specialists',
-                color: AppTheme.error,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const HealthHubScreen()),
-                  );
-                },
-              ),
-              _buildDiscoverCard(
-                icon: Icons.local_library_rounded,
-                label: 'Resources',
-                subtitle: 'Activities & more',
-                color: AppTheme.primaryGreen,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const ResourcesLibraryScreen()),
-                  );
-                },
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDiscoverCard({
-    required IconData icon,
-    required String label,
-    required String subtitle,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return AnimatedPressableCard(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      shadow: AppTheme.softShadow,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(icon, color: color, size: 22),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.neutral800,
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.neutral500,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _getGreeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
-  }
-
-  String _getStatusLabel(String status) {
+  String _getStatusLabel(String? status) {
     switch (status) {
       case 'on_track':
         return 'On Track';
@@ -987,13 +64,651 @@ class _HomeScreenState extends State<HomeScreen>
       case 'needs_support':
         return 'Needs Support';
       default:
-        return 'Unknown';
+        return 'On Track';
     }
   }
 
-  Color _getPercentileColor(double percentile) {
-    if (percentile < 15) return AppTheme.warning;
-    if (percentile > 85) return AppTheme.warning;
-    return AppTheme.success;
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Container(
+        color: AppTheme.backgroundV3,
+        child: const Center(
+          child: CircularProgressIndicator(color: AppTheme.primaryGreen),
+        ),
+      );
+    }
+
+    return Container(
+      color: AppTheme.backgroundV3,
+      child: SafeArea(
+        bottom: false,
+        child: RefreshIndicator(
+          onRefresh: _loadData,
+          color: AppTheme.primaryGreen,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header row: back arrow, "Home", spacer, settings gear
+                _buildHeader(),
+
+                // Scrollable content with padding
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Child info card
+                      StaggeredListAnimation(
+                        index: 0,
+                        child: ChildHeaderCard(
+                          childName: _currentChild?.displayName ?? 'Baby',
+                          ageText: _currentChild?.displayAge ?? '',
+                          statusText: _getStatusLabel(
+                            _latestAnalysis?.overallStatus,
+                          ),
+                          avatarUrl: _currentChild?.profilePhotoPath,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Overall Score card
+                      StaggeredListAnimation(
+                        index: 1,
+                        child: _buildOverallScoreCard(),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Domain Score Pills row
+                      StaggeredListAnimation(
+                        index: 2,
+                        child: _buildDomainPills(),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Recent Activity section
+                      StaggeredListAnimation(
+                        index: 3,
+                        child: _buildRecentActivity(),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Quick Actions section
+                      StaggeredListAnimation(
+                        index: 4,
+                        child: _buildQuickActions(),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Header row matching design: back chevron, "Home" title, spacer, settings gear
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+      child: SizedBox(
+        height: 48,
+        child: Row(
+          children: [
+            GestureDetector(
+              onTap: () {
+                if (Navigator.of(context).canPop()) {
+                  Navigator.of(context).pop();
+                }
+              },
+              child: const Icon(
+                Icons.chevron_left_rounded,
+                size: 24,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Home',
+              style: TextStyle(
+                fontFamily: 'Nunito',
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+            const Spacer(),
+            GestureDetector(
+              onTap: () {
+                // Settings action - placeholder
+              },
+              child: const Icon(
+                Icons.settings_outlined,
+                size: 22,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Overall Score card with large ring, score number, description, trend badge
+  Widget _buildOverallScoreCard() {
+    final score = _latestAnalysis?.overallScore.round() ?? 0;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppTheme.cardShadowV3,
+      ),
+      child: Row(
+        children: [
+          // Score ring - 90px with 6px stroke
+          SizedBox(
+            width: 90,
+            height: 90,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: score / 100),
+              duration: const Duration(milliseconds: 1500),
+              curve: Curves.easeOutCubic,
+              builder: (context, value, _) {
+                return CustomPaint(
+                  painter: _OverallScoreRingPainter(
+                    progress: value,
+                    strokeWidth: 6,
+                  ),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TweenAnimationBuilder<int>(
+                          tween: IntTween(begin: 0, end: score),
+                          duration: const Duration(milliseconds: 1500),
+                          curve: Curves.easeOutCubic,
+                          builder: (context, val, _) {
+                            return Text(
+                              '$val',
+                              style: const TextStyle(
+                                fontFamily: 'Nunito',
+                                fontSize: 28,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.textPrimary,
+                              ),
+                            );
+                          },
+                        ),
+                        const Text(
+                          '/100',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            color: AppTheme.textTertiary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(width: 20),
+
+          // Score info column
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Overall Score',
+                  style: TextStyle(
+                    fontFamily: 'Nunito',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _latestAnalysis != null
+                      ? 'Your child is developing well across all domains'
+                      : 'Run an analysis to see your score',
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    color: AppTheme.textSecondary,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                // Trend badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.greenTint,
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.trending_up_rounded,
+                        size: 14,
+                        color: Color(0xFF059669),
+                      ),
+                      const SizedBox(width: 4),
+                      const Text(
+                        '+5 this month',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF059669),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Domain score pills row - 4 items evenly spaced
+  Widget _buildDomainPills() {
+    final motor = _latestAnalysis?.motorAssessment.score.round() ?? 0;
+    final social = _latestAnalysis?.socialAssessment.score.round() ?? 0;
+    final cognitive = _latestAnalysis?.cognitiveAssessment.score.round() ?? 0;
+    final language = _latestAnalysis?.languageAssessment.score.round() ?? 0;
+
+    return Row(
+      children: [
+        Expanded(
+          child: _buildDomainPill(
+            score: motor,
+            label: 'Motor',
+            color: AppTheme.motorColor,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _buildDomainPill(
+            score: social,
+            label: 'Social',
+            color: AppTheme.socialColor,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _buildDomainPill(
+            score: cognitive,
+            label: 'Cognitive',
+            color: AppTheme.cognitiveColor,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _buildDomainPill(
+            score: language,
+            label: 'Language',
+            color: AppTheme.languageColor,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Single domain pill card with ring and label
+  Widget _buildDomainPill({
+    required int score,
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppTheme.cardShadowV3,
+      ),
+      child: DomainScoreRing(
+        score: score,
+        label: label,
+        color: color,
+        size: 44,
+      ),
+    );
+  }
+
+  /// Recent Activity section with header + horizontal card row
+  Widget _buildRecentActivity() {
+    final daysSinceAnalysis = _latestAnalysis != null
+        ? DateTime.now().difference(_latestAnalysis!.timestamp).inDays
+        : null;
+    final analysisTimeText = daysSinceAnalysis != null
+        ? (daysSinceAnalysis == 0
+            ? 'Today'
+            : daysSinceAnalysis == 1
+                ? '1 day ago'
+                : '$daysSinceAnalysis days ago')
+        : 'No data';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header row
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Recent Activity',
+              style: TextStyle(
+                fontFamily: 'Nunito',
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+            GestureDetector(
+              onTap: () {
+                // View all action
+              },
+              child: const Text(
+                'View All',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.primaryGreen,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Horizontal card row
+        Row(
+          children: [
+            Expanded(
+              child: _buildRecentCard(
+                iconBgColor: AppTheme.purpleTint,
+                iconColor: AppTheme.cognitiveColor,
+                icon: Icons.search_rounded,
+                title: 'Last Analysis',
+                subtitle: analysisTimeText,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildRecentCard(
+                iconBgColor: AppTheme.blueTint,
+                iconColor: AppTheme.motorColor,
+                icon: Icons.flag_rounded,
+                title: 'Next Milestone',
+                subtitle: 'In 1 week',
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildRecentCard(
+                iconBgColor: AppTheme.pinkTint,
+                iconColor: AppTheme.languageColor,
+                icon: Icons.menu_book_rounded,
+                title: 'Stories Read',
+                subtitle: '$_storyCount this month',
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// Single recent activity card
+  Widget _buildRecentCard({
+    required Color iconBgColor,
+    required Color iconColor,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppTheme.cardShadowV3,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: iconBgColor,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: iconColor, size: 18),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 11,
+              fontWeight: FontWeight.w400,
+              color: AppTheme.textTertiary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Quick Actions section with 2x2 grid
+  Widget _buildQuickActions() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Quick Actions',
+          style: TextStyle(
+            fontFamily: 'Nunito',
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Row 1: New Analysis + Milestones
+        Row(
+          children: [
+            Expanded(
+              child: _buildQuickActionCard(
+                iconBgColor: AppTheme.blueTint,
+                iconColor: AppTheme.motorColor,
+                icon: Icons.document_scanner_rounded,
+                label: 'New Analysis',
+                onTap: () {
+                  if (_currentChild != null) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => MediaCaptureScreen(child: _currentChild!),
+                      ),
+                    );
+                  }
+                },
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildQuickActionCard(
+                iconBgColor: AppTheme.greenTint,
+                iconColor: AppTheme.primaryGreen,
+                icon: Icons.flag_rounded,
+                label: 'Milestones',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const MilestonesScreen()),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+
+        // Row 2: Growth Charts + Bedtime Stories
+        Row(
+          children: [
+            Expanded(
+              child: _buildQuickActionCard(
+                iconBgColor: AppTheme.purpleTint,
+                iconColor: AppTheme.cognitiveColor,
+                icon: Icons.show_chart_rounded,
+                label: 'Growth Charts',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const GrowthChartsScreen()),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildQuickActionCard(
+                iconBgColor: AppTheme.pinkTint,
+                iconColor: AppTheme.languageColor,
+                icon: Icons.auto_stories_rounded,
+                label: 'Bedtime Stories',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const BedtimeStoriesScreen()),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// Single quick action card
+  Widget _buildQuickActionCard({
+    required Color iconBgColor,
+    required Color iconColor,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: AppTheme.cardShadowV3,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: iconBgColor,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: iconColor, size: 22),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              label,
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Custom painter for the Overall Score ring (90px, 6px stroke, green on gray)
+class _OverallScoreRingPainter extends CustomPainter {
+  final double progress;
+  final double strokeWidth;
+
+  _OverallScoreRingPainter({
+    required this.progress,
+    required this.strokeWidth,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width - strokeWidth) / 2;
+
+    // Background ring
+    final bgPaint = Paint()
+      ..color = const Color(0xFFE5E7EB)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+    canvas.drawCircle(center, radius, bgPaint);
+
+    // Progress ring
+    final progressPaint = Paint()
+      ..color = AppTheme.primaryGreen
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    final sweepAngle = 2 * math.pi * progress;
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -math.pi / 2,
+      sweepAngle,
+      false,
+      progressPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _OverallScoreRingPainter oldDelegate) {
+    return oldDelegate.progress != progress;
   }
 }

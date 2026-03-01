@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -130,7 +131,7 @@ class _GeneratedReportScreenState extends State<GeneratedReportScreen> {
           pdfBytes = base64Decode(data['pdf'].toString());
         }
 
-        if (pdfBytes != null) {
+        if (pdfBytes != null && !kIsWeb) {
           final dir = await getApplicationDocumentsDirectory();
           final file =
               File('${dir.path}/tinysteps_report_$_reportId.pdf');
@@ -182,7 +183,7 @@ class _GeneratedReportScreenState extends State<GeneratedReportScreen> {
           pdfBytes = base64Decode(data['pdf'].toString());
         }
 
-        if (pdfBytes != null) {
+        if (pdfBytes != null && !kIsWeb) {
           final dir = await getTemporaryDirectory();
           final file =
               File('${dir.path}/tinysteps_report_$_reportId.pdf');

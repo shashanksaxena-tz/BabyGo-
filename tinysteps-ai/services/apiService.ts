@@ -461,6 +461,46 @@ class ApiService {
     });
     return result.data ? { success: true } : { error: result.error };
   }
+  // ============ COMMUNITY ============
+
+  async getCommunityPosts(params?: { category?: string; search?: string; sort?: string; limit?: number; offset?: number }) {
+    const query = new URLSearchParams();
+    if (params?.category) query.set('category', params.category);
+    if (params?.search) query.set('search', params.search);
+    if (params?.sort) query.set('sort', params.sort);
+    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.offset) query.set('offset', String(params.offset));
+    const qs = query.toString();
+    return this.request(`/community/posts${qs ? `?${qs}` : ''}`);
+  }
+
+  async createCommunityPost(data: { title: string; content: string; category?: string }) {
+    return this.request('/community/posts', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getCommunityPost(postId: string) {
+    return this.request(`/community/posts/${postId}`);
+  }
+
+  async togglePostLike(postId: string) {
+    return this.request(`/community/posts/${postId}/like`, {
+      method: 'POST',
+    });
+  }
+
+  async addComment(postId: string, content: string) {
+    return this.request(`/community/posts/${postId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    });
+  }
+
+  async getCommunityTopics() {
+    return this.request('/community/topics');
+  }
 }
 
 export const apiService = new ApiService();

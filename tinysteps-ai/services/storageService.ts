@@ -596,6 +596,8 @@ export async function fetchStories(childId: string): Promise<BedtimeStory[]> {
         createdAt: s.createdAt,
         characters: s.characters || [],
         moral: s.moral,
+        coverImageUrl: s.coverImageUrl,
+        isCustom: s.isCustom,
       }));
 
       // Cache to localStorage

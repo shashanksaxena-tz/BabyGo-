@@ -23,6 +23,7 @@ import {
   FileText,
   BarChart3,
   LogOut,
+  Users,
 } from 'lucide-react';
 import { ChildProfile, AnalysisResult, TimelineEntry, Notification } from '../types';
 import { getTimeline, getAnalyses, getNotifications, getChildren, setCurrentChild, fetchAnalyses, fetchTimeline } from '../services/storageService';
@@ -347,6 +348,13 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ child, onNavigate, onStar
               subtitle="Development trends"
               color="bg-gradient-to-br from-violet-400 to-purple-500 text-white"
               onClick={() => onNavigate('DEVELOPMENT_INSIGHTS')}
+            />
+            <QuickActionCard
+              icon={Users}
+              title="Community"
+              subtitle="Parent discussions"
+              color="bg-gradient-to-br from-indigo-400 to-blue-500 text-white"
+              onClick={() => onNavigate('community')}
             />
           </div>
         </div>

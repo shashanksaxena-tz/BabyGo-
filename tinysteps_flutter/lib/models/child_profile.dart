@@ -1,8 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:hive/hive.dart';
 
-part 'child_profile.g.dart';
-
 enum Gender { male, female, other }
 
 enum WHORegion {
@@ -82,6 +80,12 @@ class ChildProfile extends Equatable {
     required this.createdAt,
     required this.updatedAt,
   });
+
+  /// Alias for [dateOfBirth] used by legacy code paths.
+  DateTime get birthDate => dateOfBirth;
+
+  /// Alias for [profilePhotoPath] used by API service.
+  String? get photoUrl => profilePhotoPath;
 
   int get ageInMonths {
     final now = DateTime.now();
@@ -170,22 +174,22 @@ class ChildProfile extends Equatable {
   };
 
   factory ChildProfile.fromJson(Map<String, dynamic> json) => ChildProfile(
-    id: json['id'],
+    id: json['id'] ?? json['_id'],
     name: json['name'],
     nickname: json['nickname'],
     dateOfBirth: DateTime.parse(json['dateOfBirth']),
     gender: Gender.values.byName(json['gender']),
-    weight: json['weight'].toDouble(),
-    height: json['height'].toDouble(),
+    weight: (json['weight'] ?? 0).toDouble(),
+    height: (json['height'] ?? 0).toDouble(),
     headCircumference: json['headCircumference']?.toDouble(),
-    region: WHORegion.values.byName(json['region']),
+    region: WHORegion.values.byName(json['region'] ?? 'searo'),
     interests: List<String>.from(json['interests'] ?? []),
     favoriteCharacters: List<String>.from(json['favoriteCharacters'] ?? []),
     favoriteToys: List<String>.from(json['favoriteToys'] ?? []),
     favoriteColors: List<String>.from(json['favoriteColors'] ?? []),
-    profilePhotoPath: json['profilePhotoPath'],
-    createdAt: DateTime.parse(json['createdAt']),
-    updatedAt: DateTime.parse(json['updatedAt']),
+    profilePhotoPath: json['profilePhotoUrl'] ?? json['profilePhotoPath'],
+    createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
+    updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : DateTime.now(),
   );
 
   @override

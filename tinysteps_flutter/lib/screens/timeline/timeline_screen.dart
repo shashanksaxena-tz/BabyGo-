@@ -728,13 +728,13 @@ class _AddMeasurementSheetState extends State<_AddMeasurementSheet> {
                     childId: widget.child.id,
                     date: DateTime.now(),
                     weight: _weightController.text.isNotEmpty
-                        ? double.parse(_weightController.text)
+                        ? double.tryParse(_weightController.text)
                         : null,
                     height: _heightController.text.isNotEmpty
-                        ? double.parse(_heightController.text)
+                        ? double.tryParse(_heightController.text)
                         : null,
                     headCircumference: _headController.text.isNotEmpty
-                        ? double.parse(_headController.text)
+                        ? double.tryParse(_headController.text)
                         : null,
                   );
 

@@ -20,6 +20,7 @@ export enum AppStep {
   HEALTH_HUB = 'HEALTH_HUB',
   IMPROVE_DOMAIN = 'IMPROVE_DOMAIN',
   RESOURCES_LIBRARY = 'RESOURCES_LIBRARY',
+  COMMUNITY = 'COMMUNITY',
 }
 
 export interface ChildProfile {

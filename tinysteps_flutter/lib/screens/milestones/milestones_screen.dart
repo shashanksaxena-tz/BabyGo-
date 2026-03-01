@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/who_data_service.dart';
 import '../../utils/app_theme.dart';
-import '../../animations/custom_animations.dart';
+import '../../widgets/bottom_nav_bar.dart';
 
 /// Data class for achieved milestone tracking
 class AchievedMilestone {
@@ -41,44 +40,33 @@ class MilestonesScreen extends StatefulWidget {
   State<MilestonesScreen> createState() => _MilestonesScreenState();
 }
 
-class _MilestonesScreenState extends State<MilestonesScreen>
-    with SingleTickerProviderStateMixin {
+class _MilestonesScreenState extends State<MilestonesScreen> {
   ChildProfile? _child;
   bool _isLoading = true;
   bool _isSyncing = false;
   String _selectedDomain = 'all';
 
-  // Milestone tracking state - in-memory only
+  // Milestone tracking state
   Map<String, AchievedMilestone> _achievedMilestones = {};
-  Set<String> _watchedMilestones = {};
 
   // Date picker state
   DateTime _selectedDate = DateTime.now();
   String _achievementNotes = '';
 
-  late TabController _tabController;
   final ApiService _apiService = ApiService();
 
-  final List<Map<String, dynamic>> _domains = [
-    {'id': 'all', 'name': 'All', 'icon': '🌟', 'color': AppTheme.primaryGreen},
-    {'id': 'motor', 'name': 'Motor', 'icon': '🏃', 'color': AppTheme.motorColor},
-    {'id': 'language', 'name': 'Language', 'icon': '💬', 'color': AppTheme.languageColor},
-    {'id': 'cognitive', 'name': 'Cognitive', 'icon': '🧠', 'color': AppTheme.cognitiveColor},
-    {'id': 'social', 'name': 'Social', 'icon': '❤️', 'color': AppTheme.socialColor},
-    {'id': 'sensory', 'name': 'Sensory', 'icon': '✨', 'color': AppTheme.accentPurple},
+  // Domain filter data
+  static final List<Map<String, dynamic>> _domainFilters = [
+    {'id': 'all', 'name': 'All', 'color': null},
+    {'id': 'motor', 'name': 'Motor', 'color': AppTheme.motorColor},
+    {'id': 'cognitive', 'name': 'Cognitive', 'color': AppTheme.cognitiveColor},
+    {'id': 'language', 'name': 'Language', 'color': AppTheme.languageColor},
   ];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
     _loadData();
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -89,7 +77,6 @@ class _MilestonesScreenState extends State<MilestonesScreen>
       _child = child;
     });
 
-    // Sync with backend
     await _syncWithBackend();
 
     setState(() {
@@ -103,10 +90,8 @@ class _MilestonesScreenState extends State<MilestonesScreen>
     try {
       final response = await _apiService.getChildMilestones(_child!.id);
       if (response['success'] == true && response['data'] != null) {
-        // Backend success - use backend data
         final data = response['data'];
         final achievedList = data['achievedMilestones'] as List? ?? [];
-        final watchedList = data['watchedMilestones'] as List? ?? [];
 
         setState(() {
           _achievedMilestones = {};
@@ -114,18 +99,11 @@ class _MilestonesScreenState extends State<MilestonesScreen>
             final achieved = AchievedMilestone.fromJson(m);
             _achievedMilestones[achieved.milestoneId] = achieved;
           }
-
-          _watchedMilestones = {};
-          for (var m in watchedList) {
-            _watchedMilestones.add(m['milestoneId'] ?? '');
-          }
         });
       } else {
-        // API returned an error - keep state empty (in-memory only)
         debugPrint('Backend unavailable, starting with empty state');
       }
     } catch (e) {
-      // Network error - keep state empty (in-memory only)
       debugPrint('Failed to sync with backend: $e');
     }
   }
@@ -133,7 +111,6 @@ class _MilestonesScreenState extends State<MilestonesScreen>
   Future<void> _markAchieved(Milestone milestone) async {
     setState(() => _isSyncing = true);
 
-    // Helper to update UI state only
     void updateState() {
       setState(() {
         _achievedMilestones[milestone.id] = AchievedMilestone(
@@ -142,7 +119,6 @@ class _MilestonesScreenState extends State<MilestonesScreen>
           confirmedBy: 'parent',
           notes: _achievementNotes.isNotEmpty ? _achievementNotes : null,
         );
-        _watchedMilestones.remove(milestone.id);
       });
     }
 
@@ -158,12 +134,10 @@ class _MilestonesScreenState extends State<MilestonesScreen>
       if (response['success'] == true) {
         updateState();
       } else {
-        // API error - update UI only (in-memory)
         debugPrint('Backend error, updating UI only');
         updateState();
       }
     } catch (e) {
-      // Network error - update UI only (in-memory)
       debugPrint('Network error, updating UI only: $e');
       updateState();
     } finally {
@@ -193,53 +167,11 @@ class _MilestonesScreenState extends State<MilestonesScreen>
       if (response['success'] == true) {
         removeFromState();
       } else {
-        // API error - update UI only
-        debugPrint('Backend error, updating UI only');
         removeFromState();
       }
     } catch (e) {
-      // Network error - update UI only
       debugPrint('Network error, updating UI only: $e');
       removeFromState();
-    } finally {
-      setState(() => _isSyncing = false);
-    }
-  }
-
-  Future<void> _toggleWatch(String milestoneId) async {
-    final isWatching = _watchedMilestones.contains(milestoneId);
-    setState(() => _isSyncing = true);
-
-    void updateWatchState(bool add) {
-      setState(() {
-        if (add) {
-          _watchedMilestones.add(milestoneId);
-        } else {
-          _watchedMilestones.remove(milestoneId);
-        }
-      });
-    }
-
-    try {
-      if (isWatching) {
-        final response = await _apiService.unwatchMilestone(_child!.id, milestoneId);
-        if (response['success'] == true) {
-          updateWatchState(false);
-        } else {
-          updateWatchState(false);
-        }
-      } else {
-        final response = await _apiService.watchMilestone(_child!.id, milestoneId);
-        if (response['success'] == true) {
-          updateWatchState(true);
-        } else {
-          updateWatchState(true);
-        }
-      }
-    } catch (e) {
-      // Network error - update UI only
-      debugPrint('Network error, updating UI only: $e');
-      updateWatchState(!isWatching);
     } finally {
       setState(() => _isSyncing = false);
     }
@@ -253,22 +185,30 @@ class _MilestonesScreenState extends State<MilestonesScreen>
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppTheme.success.withOpacity(0.1),
+                  color: AppTheme.primaryGreen.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Text('🏆', style: TextStyle(fontSize: 24)),
+                child: const Icon(
+                  Icons.check_circle_rounded,
+                  color: AppTheme.primaryGreen,
+                  size: 24,
+                ),
               ),
               const SizedBox(width: 12),
               const Expanded(
                 child: Text(
                   'Mark as Achieved',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    fontFamily: 'Nunito',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ],
@@ -281,7 +221,7 @@ class _MilestonesScreenState extends State<MilestonesScreen>
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppTheme.neutral100,
+                  color: AppTheme.backgroundV3,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
@@ -290,6 +230,7 @@ class _MilestonesScreenState extends State<MilestonesScreen>
                     Text(
                       milestone.title,
                       style: const TextStyle(
+                        fontFamily: 'Inter',
                         fontWeight: FontWeight.w600,
                         fontSize: 15,
                       ),
@@ -298,8 +239,9 @@ class _MilestonesScreenState extends State<MilestonesScreen>
                     Text(
                       milestone.description,
                       style: const TextStyle(
+                        fontFamily: 'Inter',
                         fontSize: 13,
-                        color: AppTheme.neutral600,
+                        color: AppTheme.textSecondary,
                       ),
                     ),
                   ],
@@ -311,6 +253,7 @@ class _MilestonesScreenState extends State<MilestonesScreen>
               Text(
                 'When did ${_child?.displayName ?? 'your child'} achieve this?',
                 style: const TextStyle(
+                  fontFamily: 'Inter',
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                 ),
@@ -341,16 +284,20 @@ class _MilestonesScreenState extends State<MilestonesScreen>
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    border: Border.all(color: AppTheme.neutral300),
+                    border: Border.all(color: AppTheme.borderLight),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.calendar_today, size: 20, color: AppTheme.neutral500),
+                      const Icon(Icons.calendar_today,
+                          size: 20, color: AppTheme.textSecondary),
                       const SizedBox(width: 8),
                       Text(
                         '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
-                        style: const TextStyle(fontSize: 15),
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 15,
+                        ),
                       ),
                     ],
                   ),
@@ -361,15 +308,33 @@ class _MilestonesScreenState extends State<MilestonesScreen>
               // Notes
               const Text(
                 'Notes (optional)',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               const SizedBox(height: 8),
               TextField(
                 maxLines: 2,
                 decoration: InputDecoration(
                   hintText: 'Any notes about this milestone...',
+                  hintStyle: const TextStyle(
+                    fontFamily: 'Inter',
+                    color: AppTheme.textTertiary,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppTheme.borderLight),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppTheme.borderLight),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                        color: AppTheme.primaryGreen, width: 2),
                   ),
                   contentPadding: const EdgeInsets.all(12),
                 ),
@@ -380,7 +345,10 @@ class _MilestonesScreenState extends State<MilestonesScreen>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(fontFamily: 'Inter'),
+              ),
             ),
             ElevatedButton(
               onPressed: _isSyncing
@@ -395,7 +363,10 @@ class _MilestonesScreenState extends State<MilestonesScreen>
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: Text(_isSyncing ? 'Saving...' : 'Confirm'),
+              child: Text(
+                _isSyncing ? 'Saving...' : 'Confirm',
+                style: const TextStyle(fontFamily: 'Inter'),
+              ),
             ),
           ],
         ),
@@ -403,42 +374,51 @@ class _MilestonesScreenState extends State<MilestonesScreen>
     );
   }
 
-  Future<void> _launchUrl(String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Container(
-        decoration: const BoxDecoration(gradient: AppTheme.backgroundGradient),
-        child: const Center(
+      return Scaffold(
+        backgroundColor: AppTheme.backgroundV3,
+        body: const Center(
           child: CircularProgressIndicator(color: AppTheme.primaryGreen),
         ),
       );
     }
 
-    return Container(
-      decoration: const BoxDecoration(gradient: AppTheme.backgroundGradient),
-      child: SafeArea(
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundV3,
+      body: SafeArea(
         child: Column(
           children: [
+            // Header
             _buildHeader(),
-            _buildProgressOverview(),
-            _buildDomainFilter(),
-            _buildTabBar(),
+
+            // Scrollable content
             Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildCurrentMilestones(),
-                  _buildUpcomingMilestones(),
-                  _buildAchievedMilestones(),
-                ],
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    const SizedBox(height: 20),
+                    // Progress card
+                    _buildProgressCard(),
+                    const SizedBox(height: 20),
+                    // Domain filter pills
+                    _buildFilterPills(),
+                    const SizedBox(height: 20),
+                    // Milestone list
+                    _buildMilestoneList(),
+                    const SizedBox(height: 24),
+                  ],
+                ),
               ),
+            ),
+
+            // Bottom nav
+            BottomNavBar(
+              currentIndex: 0,
+              onTap: (index) {
+                if (index != 0) Navigator.pop(context);
+              },
             ),
           ],
         ),
@@ -448,227 +428,231 @@ class _MilestonesScreenState extends State<MilestonesScreen>
 
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back_rounded),
-            style: IconButton.styleFrom(
-              backgroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+      child: SizedBox(
+        height: 48,
+        child: Row(
+          children: [
+            GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: const Icon(
+                Icons.arrow_back_rounded,
+                color: AppTheme.textPrimary,
+                size: 24,
               ),
             ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Milestones',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.neutral900,
-                  ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Milestones',
+                style: TextStyle(
+                  fontFamily: 'Nunito',
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textPrimary,
                 ),
-                Text(
-                  'Track ${_child?.displayName ?? "your child"}\'s development',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.neutral500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Refresh button
-          IconButton(
-            onPressed: _isSyncing ? null : () => _loadData(),
-            icon: _isSyncing
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppTheme.primaryGreen,
-                    ),
-                  )
-                : const Icon(Icons.refresh_rounded),
-            style: IconButton.styleFrom(
-              backgroundColor: AppTheme.primaryGreen.withOpacity(0.1),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
               ),
             ),
-          ),
-        ],
+            GestureDetector(
+              onTap: _isSyncing ? null : () => _loadData(),
+              child: Icon(
+                Icons.tune_rounded,
+                color: AppTheme.textPrimary,
+                size: 22,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildProgressOverview() {
+  Widget _buildProgressCard() {
     if (_child == null) return const SizedBox();
 
     final ageMonths = _child!.ageInMonths;
     final allMilestones = WHODataService.getMilestonesForAge(ageMonths);
-    final currentMilestones = allMilestones
-        .where((m) => ageMonths >= m.minMonths && ageMonths <= m.maxMonths)
-        .toList();
+    final totalCount = allMilestones.length;
     final achievedCount =
-        currentMilestones.where((m) => _achievedMilestones.containsKey(m.id)).length;
-    final totalCount = currentMilestones.length;
+        allMilestones.where((m) => _achievedMilestones.containsKey(m.id)).length;
     final progress = totalCount > 0 ? achievedCount / totalCount : 0.0;
+    final progressPercent = (progress * 100).toStringAsFixed(0);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: AppTheme.primaryGradient,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primaryGreen.withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppTheme.cardShadowV3,
       ),
       child: Row(
         children: [
-          // Progress ring
-          SizedBox(
-            width: 80,
-            height: 80,
-            child: Stack(
-              children: [
-                TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0, end: progress),
-                  duration: const Duration(milliseconds: 1500),
-                  curve: Curves.easeOutCubic,
-                  builder: (context, value, _) {
-                    return CircularProgressIndicator(
-                      value: value,
-                      strokeWidth: 8,
-                      backgroundColor: Colors.white24,
-                      valueColor: const AlwaysStoppedAnimation(Colors.white),
-                    );
-                  },
-                ),
-                Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        '$achievedCount/$totalCount',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 20),
+          // Left side: text content
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Current Milestones',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.white70,
+                // Title row with count
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Milestone Progress',
+                      style: TextStyle(
+                        fontFamily: 'Nunito',
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      '$achievedCount of $totalCount',
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.primaryGreen,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // Progress bar
+                Container(
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: AppTheme.borderLight,
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0, end: progress),
+                      duration: const Duration(milliseconds: 1200),
+                      curve: Curves.easeOutCubic,
+                      builder: (context, value, _) {
+                        return FractionallySizedBox(
+                          widthFactor: value.clamp(0.0, 1.0),
+                          child: Container(
+                            height: 10,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [
+                                  AppTheme.primaryGreen,
+                                  AppTheme.primaryTeal,
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(100),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 16),
+                // Subtitle
                 Text(
-                  '${(progress * 100).toStringAsFixed(0)}% achieved',
+                  '$progressPercent% achieved \u2014 keep going!',
                   style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Age: ${_child!.displayAge}',
-                  style: TextStyle(
+                    fontFamily: 'Inter',
                     fontSize: 13,
-                    color: Colors.white.withOpacity(0.8),
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.textSecondary,
                   ),
                 ),
               ],
             ),
           ),
-          // Total achieved badge
-          Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
+          const SizedBox(width: 12),
+          // Leo avatar
+          Container(
+            width: 90,
+            height: 90,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(45),
+              color: AppTheme.backgroundV3,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(45),
+              child: Image.asset(
+                'assets/images/leo_avatar.png',
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const Center(
+                  child: Text(
+                    '\u{1F476}',
+                    style: TextStyle(fontSize: 40),
+                  ),
                 ),
-                child: const Text('🏆', style: TextStyle(fontSize: 28)),
               ),
-              const SizedBox(height: 4),
-              Text(
-                '${_achievedMilestones.length} total',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.white.withOpacity(0.8),
-                ),
-              ),
-            ],
+            ),
           ),
         ],
       ),
-    ).animate().fadeIn().slideY(begin: 0.2, end: 0);
+    ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0);
   }
 
-  Widget _buildDomainFilter() {
+  Widget _buildFilterPills() {
     return SizedBox(
-      height: 50,
+      height: 40,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        itemCount: _domains.length,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        itemCount: _domainFilters.length,
         itemBuilder: (context, index) {
-          final domain = _domains[index];
-          final isSelected = _selectedDomain == domain['id'];
+          final filter = _domainFilters[index];
+          final id = filter['id'] as String;
+          final name = filter['name'] as String;
+          final color = filter['color'] as Color?;
+          final isSelected = _selectedDomain == id;
 
           return Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: FilterChip(
-              selected: isSelected,
-              label: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(domain['icon']),
-                  const SizedBox(width: 6),
-                  Text(domain['name']),
-                ],
-              ),
-              onSelected: (selected) {
-                setState(() => _selectedDomain = domain['id']);
-              },
-              selectedColor: (domain['color'] as Color).withOpacity(0.2),
-              backgroundColor: Colors.white,
-              labelStyle: TextStyle(
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected ? domain['color'] : AppTheme.neutral600,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-                side: BorderSide(
-                  color: isSelected ? domain['color'] : AppTheme.neutral200,
+            child: GestureDetector(
+              onTap: () => setState(() => _selectedDomain = id),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppTheme.primaryGreen
+                      : (color != null
+                          ? _getDomainBgColor(id)
+                          : Colors.white),
+                  borderRadius: BorderRadius.circular(24),
+                  border: isSelected
+                      ? null
+                      : Border.all(color: AppTheme.borderLight, width: 1),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (color != null && !isSelected) ...[
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                    Text(
+                      name,
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 13,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w500,
+                        color: isSelected
+                            ? Colors.white
+                            : (color ?? AppTheme.textSecondary),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -678,484 +662,219 @@ class _MilestonesScreenState extends State<MilestonesScreen>
     );
   }
 
-  Widget _buildTabBar() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: AppTheme.neutral100,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: TabBar(
-        controller: _tabController,
-        indicator: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: AppTheme.softShadow,
-        ),
-        labelColor: AppTheme.primaryGreen,
-        unselectedLabelColor: AppTheme.neutral500,
-        labelStyle: const TextStyle(fontWeight: FontWeight.w600),
-        dividerColor: Colors.transparent,
-        tabs: [
-          const Tab(text: '🎯 Current'),
-          const Tab(text: '🚀 Upcoming'),
-          Tab(text: '🏆 Achieved (${_achievedMilestones.length})'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCurrentMilestones() {
-    if (_child == null) return const SizedBox();
-
-    final ageMonths = _child!.ageInMonths;
-    final milestones = _getFilteredMilestones(ageMonths, 'current');
-
-    if (milestones.isEmpty) {
-      return _buildEmptyState('No milestones for this age range');
+  Color _getDomainBgColor(String domainId) {
+    switch (domainId) {
+      case 'motor':
+        return const Color(0xFFEFF6FF); // blue tint
+      case 'cognitive':
+        return const Color(0xFFF5F3FF); // purple tint
+      case 'language':
+        return const Color(0xFFFDF2F8); // pink tint
+      default:
+        return Colors.white;
     }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: milestones.length,
-      itemBuilder: (context, index) {
-        final milestone = milestones[index];
-        final isAchieved = _achievedMilestones.containsKey(milestone.id);
-
-        return StaggeredListAnimation(
-          index: index,
-          child: _buildMilestoneCard(milestone, isAchieved, 'current'),
-        );
-      },
-    );
   }
 
-  Widget _buildUpcomingMilestones() {
-    if (_child == null) return const SizedBox();
-
-    final ageMonths = _child!.ageInMonths;
-    final milestones = _getFilteredMilestones(ageMonths, 'upcoming');
-
-    if (milestones.isEmpty) {
-      return _buildEmptyState('No upcoming milestones');
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: milestones.length,
-      itemBuilder: (context, index) {
-        final milestone = milestones[index];
-        final isAchieved = _achievedMilestones.containsKey(milestone.id);
-        final isWatching = _watchedMilestones.contains(milestone.id);
-
-        return StaggeredListAnimation(
-          index: index,
-          child: _buildMilestoneCard(milestone, isAchieved, 'upcoming', isWatching: isWatching),
-        );
-      },
-    );
-  }
-
-  Widget _buildAchievedMilestones() {
+  Widget _buildMilestoneList() {
     if (_child == null) return const SizedBox();
 
     final ageMonths = _child!.ageInMonths;
     final allMilestones = WHODataService.getMilestonesForAge(ageMonths);
-    var milestones = allMilestones
-        .where((m) => _achievedMilestones.containsKey(m.id))
-        .toList();
 
-    // Apply domain filter
-    if (_selectedDomain != 'all') {
-      milestones = milestones
-          .where((m) => m.domain.name == _selectedDomain)
-          .toList();
-    }
-
-    if (milestones.isEmpty) {
-      return _buildEmptyState(
-        _achievedMilestones.isEmpty
-            ? 'No achievements yet\nStart marking milestones!'
-            : 'No achievements in this domain',
-      );
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: milestones.length,
-      itemBuilder: (context, index) {
-        final milestone = milestones[index];
-        return StaggeredListAnimation(
-          index: index,
-          child: _buildMilestoneCard(milestone, true, 'achieved'),
-        );
-      },
-    );
-  }
-
-  List<Milestone> _getFilteredMilestones(int ageMonths, String tab) {
-    List<Milestone> allMilestones;
-
+    // Filter by domain
+    List<Milestone> filtered;
     if (_selectedDomain == 'all') {
-      allMilestones = WHODataService.getMilestonesForAge(ageMonths);
+      filtered = allMilestones;
     } else {
       final domain = DevelopmentDomain.values.firstWhere(
         (d) => d.name == _selectedDomain,
         orElse: () => DevelopmentDomain.motor,
       );
-      allMilestones = WHODataService.getMilestonesByDomain(domain, ageMonths);
+      filtered = allMilestones.where((m) => m.domain == domain).toList();
     }
 
-    if (tab == 'current') {
-      return allMilestones
-          .where((m) =>
-              !_achievedMilestones.containsKey(m.id) &&
-              ageMonths >= m.minMonths &&
-              ageMonths <= m.maxMonths)
-          .toList();
-    } else if (tab == 'upcoming') {
-      return allMilestones
-          .where((m) =>
-              !_achievedMilestones.containsKey(m.id) &&
-              m.minMonths > ageMonths)
-          .toList();
+    // Sort: achieved first, then upcoming
+    final achieved = filtered
+        .where((m) => _achievedMilestones.containsKey(m.id))
+        .toList();
+    final upcoming = filtered
+        .where((m) => !_achievedMilestones.containsKey(m.id))
+        .toList();
+    final sorted = [...achieved, ...upcoming];
+
+    if (sorted.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          children: [
+            const Text('\u{1F3AF}', style: TextStyle(fontSize: 48)),
+            const SizedBox(height: 16),
+            const Text(
+              'No milestones found for this filter',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 15,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      );
     }
-    return allMilestones;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        children: sorted.asMap().entries.map((entry) {
+          final index = entry.key;
+          final milestone = entry.value;
+          final isAchieved = _achievedMilestones.containsKey(milestone.id);
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _buildMilestoneRow(milestone, isAchieved)
+                .animate()
+                .fadeIn(delay: (100 + index * 60).ms, duration: 400.ms)
+                .slideY(begin: 0.05, end: 0),
+          );
+        }).toList(),
+      ),
+    );
   }
 
-  Widget _buildMilestoneCard(
-    Milestone milestone,
-    bool isAchieved,
-    String tab, {
-    bool isWatching = false,
-  }) {
+  Widget _buildMilestoneRow(Milestone milestone, bool isAchieved) {
     final domainColor = _getDomainColor(milestone.domain);
-    final ageMonths = _child?.ageInMonths ?? 0;
+    final domainName = _getDomainShortName(milestone.domain);
     final achievementData = _achievedMilestones[milestone.id];
 
-    // Calculate progress within milestone window
-    final windowStart = milestone.minMonths;
-    final windowEnd = milestone.maxMonths;
-    final progress = ((ageMonths - windowStart) / (windowEnd - windowStart))
-        .clamp(0.0, 1.0);
+    return GestureDetector(
+      onTap: isAchieved ? null : () => _showAchievementDialog(milestone),
+      onLongPress: isAchieved ? () => _unmarkAchieved(milestone.id) : null,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: AppTheme.cardShadowV3,
+        ),
+        child: Row(
+          children: [
+            // Leading: check or empty circle
+            if (isAchieved)
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryGreen,
+                  borderRadius: BorderRadius.circular(100),
+                ),
+                child: const Center(
+                  child: Icon(
+                    Icons.check_rounded,
+                    color: Colors.white,
+                    size: 16,
+                  ),
+                ),
+              )
+            else
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppTheme.borderLight,
+                    width: 2,
+                  ),
+                ),
+              ),
+            const SizedBox(width: 14),
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: AppTheme.softShadow,
-        border: isAchieved
-            ? Border.all(color: AppTheme.success, width: 2)
-            : isWatching
-                ? Border.all(color: Colors.amber, width: 2)
-                : null,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: tab == 'current' && !isAchieved
-              ? () => _showAchievementDialog(milestone)
-              : null,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    // Domain indicator
-                    Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: domainColor.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Center(
-                        child: Text(
-                          _getDomainEmoji(milestone.domain),
-                          style: const TextStyle(fontSize: 24),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  milestone.title,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                    color: isAchieved
-                                        ? AppTheme.success
-                                        : AppTheme.neutral900,
-                                  ),
-                                ),
-                              ),
-                              if (isWatching && !isAchieved)
-                                const Icon(Icons.visibility,
-                                    size: 16, color: Colors.amber),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: domainColor.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  milestone.domain.name,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: domainColor,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                '${milestone.minMonths}-${milestone.maxMonths} months',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: AppTheme.neutral500,
-                                ),
-                              ),
-                              if (isAchieved && achievementData != null) ...[
-                                const SizedBox(width: 8),
-                                Icon(Icons.check_circle,
-                                    size: 14, color: AppTheme.success),
-                                const SizedBox(width: 2),
-                                Text(
-                                  '${achievementData.achievedDate.day}/${achievementData.achievedDate.month}/${achievementData.achievedDate.year}',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: AppTheme.success,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Action buttons
-                    _buildActionButtons(milestone, isAchieved, tab, isWatching),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  milestone.description,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: isAchieved ? AppTheme.neutral400 : AppTheme.neutral600,
-                    height: 1.4,
-                  ),
-                ),
-                // Achievement notes
-                if (isAchieved && achievementData?.notes != null) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppTheme.success.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.notes, size: 14, color: AppTheme.success),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            '"${achievementData!.notes}"',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontStyle: FontStyle.italic,
-                              color: AppTheme.success,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-                if (tab == 'current' && !isAchieved) ...[
-                  const SizedBox(height: 12),
-                  // Progress indicator
+            // Content
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title row with domain tag
                   Row(
                     children: [
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  'Expected window',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: AppTheme.neutral500,
-                                  ),
-                                ),
-                                Text(
-                                  'Typical: ${milestone.typicalMonths}mo',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                    color: domainColor,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            Stack(
-                              children: [
-                                // Background
-                                Container(
-                                  height: 6,
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.neutral200,
-                                    borderRadius: BorderRadius.circular(3),
-                                  ),
-                                ),
-                                // Progress
-                                FractionallySizedBox(
-                                  widthFactor: progress,
-                                  child: Container(
-                                    height: 6,
-                                    decoration: BoxDecoration(
-                                      color: domainColor,
-                                      borderRadius: BorderRadius.circular(3),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-                // Clickable source link
-                const SizedBox(height: 8),
-                InkWell(
-                  onTap: () => _launchUrl(milestone.source.url),
-                  child: Row(
-                    children: [
-                      Icon(Icons.verified_rounded,
-                          size: 12, color: Colors.blue.shade400),
-                      const SizedBox(width: 4),
-                      Expanded(
                         child: Text(
-                          milestone.source.title,
+                          milestone.title,
                           style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.blue.shade400,
-                            decoration: TextDecoration.underline,
+                            fontFamily: 'Nunito',
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textPrimary,
                           ),
                         ),
                       ),
-                      Icon(Icons.open_in_new,
-                          size: 12, color: Colors.blue.shade400),
+                      const SizedBox(width: 8),
+                      // Domain tag pill
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _getDomainBadgeBg(milestone.domain),
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: Text(
+                          domainName,
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: domainColor,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 4),
+                  // Status text
+                  if (isAchieved && achievementData != null)
+                    Text(
+                      'Achieved at ${achievementData.achievedDate.day}/${achievementData.achievedDate.month}/${achievementData.achievedDate.year}',
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.primaryGreen,
+                      ),
+                    )
+                  else
+                    Text(
+                      'Expected: ${milestone.minMonths}-${milestone.maxMonths} months',
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.textTertiary,
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildActionButtons(
-    Milestone milestone,
-    bool isAchieved,
-    String tab,
-    bool isWatching,
-  ) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Watch button for upcoming
-        if (tab == 'upcoming' && !isAchieved)
-          IconButton(
-            onPressed: _isSyncing ? null : () => _toggleWatch(milestone.id),
-            icon: Icon(
-              isWatching ? Icons.visibility_off : Icons.visibility,
-              color: isWatching ? Colors.amber : AppTheme.neutral400,
-            ),
-            style: IconButton.styleFrom(
-              backgroundColor:
-                  isWatching ? Colors.amber.withOpacity(0.1) : AppTheme.neutral100,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            tooltip: isWatching ? 'Stop watching' : 'Watch milestone',
-          ),
-        // Mark achieved button for current & upcoming
-        if ((tab == 'current' || tab == 'upcoming') && !isAchieved)
-          IconButton(
-            onPressed: _isSyncing ? null : () => _showAchievementDialog(milestone),
-            icon: const Icon(Icons.check, color: AppTheme.neutral400),
-            style: IconButton.styleFrom(
-              backgroundColor: AppTheme.neutral100,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            tooltip: 'Mark as achieved',
-          ),
-        // Unmark button for achieved
-        if (isAchieved)
-          IconButton(
-            onPressed: _isSyncing ? null : () => _unmarkAchieved(milestone.id),
-            icon: const Icon(Icons.check, color: Colors.white),
-            style: IconButton.styleFrom(
-              backgroundColor: AppTheme.success,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            tooltip: 'Remove achievement',
-          ),
-      ],
-    );
-  }
-
-  Widget _buildEmptyState(String message) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Text('🎯', style: TextStyle(fontSize: 64)),
-          const SizedBox(height: 16),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 16,
-              color: AppTheme.neutral500,
-            ),
-          ),
-        ],
-      ),
-    );
+  // Helper methods
+  Color _getDomainBadgeBg(DevelopmentDomain domain) {
+    switch (domain) {
+      case DevelopmentDomain.motor:
+        return const Color(0xFFEFF6FF); // blue tint
+      case DevelopmentDomain.language:
+        return const Color(0xFFFDF2F8); // pink tint
+      case DevelopmentDomain.cognitive:
+        return const Color(0xFFF5F3FF); // purple tint
+      case DevelopmentDomain.social:
+        return const Color(0xFFF0FDF4); // green tint
+      case DevelopmentDomain.sensory:
+        return AppTheme.purpleTint;
+    }
   }
 
   Color _getDomainColor(DevelopmentDomain domain) {
@@ -1169,22 +888,22 @@ class _MilestonesScreenState extends State<MilestonesScreen>
       case DevelopmentDomain.social:
         return AppTheme.socialColor;
       case DevelopmentDomain.sensory:
-        return AppTheme.accentPurple;
+        return AppTheme.secondaryPurple;
     }
   }
 
-  String _getDomainEmoji(DevelopmentDomain domain) {
+  String _getDomainShortName(DevelopmentDomain domain) {
     switch (domain) {
       case DevelopmentDomain.motor:
-        return '🏃';
+        return 'Motor';
       case DevelopmentDomain.language:
-        return '💬';
+        return 'Language';
       case DevelopmentDomain.cognitive:
-        return '🧠';
+        return 'Cognitive';
       case DevelopmentDomain.social:
-        return '❤️';
+        return 'Social';
       case DevelopmentDomain.sensory:
-        return '✨';
+        return 'Sensory';
     }
   }
 }

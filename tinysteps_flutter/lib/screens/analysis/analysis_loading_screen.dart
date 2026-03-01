@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../models/models.dart';
+import '../../services/api_service.dart';
 import '../../services/gemini_service.dart';
 import '../../services/storage_service.dart';
 import '../../utils/app_theme.dart';
@@ -27,7 +28,6 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen>
     with TickerProviderStateMixin {
   late AnimationController _rotationController;
   late AnimationController _pulseController;
-  late AnimationController _progressController;
 
   int _currentStep = 0;
   String _statusMessage = 'Preparing analysis...';
@@ -35,12 +35,12 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen>
   String? _errorMessage;
 
   final List<String> _steps = [
-    'Preparing media...',
-    'Analyzing images and videos...',
-    'Processing audio (if available)...',
-    'Comparing with WHO milestones...',
-    'Generating personalized insights...',
-    'Finalizing report...',
+    'Preparing media files',
+    'Analyzing images and videos',
+    'Processing audio',
+    'Comparing with WHO milestones',
+    'Generating personalized insights',
+    'Finalizing report',
   ];
 
   final List<String> _funFacts = [
@@ -70,11 +70,6 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen>
       vsync: this,
     )..repeat(reverse: true);
 
-    _progressController = AnimationController(
-      duration: const Duration(milliseconds: 500),
-      vsync: this,
-    );
-
     _startAnalysis();
   }
 
@@ -82,7 +77,6 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen>
   void dispose() {
     _rotationController.dispose();
     _pulseController.dispose();
-    _progressController.dispose();
     super.dispose();
   }
 
@@ -105,34 +99,54 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen>
       // Step 4: WHO comparison
       await _updateStep(3, 'Comparing with WHO developmental milestones...');
 
-      // Perform actual analysis
-      final gemini = GeminiService();
-      final storage = StorageService();
+      // Try backend API first
+      final apiService = ApiService();
+      AnalysisResult? result;
 
-      // Check if API key exists
-      final apiKey = storage.getApiKey();
-      if (apiKey == null || apiKey.isEmpty) {
-        throw Exception('Please set your Gemini API key in Settings');
+      try {
+        final response = await apiService.createAnalysis(
+          childId: widget.child.id,
+          mediaFiles: widget.mediaFiles,
+          audioFile: widget.audioFile,
+        );
+
+        if (response['success'] == true && response['data'] != null) {
+          // Step 5: Generate insights
+          await _updateStep(4, 'Generating personalized insights...');
+          result = AnalysisResult.fromJson(response['data']);
+        }
+      } catch (e) {
+        debugPrint('Backend analysis failed, falling back to Gemini: $e');
       }
 
-      if (!gemini.isInitialized) {
-        await gemini.initialize(apiKey);
+      // Fallback to direct Gemini if backend fails
+      if (result == null) {
+        await _updateStep(4, 'Generating personalized insights...');
+
+        final gemini = GeminiService();
+        final storage = StorageService();
+
+        final apiKey = storage.getApiKey();
+        if (apiKey == null || apiKey.isEmpty) {
+          throw Exception('Please set your Gemini API key in Settings');
+        }
+
+        if (!gemini.isInitialized) {
+          await gemini.initialize(apiKey);
+        }
+
+        result = await gemini.analyzeDevelopment(
+          child: widget.child,
+          mediaFiles: widget.mediaFiles,
+          audioFile: widget.audioFile,
+        );
+
+        await storage.saveAnalysis(result);
       }
-
-      // Step 5: Generate insights
-      await _updateStep(4, 'Generating personalized insights...');
-
-      final result = await gemini.analyzeDevelopment(
-        child: widget.child,
-        mediaFiles: widget.mediaFiles,
-        audioFile: widget.audioFile,
-      );
 
       // Step 6: Finalizing
       await _updateStep(5, 'Finalizing your report...');
-
-      // Save result
-      await storage.saveAnalysis(result);
+      await Future.delayed(const Duration(milliseconds: 500));
 
       // Navigate to results
       if (mounted) {
@@ -140,7 +154,7 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen>
           PageRouteBuilder(
             pageBuilder: (_, __, ___) => AnalysisResultsScreen(
               child: widget.child,
-              result: result,
+              result: result!,
             ),
             transitionsBuilder: (_, animation, __, child) {
               return FadeTransition(opacity: animation, child: child);
@@ -162,51 +176,59 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen>
       _currentStep = step;
       _statusMessage = message;
     });
-    _progressController.forward(from: 0);
     await Future.delayed(const Duration(milliseconds: 300));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: AppTheme.backgroundGradient,
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              children: [
-                // Back button (only if error)
-                if (_hasError)
-                  Align(
-                    alignment: Alignment.topLeft,
-                    child: IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.arrow_back_rounded),
+      backgroundColor: AppTheme.backgroundV3,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              // Back button (only if error)
+              if (_hasError)
+                Align(
+                  alignment: Alignment.topLeft,
+                  child: GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: AppTheme.cardShadowV3,
+                      ),
+                      child: const Icon(
+                        Icons.arrow_back_rounded,
+                        color: AppTheme.textPrimary,
+                        size: 20,
+                      ),
                     ),
                   ),
+                ),
 
-                const Spacer(),
+              const Spacer(),
 
-                // Main animation
-                _buildMainAnimation(),
+              // Main animation
+              _buildMainAnimation(),
 
-                const SizedBox(height: 48),
+              const SizedBox(height: 48),
 
-                // Status
-                if (_hasError)
-                  _buildErrorView()
-                else
-                  _buildProgressView(),
+              // Status
+              if (_hasError)
+                _buildErrorView()
+              else
+                _buildProgressView(),
 
-                const Spacer(),
+              const Spacer(),
 
-                // Fun fact
-                if (!_hasError) _buildFunFact(),
-              ],
-            ),
+              // Fun fact
+              if (!_hasError) _buildFunFact(),
+            ],
           ),
         ),
       ),
@@ -294,9 +316,18 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen>
                       size: 48,
                       color: AppTheme.error,
                     )
-                  : const Text(
-                      '🧒',
-                      style: TextStyle(fontSize: 48),
+                  : ClipRRect(
+                      borderRadius: BorderRadius.circular(50),
+                      child: Image.asset(
+                        'assets/images/leo_avatar.png',
+                        width: 80,
+                        height: 80,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Text(
+                          '\u{1F9D2}',
+                          style: TextStyle(fontSize: 48),
+                        ),
+                      ),
                     ),
             ),
           ),
@@ -311,9 +342,10 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen>
         Text(
           'Analyzing ${widget.child.displayName}',
           style: const TextStyle(
+            fontFamily: 'Nunito',
             fontSize: 24,
             fontWeight: FontWeight.w700,
-            color: AppTheme.neutral900,
+            color: AppTheme.textPrimary,
           ),
         ),
         const SizedBox(height: 8),
@@ -321,8 +353,9 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen>
           _statusMessage,
           textAlign: TextAlign.center,
           style: const TextStyle(
+            fontFamily: 'Inter',
             fontSize: 16,
-            color: AppTheme.neutral600,
+            color: AppTheme.textSecondary,
           ),
         ),
         const SizedBox(height: 32),
@@ -333,7 +366,7 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen>
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
-            boxShadow: AppTheme.softShadow,
+            boxShadow: AppTheme.cardShadowV3,
           ),
           child: Column(
             children: List.generate(_steps.length, (index) {
@@ -351,7 +384,7 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen>
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: isDone
-                            ? AppTheme.success
+                            ? AppTheme.primaryGreen
                             : isActive
                                 ? AppTheme.primaryGreen
                                 : AppTheme.neutral200,
@@ -372,6 +405,7 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen>
                                 : Text(
                                     '${index + 1}',
                                     style: const TextStyle(
+                                      fontFamily: 'Inter',
                                       color: AppTheme.neutral500,
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
@@ -382,11 +416,12 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen>
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        _steps[index].replaceAll('...', ''),
+                        _steps[index],
                         style: TextStyle(
+                          fontFamily: 'Inter',
                           fontSize: 14,
                           color: isDone || isActive
-                              ? AppTheme.neutral800
+                              ? AppTheme.textPrimary
                               : AppTheme.neutral400,
                           fontWeight:
                               isActive ? FontWeight.w600 : FontWeight.w400,
@@ -409,6 +444,7 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen>
         const Text(
           'Analysis Failed',
           style: TextStyle(
+            fontFamily: 'Nunito',
             fontSize: 24,
             fontWeight: FontWeight.w700,
             color: AppTheme.error,
@@ -425,6 +461,7 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen>
             _errorMessage ?? 'An unexpected error occurred',
             textAlign: TextAlign.center,
             style: const TextStyle(
+              fontFamily: 'Inter',
               fontSize: 14,
               color: AppTheme.error,
             ),
@@ -436,6 +473,11 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen>
           children: [
             OutlinedButton(
               onPressed: () => Navigator.pop(context),
+              style: OutlinedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               child: const Text('Go Back'),
             ),
             const SizedBox(width: 12),
@@ -448,6 +490,12 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen>
                 });
                 _startAnalysis();
               },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryGreen,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               child: const Text('Try Again'),
             ),
           ],
@@ -460,7 +508,7 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen>
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.secondaryPurple.withOpacity(0.1),
+        color: AppTheme.purpleTint,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
@@ -474,6 +522,7 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen>
               Text(
                 'Did you know?',
                 style: TextStyle(
+                  fontFamily: 'Inter',
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: AppTheme.secondaryPurple,
@@ -486,6 +535,7 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen>
             _currentFunFact,
             textAlign: TextAlign.center,
             style: TextStyle(
+              fontFamily: 'Inter',
               fontSize: 14,
               color: AppTheme.secondaryPurple.withOpacity(0.8),
             ),

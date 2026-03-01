@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../models/models.dart';
@@ -437,16 +438,16 @@ class WHOGrowthChart extends StatelessWidget {
     switch (metricType) {
       case GrowthMetricType.weight:
         return isFemale
-            ? WHODataService.girlsWeightMedian
-            : WHODataService.boysWeightMedian;
+            ? _girlsWeightMedian
+            : _boysWeightMedian;
       case GrowthMetricType.height:
         return isFemale
-            ? WHODataService.girlsHeightMedian
-            : WHODataService.boysHeightMedian;
+            ? _girlsHeightMedian
+            : _boysHeightMedian;
       case GrowthMetricType.headCircumference:
         return isFemale
-            ? WHODataService.girlsHCMedian
-            : WHODataService.boysHCMedian;
+            ? _girlsHCMedian
+            : _boysHCMedian;
     }
   }
 
@@ -471,8 +472,8 @@ class WHOGrowthChart extends StatelessWidget {
 
     // Use approximation
     final t = p < 0.5
-        ? (-2 * _ln(p)).sqrt()
-        : (-2 * _ln(1 - p)).sqrt();
+        ? math.sqrt(-2 * _ln(p))
+        : math.sqrt(-2 * _ln(1 - p));
 
     const c0 = 2.515517;
     const c1 = 0.802853;
@@ -586,51 +587,39 @@ enum GrowthMetricType {
   headCircumference,
 }
 
-// Extension to expose WHO data from service
-extension WHODataServiceExtension on WHODataService {
-  static List<double> get boysWeightMedian => WHODataService.boysWeightMedian;
-  static List<double> get girlsWeightMedian => WHODataService.girlsWeightMedian;
-  static List<double> get boysHeightMedian => WHODataService.boysHeightMedian;
-  static List<double> get girlsHeightMedian => WHODataService.girlsHeightMedian;
-  static List<double> get boysHCMedian => WHODataService.boysHCMedian;
-  static List<double> get girlsHCMedian => WHODataService.girlsHCMedian;
-}
+// WHO median growth data (0-36 months)
+const List<double> _boysWeightMedian = [
+  3.3, 4.5, 5.6, 6.4, 7.0, 7.5, 7.9, 8.3, 8.6, 8.9, 9.2, 9.4, 9.6,
+  9.9, 10.1, 10.3, 10.5, 10.7, 10.9, 11.1, 11.3, 11.5, 11.8, 12.0, 12.2,
+  12.4, 12.5, 12.7, 12.9, 13.1, 13.3, 13.5, 13.7, 13.8, 14.0, 14.2, 14.3,
+];
 
-// Add these static getters to the WHODataService class
-extension WHODataServiceStaticAccess on WHODataService {
-  static const List<double> boysWeightMedian = [
-    3.3, 4.5, 5.6, 6.4, 7.0, 7.5, 7.9, 8.3, 8.6, 8.9, 9.2, 9.4, 9.6,
-    9.9, 10.1, 10.3, 10.5, 10.7, 10.9, 11.1, 11.3, 11.5, 11.8, 12.0, 12.2,
-    12.4, 12.5, 12.7, 12.9, 13.1, 13.3, 13.5, 13.7, 13.8, 14.0, 14.2, 14.3,
-  ];
+const List<double> _girlsWeightMedian = [
+  3.2, 4.2, 5.1, 5.8, 6.4, 6.9, 7.3, 7.6, 7.9, 8.2, 8.5, 8.7, 8.9,
+  9.2, 9.4, 9.6, 9.8, 10.0, 10.2, 10.4, 10.6, 10.9, 11.1, 11.3, 11.5,
+  11.7, 11.9, 12.1, 12.3, 12.5, 12.7, 12.9, 13.1, 13.3, 13.5, 13.7, 13.9,
+];
 
-  static const List<double> girlsWeightMedian = [
-    3.2, 4.2, 5.1, 5.8, 6.4, 6.9, 7.3, 7.6, 7.9, 8.2, 8.5, 8.7, 8.9,
-    9.2, 9.4, 9.6, 9.8, 10.0, 10.2, 10.4, 10.6, 10.9, 11.1, 11.3, 11.5,
-    11.7, 11.9, 12.1, 12.3, 12.5, 12.7, 12.9, 13.1, 13.3, 13.5, 13.7, 13.9,
-  ];
+const List<double> _boysHeightMedian = [
+  49.9, 54.7, 58.4, 61.4, 63.9, 65.9, 67.6, 69.2, 70.6, 72.0, 73.3, 74.5, 75.7,
+  76.9, 78.0, 79.1, 80.2, 81.2, 82.3, 83.2, 84.2, 85.1, 86.0, 86.9, 87.8,
+  88.0, 88.8, 89.6, 90.4, 91.2, 91.9, 92.7, 93.4, 94.1, 94.8, 95.4, 96.1,
+];
 
-  static const List<double> boysHeightMedian = [
-    49.9, 54.7, 58.4, 61.4, 63.9, 65.9, 67.6, 69.2, 70.6, 72.0, 73.3, 74.5, 75.7,
-    76.9, 78.0, 79.1, 80.2, 81.2, 82.3, 83.2, 84.2, 85.1, 86.0, 86.9, 87.8,
-    88.0, 88.8, 89.6, 90.4, 91.2, 91.9, 92.7, 93.4, 94.1, 94.8, 95.4, 96.1,
-  ];
+const List<double> _girlsHeightMedian = [
+  49.1, 53.7, 57.1, 59.8, 62.1, 64.0, 65.7, 67.3, 68.7, 70.1, 71.5, 72.8, 74.0,
+  75.2, 76.4, 77.5, 78.6, 79.7, 80.7, 81.7, 82.7, 83.7, 84.6, 85.5, 86.4,
+  86.6, 87.4, 88.3, 89.1, 89.9, 90.7, 91.4, 92.2, 92.9, 93.6, 94.4, 95.1,
+];
 
-  static const List<double> girlsHeightMedian = [
-    49.1, 53.7, 57.1, 59.8, 62.1, 64.0, 65.7, 67.3, 68.7, 70.1, 71.5, 72.8, 74.0,
-    75.2, 76.4, 77.5, 78.6, 79.7, 80.7, 81.7, 82.7, 83.7, 84.6, 85.5, 86.4,
-    86.6, 87.4, 88.3, 89.1, 89.9, 90.7, 91.4, 92.2, 92.9, 93.6, 94.4, 95.1,
-  ];
+const List<double> _boysHCMedian = [
+  34.5, 37.3, 39.1, 40.5, 41.6, 42.6, 43.3, 44.0, 44.5, 45.0, 45.4, 45.8, 46.1,
+  46.3, 46.6, 46.8, 47.0, 47.2, 47.4, 47.5, 47.7, 47.8, 48.0, 48.1, 48.3,
+  48.4, 48.5, 48.6, 48.8, 48.9, 49.0, 49.1, 49.2, 49.3, 49.4, 49.5, 49.6,
+];
 
-  static const List<double> boysHCMedian = [
-    34.5, 37.3, 39.1, 40.5, 41.6, 42.6, 43.3, 44.0, 44.5, 45.0, 45.4, 45.8, 46.1,
-    46.3, 46.6, 46.8, 47.0, 47.2, 47.4, 47.5, 47.7, 47.8, 48.0, 48.1, 48.3,
-    48.4, 48.5, 48.6, 48.8, 48.9, 49.0, 49.1, 49.2, 49.3, 49.4, 49.5, 49.6,
-  ];
-
-  static const List<double> girlsHCMedian = [
-    33.9, 36.5, 38.3, 39.5, 40.6, 41.5, 42.2, 42.8, 43.4, 43.8, 44.2, 44.6, 44.9,
-    45.2, 45.4, 45.7, 45.9, 46.1, 46.2, 46.4, 46.6, 46.7, 46.9, 47.0, 47.2,
-    47.3, 47.4, 47.5, 47.6, 47.8, 47.9, 48.0, 48.1, 48.2, 48.3, 48.4, 48.5,
-  ];
-}
+const List<double> _girlsHCMedian = [
+  33.9, 36.5, 38.3, 39.5, 40.6, 41.5, 42.2, 42.8, 43.4, 43.8, 44.2, 44.6, 44.9,
+  45.2, 45.4, 45.7, 45.9, 46.1, 46.2, 46.4, 46.6, 46.7, 46.9, 47.0, 47.2,
+  47.3, 47.4, 47.5, 47.6, 47.8, 47.9, 48.0, 48.1, 48.2, 48.3, 48.4, 48.5,
+];

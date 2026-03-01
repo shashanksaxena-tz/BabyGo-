@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   ArrowLeft,
   BookOpen,
@@ -37,6 +37,7 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
   const [selectedTheme, setSelectedTheme] = useState('');
   const [generatingIllustration, setGeneratingIllustration] = useState<number | null>(null);
   const [illustrationCache, setIllustrationCache] = useState<Record<string, string>>({});
+  const generatingPagesRef = useRef<Set<string>>(new Set());
   const [selectedLanguage, setSelectedLanguage] = useState('en-IN');
   const [translatedPages, setTranslatedPages] = useState<string[] | null>(null);
   const [isTranslating, setIsTranslating] = useState(false);
@@ -124,11 +125,16 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
         createdAt: s.createdAt,
         characters: [],
         moral: s.moral,
+        coverImageUrl: s.coverImageUrl,
+        isCustom: s.isCustom,
       };
       saveStory(newStory);
       setStories([newStory, ...stories]);
       setSelectedStory(newStory);
       setCurrentPage(0);
+
+      // Start generating illustrations for ALL pages in background
+      startBackgroundIllustrationGeneration(newStory);
     } catch (error) {
       console.error('Failed to generate story:', error);
       alert('Failed to generate story. Please check your connection and try again.');
@@ -184,87 +190,133 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
     apiService.updateUserLanguage(lang).catch(() => {}); // persist, non-blocking
   };
 
-  // Generate illustration for current page
-  const generateIllustrationForPage = useCallback(async (pageIndex: number) => {
-    if (!selectedStory || !child.profilePhoto) return;
+  // Generate illustration for a specific page of a given story
+  // Accepts story directly to avoid stale closure issues during background generation
+  const generateIllustrationForPage = useCallback(async (
+    story: BedtimeStory,
+    pageIndex: number,
+    options?: { showSpinner?: boolean; setCover?: boolean }
+  ) => {
+    if (!child.profilePhoto) return;
 
-    const cacheKey = `${selectedStory.id}-${pageIndex}`;
-    if (illustrationCache[cacheKey] || selectedStory.illustrations[pageIndex]?.imageUrl) return;
+    const cacheKey = `${story.id}-${pageIndex}`;
 
-    const illustration = selectedStory.illustrations[pageIndex];
+    // Guard: skip if already generating, cached, or has persisted URL
+    if (generatingPagesRef.current.has(cacheKey)) return;
+    if (story.illustrations[pageIndex]?.imageUrl) return;
+
+    const illustration = story.illustrations[pageIndex];
     if (!illustration?.description) return;
 
-    setGeneratingIllustration(pageIndex);
+    generatingPagesRef.current.add(cacheKey);
+    if (options?.showSpinner) setGeneratingIllustration(pageIndex);
 
     try {
+      const style = (illustration.style === 'realistic' ? 'storybook' : illustration.style) || 'storybook';
       const imageUrl = await generateStoryIllustration(
         child.profilePhoto,
         illustration.description,
         child.name,
-        illustration.style || 'storybook'
+        style as 'watercolor' | 'cartoon' | 'storybook'
       );
 
       if (!imageUrl) return;
 
-      // Update local state immediately for instant display
+      // Update local cache immediately for instant display
       setIllustrationCache(prev => ({ ...prev, [cacheKey]: imageUrl }));
 
-      // Persist to MinIO + MongoDB in background (non-blocking so UI stays responsive)
+      // Persist to MinIO + MongoDB — fire-and-forget so background loop moves on quickly
       (async () => {
         try {
-          const file = dataUrlToFile(imageUrl, `story-${selectedStory.id}-page-${pageIndex}.png`);
+          const file = dataUrlToFile(imageUrl, `story-${story.id}-page-${pageIndex}.png`);
           const uploadResult = await apiService.uploadImage(file, 'stories');
           const persistedUrl = uploadResult?.url;
 
           if (persistedUrl) {
-            // Backend pages are 1-indexed (pageNumber starts at 1)
-            const pageNumber = pageIndex + 1;
+            await apiService.updateStoryPageIllustration(child.id, story.id, pageIndex + 1, persistedUrl);
 
-            await apiService.updateStoryPageIllustration(
-              child.id,
-              selectedStory.id,
-              pageNumber,
-              persistedUrl
-            );
+            if (options?.setCover || pageIndex === 0) {
+              await apiService.updateStoryCoverImage(child.id, story.id, persistedUrl);
+              setStories(prev => prev.map(s =>
+                s.id === story.id ? { ...s, coverImageUrl: persistedUrl } : s
+              ));
+              setSelectedStory(prev =>
+                prev?.id === story.id ? { ...prev, coverImageUrl: persistedUrl } : prev
+              );
+            }
 
-            // Update localStorage cache with the persistent MinIO URL
-            const updatedIllustrations = [...selectedStory.illustrations];
-            updatedIllustrations[pageIndex] = { ...updatedIllustrations[pageIndex], imageUrl: persistedUrl };
-            const updatedStory = { ...selectedStory, illustrations: updatedIllustrations };
-            updateStory(updatedStory);
-            setSelectedStory(updatedStory);
-            setStories(prev => prev.map(s => s.id === updatedStory.id ? updatedStory : s));
+            setStories(prev => prev.map(s => {
+              if (s.id !== story.id) return s;
+              const updated = [...s.illustrations];
+              updated[pageIndex] = { ...updated[pageIndex], imageUrl: persistedUrl };
+              return { ...s, illustrations: updated };
+            }));
+            setSelectedStory(prev => {
+              if (prev?.id !== story.id) return prev;
+              const updated = [...prev.illustrations];
+              updated[pageIndex] = { ...updated[pageIndex], imageUrl: persistedUrl };
+              return { ...prev, illustrations: updated };
+            });
+            updateStory({ ...story, illustrations: story.illustrations.map((ill, i) =>
+              i === pageIndex ? { ...ill, imageUrl: persistedUrl } : ill
+            ) });
           }
-        } catch (persistErr) {
-          console.error('Failed to persist illustration to backend:', persistErr);
-          // UI still shows locally-generated image via illustrationCache
+        } catch (err) {
+          console.error(`Failed to persist illustration for page ${pageIndex}:`, err);
         }
       })();
     } catch (error) {
-      console.error('Failed to generate illustration:', error);
+      console.error(`Failed to generate illustration for page ${pageIndex}:`, error);
     } finally {
-      setGeneratingIllustration(null);
+      generatingPagesRef.current.delete(cacheKey);
+      if (options?.showSpinner) setGeneratingIllustration(null);
     }
-  }, [selectedStory, child.profilePhoto, child.name, child.id, illustrationCache]);
+  }, [child.profilePhoto, child.name, child.id]);
 
-  // Auto-generate illustration when page changes (skip cover page)
+  // Generate all illustrations in background (called after story creation)
+  const startBackgroundIllustrationGeneration = useCallback(async (story: BedtimeStory) => {
+    if (!child.profilePhoto) return;
+    for (let i = 0; i < story.illustrations.length; i++) {
+      // Generate sequentially to avoid rate limits
+      await generateIllustrationForPage(story, i);
+    }
+  }, [generateIllustrationForPage, child.profilePhoto]);
+
+  // Fallback: generate illustration for current page when navigating existing stories
   useEffect(() => {
     if (!selectedStory || !child.profilePhoto) return;
     const hasCover = !!selectedStory.coverImageUrl;
     const contentIdx = hasCover ? currentPage - 1 : currentPage;
     if (contentIdx >= 0) {
-      generateIllustrationForPage(contentIdx);
+      const cacheKey = `${selectedStory.id}-${contentIdx}`;
+      // Only generate if not already in cache or generating
+      if (!illustrationCache[cacheKey] && !generatingPagesRef.current.has(cacheKey)) {
+        generateIllustrationForPage(selectedStory, contentIdx, { showSpinner: true });
+      }
     }
   }, [currentPage, selectedStory?.id]);
 
   const downloadStoryPDF = () => {
     if (!selectedStory) return;
-    // Build a printable HTML page and trigger browser print-to-PDF
-    const pages = selectedStory.content.map((text, i) => `
+    // Build a printable HTML page with illustrations and trigger browser print-to-PDF
+    const pages = selectedStory.content.map((text, i) => {
+      const imgSrc = illustrationCache[`${selectedStory.id}-${i}`] || selectedStory.illustrations[i]?.imageUrl;
+      const imgHtml = imgSrc
+        ? `<div style="text-align:center;margin-bottom:20px;"><img src="${imgSrc}" alt="Illustration" style="max-width:100%;max-height:300px;border-radius:12px;object-fit:cover;" /></div>`
+        : '';
+      return `
       <div style="page-break-before:${i === 0 ? 'auto' : 'always'};padding:40px;font-family:Georgia,serif;">
+        ${imgHtml}
         <p style="font-size:18px;line-height:1.8;color:#1e1b4b;">${text}</p>
       </div>
-    `).join('');
+    `;
+    }).join('');
+
+    // Cover image at the top if available
+    const coverSrc = selectedStory.coverImageUrl || illustrationCache[`${selectedStory.id}-0`] || selectedStory.illustrations[0]?.imageUrl;
+    const coverHtml = coverSrc
+      ? `<div style="text-align:center;padding:20px 40px;"><img src="${coverSrc}" alt="Cover" style="max-width:80%;max-height:400px;border-radius:16px;object-fit:cover;" /></div>`
+      : '';
 
     const html = `<!DOCTYPE html>
 <html>
@@ -279,8 +331,9 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
 </head>
 <body>
   <h1>${selectedStory.title}</h1>
+  ${coverHtml}
   ${pages}
-  ${selectedStory.moral ? `<div class="moral">✨ ${selectedStory.moral}</div>` : ''}
+  ${selectedStory.moral ? `<div class="moral">&#10024; ${selectedStory.moral}</div>` : ''}
 </body>
 </html>`;
 
@@ -411,7 +464,7 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
                     <div className="text-center text-white/60">
                       {child.profilePhoto ? (
                         <button
-                          onClick={() => generateIllustrationForPage(contentPageIndex)}
+                          onClick={() => generateIllustrationForPage(selectedStory, contentPageIndex, { showSpinner: true })}
                           className="flex flex-col items-center hover:text-white/80 transition-colors"
                         >
                           <ImageIcon className="w-12 h-12 mx-auto mb-2" />
@@ -510,6 +563,9 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
     setSelectedStory(story);
     setCurrentPage(0);
     setShowCustomBuilder(false);
+
+    // Start generating illustrations for ALL pages in background
+    startBackgroundIllustrationGeneration(story);
   };
 
   if (showCustomBuilder) {
@@ -633,9 +689,19 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
                   className="w-full bg-white/10 backdrop-blur-sm rounded-xl p-4 text-left hover:bg-white/15 transition-colors"
                 >
                   <div className="flex items-start gap-4">
-                    <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center flex-shrink-0">
-                      <BookOpen className="w-8 h-8 text-white" />
-                    </div>
+                    {(story.coverImageUrl || story.illustrations[0]?.imageUrl || illustrationCache[`${story.id}-0`]) ? (
+                      <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
+                        <img
+                          src={story.coverImageUrl || story.illustrations[0]?.imageUrl || illustrationCache[`${story.id}-0`]}
+                          alt={story.title}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <BookOpen className="w-8 h-8 text-white" />
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-white truncate">{story.title}</h3>
                       <p className="text-purple-200 text-sm mt-1">{story.theme}</p>

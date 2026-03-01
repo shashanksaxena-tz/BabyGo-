@@ -346,6 +346,58 @@ const whoDataService = {
   getSources() {
     return WHO_SOURCES;
   },
+
+  /**
+   * Get WHO growth curve reference data for standard percentiles.
+   * Returns age-indexed arrays for p3, p15, p50, p85, and p97 percentiles.
+   *
+   * @param {string} gender - 'male' or 'female'
+   * @param {string} metric - 'weight', 'height', or 'headCircumference'
+   * @returns {{ ageMonths: number[], percentiles: { p3: number[], p15: number[], p50: number[], p85: number[], p97: number[] } }}
+   */
+  getGrowthCurves(gender, metric = 'weight') {
+    let medians;
+    switch (metric) {
+      case 'weight':
+        medians = gender === 'female' ? GIRLS_WEIGHT_MEDIAN : BOYS_WEIGHT_MEDIAN;
+        break;
+      case 'height':
+        medians = gender === 'female' ? GIRLS_HEIGHT_MEDIAN : BOYS_HEIGHT_MEDIAN;
+        break;
+      case 'headCircumference':
+        medians = gender === 'female' ? GIRLS_HC_MEDIAN : BOYS_HC_MEDIAN;
+        break;
+      default:
+        medians = gender === 'female' ? GIRLS_WEIGHT_MEDIAN : BOYS_WEIGHT_MEDIAN;
+    }
+
+    // Limit to 0-24 months (25 data points)
+    const maxMonths = Math.min(medians.length, 25);
+    const ageMonths = Array.from({ length: maxMonths }, (_, i) => i);
+
+    // Approximate WHO percentiles from median values:
+    // p3 ~ median * 0.78, p15 ~ median * 0.88, p50 = median,
+    // p85 ~ median * 1.12, p97 ~ median * 1.22
+    const p3 = [];
+    const p15 = [];
+    const p50 = [];
+    const p85 = [];
+    const p97 = [];
+
+    for (let i = 0; i < maxMonths; i++) {
+      const m = medians[i];
+      p3.push(Math.round(m * 0.78 * 100) / 100);
+      p15.push(Math.round(m * 0.88 * 100) / 100);
+      p50.push(Math.round(m * 100) / 100);
+      p85.push(Math.round(m * 1.12 * 100) / 100);
+      p97.push(Math.round(m * 1.22 * 100) / 100);
+    }
+
+    return {
+      ageMonths,
+      percentiles: { p3, p15, p50, p85, p97 },
+    };
+  },
 };
 
 export default whoDataService;

@@ -18,6 +18,7 @@ import doctorRoutes from './routes/doctors.js';
 import resourceRoutes from './routes/resources.js';
 import reportRoutes from './routes/reports.js';
 import sarvamRoutes from './routes/sarvam.js';
+import communityRoutes from './routes/community.js';
 import storageService from './services/storageService.js';
 import { runMigrations } from './services/migrationRunner.js';
 
@@ -83,6 +84,7 @@ app.use('/api/doctors', doctorRoutes);
 app.use('/api/resources', resourceRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/sarvam', sarvamRoutes);
+app.use('/api/community', communityRoutes);
 
 // API documentation endpoint
 app.get('/api', (req, res) => {
@@ -137,6 +139,14 @@ app.get('/api', (req, res) => {
       resources: {
         'GET /api/resources/:childId': 'Get improvement resources for child',
         'POST /api/resources/:childId/regenerate': 'Regenerate resources via Gemini AI',
+      },
+      community: {
+        'GET /api/community/posts': 'List community posts (query: category, search, sort, limit, offset)',
+        'POST /api/community/posts': 'Create a community post',
+        'GET /api/community/posts/:id': 'Get post with comments',
+        'POST /api/community/posts/:id/like': 'Toggle like on a post',
+        'POST /api/community/posts/:id/comments': 'Add a comment to a post',
+        'GET /api/community/topics': 'Get trending topics and categories',
       },
       reports: {
         'GET /api/reports/:childId': 'Get all reports for child',

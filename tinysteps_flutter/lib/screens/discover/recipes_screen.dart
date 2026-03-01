@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../models/models.dart';
 import '../../services/storage_service.dart';
-import '../../services/gemini_service.dart';
+import '../../services/api_service.dart';
 import '../../utils/app_theme.dart';
+import '../../widgets/language_picker.dart';
 import '../../animations/custom_animations.dart';
 
 class RecipesScreen extends StatefulWidget {
@@ -13,49 +14,20 @@ class RecipesScreen extends StatefulWidget {
   State<RecipesScreen> createState() => _RecipesScreenState();
 }
 
-class _RecipesScreenState extends State<RecipesScreen>
-    with SingleTickerProviderStateMixin {
+class _RecipesScreenState extends State<RecipesScreen> {
   ChildProfile? _child;
   List<Recipe> _recipes = [];
   bool _isLoading = true;
-  bool _isGenerating = false;
   String _selectedCategory = 'all';
-  bool _showFilters = false;
+  String _selectedLanguage = 'en-IN';
 
-  // Filter state
-  List<String> _excludeAllergens = [];
-  List<String> _dietaryPreferences = [];
-  String _foodLikings = '';
-
-  final List<Map<String, dynamic>> _categories = [
-    {'id': 'all', 'name': 'All', 'icon': '🍽️'},
-    {'id': 'breakfast', 'name': 'Breakfast', 'icon': '🥣'},
-    {'id': 'lunch', 'name': 'Lunch', 'icon': '🥗'},
-    {'id': 'dinner', 'name': 'Dinner', 'icon': '🍝'},
-    {'id': 'snacks', 'name': 'Snacks', 'icon': '🍎'},
-    {'id': 'smoothies', 'name': 'Smoothies', 'icon': '🥤'},
+  static const List<Map<String, String>> _categories = [
+    {'id': 'all', 'name': 'All'},
+    {'id': 'breakfast', 'name': 'Breakfast'},
+    {'id': 'lunch', 'name': 'Lunch'},
+    {'id': 'dinner', 'name': 'Dinner'},
+    {'id': 'snack', 'name': 'Snack'},
   ];
-
-  static const List<Map<String, dynamic>> _allergenOptions = [
-    {'id': 'dairy', 'name': 'Dairy', 'emoji': '🥛'},
-    {'id': 'eggs', 'name': 'Eggs', 'emoji': '🥚'},
-    {'id': 'nuts', 'name': 'Tree Nuts', 'emoji': '🥜'},
-    {'id': 'peanuts', 'name': 'Peanuts', 'emoji': '🥜'},
-    {'id': 'wheat', 'name': 'Wheat/Gluten', 'emoji': '🌾'},
-    {'id': 'soy', 'name': 'Soy', 'emoji': '🫘'},
-    {'id': 'fish', 'name': 'Fish', 'emoji': '🐟'},
-    {'id': 'shellfish', 'name': 'Shellfish', 'emoji': '🦐'},
-  ];
-
-  static const List<Map<String, dynamic>> _dietaryOptions = [
-    {'id': 'vegetarian', 'name': 'Vegetarian', 'emoji': '🥬'},
-    {'id': 'vegan', 'name': 'Vegan', 'emoji': '🌱'},
-    {'id': 'halal', 'name': 'Halal', 'emoji': '☪️'},
-    {'id': 'kosher', 'name': 'Kosher', 'emoji': '✡️'},
-  ];
-
-  int get _activeFilterCount =>
-      _excludeAllergens.length + _dietaryPreferences.length + (_foodLikings.isNotEmpty ? 1 : 0);
 
   @override
   void initState() {
@@ -64,118 +36,101 @@ class _RecipesScreenState extends State<RecipesScreen>
   }
 
   Future<void> _loadData() async {
-    final storage = StorageService();
-    final child = await storage.getCurrentChild();
-
-    setState(() {
-      _child = child;
-      _isLoading = false;
-    });
-
-    if (child != null) {
-      _generateRecipes();
-    }
-  }
-
-  Future<void> _generateRecipes() async {
-    if (_child == null) return;
-
-    setState(() => _isGenerating = true);
-
+    setState(() => _isLoading = true);
     try {
-      final gemini = GeminiService();
       final storage = StorageService();
-      final apiKey = storage.getApiKey();
+      final child = await storage.getCurrentChild();
 
-      if (apiKey == null || apiKey.isEmpty) {
-        throw Exception('Please set your Gemini API key');
-      }
+      if (child != null) {
+        try {
+          final apiService = ApiService();
+          final result = await apiService.getRecipes(child.id, count: 10);
+          if (result['success'] == true && result['data'] != null) {
+            final data = result['data'];
+            List<dynamic> recipesList;
+            if (data is Map && data.containsKey('recipes')) {
+              recipesList = data['recipes'] as List;
+            } else if (data is List) {
+              recipesList = data;
+            } else {
+              recipesList = [];
+            }
+            setState(() {
+              _child = child;
+              _recipes = recipesList.map((r) => Recipe.fromJson(r)).toList();
+              _isLoading = false;
+            });
+            return;
+          }
+        } catch (_) {}
 
-      if (!gemini.isInitialized) {
-        await gemini.initialize(apiKey);
-      }
-
-      final recipesData = await gemini.generateRecipesRaw(
-        child: _child!,
-        count: 6,
-        category: _selectedCategory == 'all' ? null : _selectedCategory,
-        excludeAllergens: _excludeAllergens,
-        dietaryPreferences: _dietaryPreferences,
-        foodLikings: _foodLikings.isNotEmpty ? _foodLikings : null,
-      );
-
-      if (mounted) {
         setState(() {
-          _recipes = recipesData.map((r) => Recipe.fromJson(r)).toList();
-          _isGenerating = false;
+          _child = child;
+          _recipes = [];
+          _isLoading = false;
         });
+      } else {
+        setState(() => _isLoading = false);
       }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isGenerating = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to load recipes: ${e.toString()}'),
-            backgroundColor: AppTheme.error,
-          ),
-        );
-      }
+    } catch (_) {
+      setState(() => _isLoading = false);
     }
   }
 
-  void _toggleAllergen(String id) {
-    setState(() {
-      if (_excludeAllergens.contains(id)) {
-        _excludeAllergens.remove(id);
-      } else {
-        _excludeAllergens.add(id);
+  List<Recipe> get _filteredRecipes {
+    if (_selectedCategory == 'all') return _recipes;
+    return _recipes.where((r) {
+      final name = r.name.toLowerCase();
+      final desc = r.description.toLowerCase();
+      switch (_selectedCategory) {
+        case 'breakfast':
+          return name.contains('breakfast') ||
+              name.contains('pancake') ||
+              name.contains('oat') ||
+              desc.contains('breakfast');
+        case 'lunch':
+          return name.contains('lunch') ||
+              name.contains('wrap') ||
+              name.contains('bowl') ||
+              desc.contains('lunch');
+        case 'dinner':
+          return name.contains('dinner') ||
+              name.contains('chicken') ||
+              desc.contains('dinner');
+        case 'snack':
+          return name.contains('snack') ||
+              name.contains('star') ||
+              name.contains('bites') ||
+              desc.contains('snack');
+        default:
+          return true;
       }
-    });
-  }
-
-  void _toggleDietaryPref(String id) {
-    setState(() {
-      if (_dietaryPreferences.contains(id)) {
-        _dietaryPreferences.remove(id);
-      } else {
-        _dietaryPreferences.add(id);
-      }
-    });
-  }
-
-  void _clearAllFilters() {
-    setState(() {
-      _excludeAllergens = [];
-      _dietaryPreferences = [];
-      _foodLikings = '';
-    });
+    }).toList();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppTheme.primaryGreen),
-      );
-    }
-
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: AppTheme.backgroundGradient,
-      ),
-      child: SafeArea(
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundV3,
+      body: SafeArea(
         child: Column(
           children: [
+            // Green gradient header
             _buildHeader(),
-            _buildActiveFilters(),
-            if (_activeFilterCount > 0) const SizedBox(height: 8),
-            _buildCategories(),
+
+            // Category filter tabs
+            _buildCategoryTabs(),
+
+            // Content
             Expanded(
-              child: _isGenerating
-                  ? _buildLoadingState()
-                  : _recipes.isEmpty
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                          color: AppTheme.primaryGreen),
+                    )
+                  : _filteredRecipes.isEmpty
                       ? _buildEmptyState()
-                      : _buildRecipesList(),
+                      : _buildRecipeList(),
             ),
           ],
         ),
@@ -183,204 +138,114 @@ class _RecipesScreenState extends State<RecipesScreen>
     );
   }
 
+  // ---- GREEN HEADER ----
   Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.all(20),
+    final ageLabel = _child != null
+        ? '${(_child!.ageInMonths / 12).floor()}-${((_child!.ageInMonths / 12).floor() + 1)} years'
+        : '2-3 years';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF10B981), Color(0xFF059669)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(24),
+          bottomRight: Radius.circular(24),
+        ),
+      ),
       child: Row(
         children: [
-          IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back_rounded),
-            style: IconButton.styleFrom(
-              backgroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
+          GestureDetector(
+            onTap: () => Navigator.of(context).pop(),
+            child: const Icon(Icons.arrow_back_rounded,
+                color: Colors.white, size: 24),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
                 const Text(
-                  'Recipes',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.neutral900,
-                  ),
+                  '\u{1F468}\u{200D}\u{1F373}',
+                  style: TextStyle(fontSize: 20),
                 ),
+                const SizedBox(width: 8),
                 Text(
-                  'Age-appropriate meals for ${_child?.displayName ?? "your child"}',
+                  'Recipes for $ageLabel',
                   style: const TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.neutral500,
+                    fontFamily: 'Nunito',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
                   ),
                 ),
               ],
             ),
           ),
-          // Filter button
-          Stack(
-            children: [
-              IconButton(
-                onPressed: () => _showFilterModal(),
-                icon: const Icon(Icons.tune_rounded),
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-              if (_activeFilterCount > 0)
-                Positioned(
-                  right: 4,
-                  top: 4,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: AppTheme.error,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text(
-                      '$_activeFilterCount',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
+          LanguagePicker(
+            selectedLanguage: _selectedLanguage,
+            onLanguageChanged: (code) =>
+                setState(() => _selectedLanguage = code),
+            iconColor: Colors.white,
           ),
           const SizedBox(width: 8),
+          // Leo avatar placeholder
           Container(
-            padding: const EdgeInsets.all(12),
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
-              color: AppTheme.accentOrange.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(16),
+              color: Colors.white.withOpacity(0.2),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white.withOpacity(0.4), width: 2),
             ),
-            child: const Text('🍳', style: TextStyle(fontSize: 24)),
+            child: const Center(
+              child: Text('\u{1F476}', style: TextStyle(fontSize: 22)),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildActiveFilters() {
-    if (_activeFilterCount == 0) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          ..._excludeAllergens.map((id) {
-            final allergen = _allergenOptions.firstWhere(
-              (a) => a['id'] == id,
-              orElse: () => {'name': id, 'emoji': '🚫'},
-            );
-            return _buildFilterChip(
-              '${allergen['emoji']} No ${allergen['name']}',
-              AppTheme.error.withOpacity(0.1),
-              AppTheme.error,
-              () => _toggleAllergen(id),
-            );
-          }),
-          ..._dietaryPreferences.map((id) {
-            final pref = _dietaryOptions.firstWhere(
-              (p) => p['id'] == id,
-              orElse: () => {'name': id, 'emoji': '✓'},
-            );
-            return _buildFilterChip(
-              '${pref['emoji']} ${pref['name']}',
-              AppTheme.primaryGreen.withOpacity(0.1),
-              AppTheme.primaryGreen,
-              () => _toggleDietaryPref(id),
-            );
-          }),
-          if (_foodLikings.isNotEmpty)
-            _buildFilterChip(
-              '❤️ ${_foodLikings.length > 20 ? '${_foodLikings.substring(0, 20)}...' : _foodLikings}',
-              AppTheme.secondaryBlue.withOpacity(0.1),
-              AppTheme.secondaryBlue,
-              () => setState(() => _foodLikings = ''),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterChip(String label, Color bgColor, Color textColor, VoidCallback onRemove) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: textColor,
-            ),
-          ),
-          const SizedBox(width: 4),
-          GestureDetector(
-            onTap: onRemove,
-            child: Icon(Icons.close, size: 14, color: textColor),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCategories() {
+  // ---- CATEGORY TABS ----
+  Widget _buildCategoryTabs() {
     return SizedBox(
-      height: 50,
-      child: ListView.builder(
+      height: 56,
+      child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         itemCount: _categories.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
-          final category = _categories[index];
-          final isSelected = _selectedCategory == category['id'];
-
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: FilterChip(
-              selected: isSelected,
-              label: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(category['icon']),
-                  const SizedBox(width: 6),
-                  Text(category['name']),
-                ],
+          final cat = _categories[index];
+          final isSelected = _selectedCategory == cat['id'];
+          return GestureDetector(
+            onTap: () => setState(() => _selectedCategory = cat['id']!),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+              decoration: BoxDecoration(
+                color: isSelected ? AppTheme.primaryGreen : Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: isSelected
+                      ? AppTheme.primaryGreen
+                      : AppTheme.borderLight,
+                ),
               ),
-              onSelected: (selected) {
-                setState(() => _selectedCategory = category['id']);
-                _generateRecipes();
-              },
-              selectedColor: AppTheme.primaryGreen.withOpacity(0.2),
-              backgroundColor: Colors.white,
-              checkmarkColor: AppTheme.primaryGreen,
-              labelStyle: TextStyle(
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected ? AppTheme.primaryGreen : AppTheme.neutral600,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-                side: BorderSide(
-                  color: isSelected ? AppTheme.primaryGreen : AppTheme.neutral200,
+              child: Center(
+                child: Text(
+                  cat['name']!,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: isSelected ? Colors.white : AppTheme.textSecondary,
+                  ),
                 ),
               ),
             ),
@@ -390,34 +255,279 @@ class _RecipesScreenState extends State<RecipesScreen>
     );
   }
 
-  Widget _buildLoadingState() {
-    return Center(
+  // ---- RECIPE LIST ----
+  Widget _buildRecipeList() {
+    final recipes = _filteredRecipes;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('🍳', style: TextStyle(fontSize: 64))
-              .animate(onPlay: (c) => c.repeat())
-              .rotate(duration: 2.seconds),
-          const SizedBox(height: 24),
-          const Text(
-            'Cooking up recipes...',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.neutral700,
-            ),
-          ),
           const SizedBox(height: 8),
-          Text(
-            'Finding age-appropriate meals for ${_child?.displayAge ?? "your child"}',
-            style: const TextStyle(
-              fontSize: 14,
-              color: AppTheme.neutral500,
-            ),
-          ),
+
+          // Featured recipe (first one)
+          if (recipes.isNotEmpty) _buildFeaturedRecipeCard(recipes.first),
+
+          const SizedBox(height: 16),
+
+          // Remaining recipes in compact list
+          ...recipes.skip(1).toList().asMap().entries.map((entry) {
+            return StaggeredListAnimation(
+              index: entry.key,
+              child: _buildCompactRecipeItem(entry.value),
+            );
+          }),
+
+          const SizedBox(height: 32),
         ],
       ),
     );
+  }
+
+  // ---- FEATURED RECIPE CARD ----
+  Widget _buildFeaturedRecipeCard(Recipe recipe) {
+    return GestureDetector(
+      onTap: () => _showRecipeDetail(recipe),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: AppTheme.cardShadowV3,
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Image
+            Container(
+              height: 180,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.green.shade200,
+                    Colors.teal.shade300,
+                    Colors.green.shade400,
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: recipe.imageUrl != null
+                  ? Image.network(recipe.imageUrl!, fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _recipePlaceholder())
+                  : _recipePlaceholder(),
+            ),
+
+            // Details
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    recipe.name,
+                    style: const TextStyle(
+                      fontFamily: 'Nunito',
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(Icons.access_time_rounded,
+                          size: 14, color: AppTheme.textSecondary),
+                      const SizedBox(width: 4),
+                      Text(
+                        recipe.prepTime,
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 13,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      _buildBadge(recipe.difficulty, AppTheme.primaryGreen),
+                      const SizedBox(width: 8),
+                      _buildBadge(
+                        '${recipe.minAgeMonths ~/ 12}-${recipe.maxAgeMonths ~/ 12} years',
+                        AppTheme.textSecondary,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.05, end: 0);
+  }
+
+  // ---- COMPACT RECIPE ITEM ----
+  Widget _buildCompactRecipeItem(Recipe recipe) {
+    // Infer category badge text
+    String categoryLabel = '';
+    final nameLower = recipe.name.toLowerCase();
+    if (nameLower.contains('pancake') || nameLower.contains('oat')) {
+      categoryLabel = 'Breakfast';
+    } else if (nameLower.contains('wrap') || nameLower.contains('bowl')) {
+      categoryLabel = 'Lunch';
+    } else if (nameLower.contains('chicken') || nameLower.contains('pasta')) {
+      categoryLabel = 'Dinner';
+    } else if (nameLower.contains('star') || nameLower.contains('bites')) {
+      categoryLabel = 'Snack';
+    }
+
+    // Category color
+    Color categoryColor;
+    switch (categoryLabel) {
+      case 'Breakfast':
+        categoryColor = AppTheme.secondaryOrange;
+        break;
+      case 'Lunch':
+        categoryColor = AppTheme.primaryGreen;
+        break;
+      case 'Dinner':
+        categoryColor = AppTheme.secondaryPurple;
+        break;
+      case 'Snack':
+        categoryColor = AppTheme.secondaryPink;
+        break;
+      default:
+        categoryColor = AppTheme.textTertiary;
+        categoryLabel = recipe.difficulty;
+    }
+
+    return GestureDetector(
+      onTap: () => _showRecipeDetail(recipe),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: AppTheme.cardShadowV3,
+        ),
+        child: Row(
+          children: [
+            // Circular thumbnail
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    categoryColor.withOpacity(0.2),
+                    categoryColor.withOpacity(0.1),
+                  ],
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Text(
+                  _recipeEmoji(recipe.name),
+                  style: const TextStyle(fontSize: 20),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    recipe.name,
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.textPrimary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.access_time_rounded,
+                          size: 12, color: AppTheme.textTertiary),
+                      const SizedBox(width: 3),
+                      Text(
+                        recipe.prepTime,
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 12,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _buildBadge(categoryLabel, categoryColor, small: true),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded,
+                size: 20, color: AppTheme.textTertiary),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ---- RECIPE DETAIL BOTTOM SHEET ----
+  void _showRecipeDetail(Recipe recipe) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _RecipeDetailSheet(recipe: recipe),
+    );
+  }
+
+  // ---- HELPERS ----
+  Widget _buildBadge(String text, Color color, {bool small = false}) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: small ? 8 : 10,
+        vertical: small ? 2 : 3,
+      ),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontFamily: 'Inter',
+          fontSize: small ? 11 : 12,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      ),
+    );
+  }
+
+  Widget _recipePlaceholder() {
+    return Center(
+      child: Text('\u{1F957}', style: TextStyle(fontSize: 56)),
+    );
+  }
+
+  String _recipeEmoji(String name) {
+    final lower = name.toLowerCase();
+    if (lower.contains('pancake')) return '\u{1F95E}';
+    if (lower.contains('chicken')) return '\u{1F357}';
+    if (lower.contains('potato')) return '\u{1F954}';
+    if (lower.contains('bowl')) return '\u{1F957}';
+    if (lower.contains('wrap')) return '\u{1F32F}';
+    if (lower.contains('banana')) return '\u{1F34C}';
+    if (lower.contains('star')) return '\u{2B50}';
+    if (lower.contains('smoothie')) return '\u{1F964}';
+    return '\u{1F372}';
   }
 
   Widget _buildEmptyState() {
@@ -426,636 +536,45 @@ class _RecipesScreenState extends State<RecipesScreen>
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 100,
-            height: 100,
+            width: 80,
+            height: 80,
             decoration: BoxDecoration(
-              color: AppTheme.accentOrange.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(32),
+              color: AppTheme.primaryGreen.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(24),
             ),
             child: const Center(
-              child: Text('🍽️', style: TextStyle(fontSize: 48)),
+              child: Text('\u{1F372}', style: TextStyle(fontSize: 40)),
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           const Text(
-            'No recipes yet',
+            'No recipes found',
             style: TextStyle(
+              fontFamily: 'Nunito',
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: AppTheme.neutral700,
+              color: AppTheme.textPrimary,
             ),
           ),
           const SizedBox(height: 8),
           const Text(
-            'Tap to generate personalized recipes',
+            'Try a different category\nor check back later',
+            textAlign: TextAlign.center,
             style: TextStyle(
+              fontFamily: 'Inter',
               fontSize: 14,
-              color: AppTheme.neutral500,
-            ),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: _generateRecipes,
-            icon: const Icon(Icons.auto_awesome_rounded),
-            label: const Text('Generate Recipes'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryGreen,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              color: AppTheme.textSecondary,
             ),
           ),
         ],
       ),
     );
-  }
-
-  Widget _buildRecipesList() {
-    return RefreshIndicator(
-      onRefresh: _generateRecipes,
-      color: AppTheme.primaryGreen,
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: _recipes.length,
-        itemBuilder: (context, index) {
-          return StaggeredListAnimation(
-            index: index,
-            child: _buildRecipeCard(_recipes[index]),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildRecipeCard(Recipe recipe) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: AppTheme.softShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header with emoji and category
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  _getCategoryColor(recipe.category).withOpacity(0.1),
-                  _getCategoryColor(recipe.category).withOpacity(0.05),
-                ],
-              ),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(20),
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Center(
-                    child: Text(
-                      recipe.emoji,
-                      style: const TextStyle(fontSize: 32),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        recipe.name,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.neutral900,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          _buildTag(recipe.category, _getCategoryColor(recipe.category)),
-                          const SizedBox(width: 8),
-                          _buildTag('${recipe.prepTime} min', AppTheme.neutral500),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Nutrition info
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Nutrition badges
-                Row(
-                  children: [
-                    _buildNutritionBadge('Calories', '${recipe.calories}', AppTheme.secondaryPink),
-                    const SizedBox(width: 8),
-                    _buildNutritionBadge('Protein', '${recipe.protein}g', AppTheme.secondaryBlue),
-                    const SizedBox(width: 8),
-                    _buildNutritionBadge('Fiber', '${recipe.fiber}g', AppTheme.primaryGreen),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Description
-                Text(
-                  recipe.description,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.neutral600,
-                    height: 1.5,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 16),
-
-                // Action buttons
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _showRecipeDetails(recipe),
-                        icon: const Icon(Icons.restaurant_menu_rounded, size: 18),
-                        label: const Text('View Recipe'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.primaryGreen,
-                          side: const BorderSide(color: AppTheme.primaryGreen),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    IconButton(
-                      onPressed: () {},
-                      icon: const Icon(Icons.favorite_border_rounded),
-                      style: IconButton.styleFrom(
-                        backgroundColor: AppTheme.secondaryPink.withOpacity(0.1),
-                        foregroundColor: AppTheme.secondaryPink,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTag(String text, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: color,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNutritionBadge(String label, String value, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          children: [
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: color,
-              ),
-            ),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                color: color.withOpacity(0.8),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Color _getCategoryColor(String category) {
-    switch (category.toLowerCase()) {
-      case 'breakfast':
-        return AppTheme.accentOrange;
-      case 'lunch':
-        return AppTheme.primaryGreen;
-      case 'dinner':
-        return AppTheme.secondaryPurple;
-      case 'snacks':
-        return AppTheme.secondaryPink;
-      case 'smoothies':
-        return AppTheme.secondaryBlue;
-      default:
-        return AppTheme.neutral500;
-    }
-  }
-
-  void _showRecipeDetails(Recipe recipe) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _RecipeDetailSheet(recipe: recipe),
-    );
-  }
-
-  void _showFilterModal() {
-    final likingsController = TextEditingController(text: _foodLikings);
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => DraggableScrollableSheet(
-          initialChildSize: 0.85,
-          maxChildSize: 0.95,
-          minChildSize: 0.5,
-          builder: (context, scrollController) => Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            child: Column(
-              children: [
-                // Handle
-                Center(
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 12),
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: AppTheme.neutral300,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                // Header
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        AppTheme.accentOrange,
-                        AppTheme.accentOrange.withOpacity(0.8),
-                      ],
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Recipe Filters',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                            Text(
-                              'Customize recipes for ${_child?.displayName ?? "your child"}',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.white.withOpacity(0.8),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.close),
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.white.withOpacity(0.2),
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Content
-                Expanded(
-                  child: ListView(
-                    controller: scrollController,
-                    padding: const EdgeInsets.all(20),
-                    children: [
-                      // Region info
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: AppTheme.secondaryBlue.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Row(
-                          children: [
-                            const Text('🌍', style: TextStyle(fontSize: 24)),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Regional Cuisine',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.secondaryBlue,
-                                    ),
-                                  ),
-                                  Text(
-                                    'Recipes include dishes appropriate for ${_getRegionName(_child?.region)} region.',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: AppTheme.neutral600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Allergens section
-                      Row(
-                        children: [
-                          Icon(Icons.warning_amber_rounded, color: AppTheme.warning),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'Exclude Allergens',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.neutral800,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: _allergenOptions.map((allergen) {
-                          final isSelected = _excludeAllergens.contains(allergen['id']);
-                          return FilterChip(
-                            label: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(allergen['emoji']),
-                                const SizedBox(width: 6),
-                                Text(allergen['name']),
-                              ],
-                            ),
-                            selected: isSelected,
-                            onSelected: (_) {
-                              _toggleAllergen(allergen['id']);
-                              setModalState(() {});
-                            },
-                            selectedColor: AppTheme.error.withOpacity(0.2),
-                            checkmarkColor: AppTheme.error,
-                            backgroundColor: AppTheme.neutral100,
-                            side: BorderSide(
-                              color: isSelected ? AppTheme.error : AppTheme.neutral200,
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Dietary preferences section
-                      Row(
-                        children: [
-                          Icon(Icons.eco_rounded, color: AppTheme.primaryGreen),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'Dietary Preferences',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.neutral800,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: _dietaryOptions.map((pref) {
-                          final isSelected = _dietaryPreferences.contains(pref['id']);
-                          return FilterChip(
-                            label: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(pref['emoji']),
-                                const SizedBox(width: 6),
-                                Text(pref['name']),
-                              ],
-                            ),
-                            selected: isSelected,
-                            onSelected: (_) {
-                              _toggleDietaryPref(pref['id']);
-                              setModalState(() {});
-                            },
-                            selectedColor: AppTheme.primaryGreen.withOpacity(0.2),
-                            checkmarkColor: AppTheme.primaryGreen,
-                            backgroundColor: AppTheme.neutral100,
-                            side: BorderSide(
-                              color: isSelected ? AppTheme.primaryGreen : AppTheme.neutral200,
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Food preferences section
-                      Row(
-                        children: [
-                          Icon(Icons.favorite_rounded, color: AppTheme.secondaryPink),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'Food Preferences',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.neutral800,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: likingsController,
-                        maxLines: 3,
-                        decoration: InputDecoration(
-                          hintText: 'E.g., loves carrots, doesn\'t like spinach, prefers sweet flavors...',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        onChanged: (value) {
-                          _foodLikings = value;
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Describe what ${_child?.displayName ?? "your child"} likes or dislikes to get personalized recipes.',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.neutral500,
-                        ),
-                      ),
-
-                      // Child's interests
-                      if (_child != null && _child!.interests.isNotEmpty) ...[
-                        const SizedBox(height: 24),
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: AppTheme.secondaryPurple.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Based on ${_child!.displayName}\'s Interests',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.secondaryPurple,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'We\'ll suggest fun food presentations related to: ${_child!.interests.join(", ")}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppTheme.neutral600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 32),
-                    ],
-                  ),
-                ),
-                // Actions
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, -5),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () {
-                            _clearAllFilters();
-                            likingsController.clear();
-                            setModalState(() {});
-                          },
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            side: const BorderSide(color: AppTheme.neutral300),
-                          ),
-                          child: const Text('Clear All'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {
-                            _foodLikings = likingsController.text;
-                            Navigator.pop(context);
-                            _generateRecipes();
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.accentOrange,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                          ),
-                          child: const Text('Apply & Generate'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  String _getRegionName(WHORegion? region) {
-    if (region == null) return 'your';
-    switch (region) {
-      case WHORegion.afro:
-        return 'African';
-      case WHORegion.amro:
-        return 'Americas';
-      case WHORegion.searo:
-        return 'South-East Asian';
-      case WHORegion.euro:
-        return 'European';
-      case WHORegion.emro:
-        return 'Eastern Mediterranean';
-      case WHORegion.wpro:
-        return 'Western Pacific';
-    }
   }
 }
 
+// ---- RECIPE DETAIL BOTTOM SHEET ----
 class _RecipeDetailSheet extends StatelessWidget {
   final Recipe recipe;
-
   const _RecipeDetailSheet({required this.recipe});
 
   @override
@@ -1064,20 +583,22 @@ class _RecipeDetailSheet extends StatelessWidget {
       initialChildSize: 0.85,
       maxChildSize: 0.95,
       minChildSize: 0.5,
-      builder: (context, scrollController) {
+      builder: (_, controller) {
         return Container(
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          child: Column(
+          child: ListView(
+            controller: controller,
+            padding: const EdgeInsets.all(24),
             children: [
               // Handle
               Center(
                 child: Container(
-                  margin: const EdgeInsets.symmetric(vertical: 12),
                   width: 40,
                   height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
                   decoration: BoxDecoration(
                     color: AppTheme.neutral300,
                     borderRadius: BorderRadius.circular(2),
@@ -1085,239 +606,186 @@ class _RecipeDetailSheet extends StatelessWidget {
                 ),
               ),
 
-              // Content
-              Expanded(
-                child: ListView(
-                  controller: scrollController,
-                  padding: const EdgeInsets.all(24),
-                  children: [
-                    // Header
-                    Row(
+              // Title
+              Text(
+                recipe.name,
+                style: const TextStyle(
+                  fontFamily: 'Nunito',
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // Description
+              Text(
+                recipe.description,
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 14,
+                  color: AppTheme.textSecondary,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Info pills
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _infoPill(Icons.access_time_rounded, 'Prep: ${recipe.prepTime}'),
+                  _infoPill(Icons.local_fire_department_rounded, 'Cook: ${recipe.cookTime}'),
+                  _infoPill(Icons.signal_cellular_alt_rounded, recipe.difficulty),
+                  if (recipe.isVegetarian)
+                    _infoPill(Icons.eco_rounded, 'Vegetarian',
+                        color: AppTheme.primaryGreen),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // Ingredients
+              _sectionTitle('Ingredients'),
+              const SizedBox(height: 8),
+              ...recipe.ingredients.map((i) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
-                          width: 80,
-                          height: 80,
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryGreen.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Center(
-                            child: Text(recipe.emoji, style: const TextStyle(fontSize: 48)),
+                          width: 6,
+                          height: 6,
+                          margin: const EdgeInsets.only(top: 7),
+                          decoration: const BoxDecoration(
+                            color: AppTheme.primaryGreen,
+                            shape: BoxShape.circle,
                           ),
                         ),
-                        const SizedBox(width: 16),
+                        const SizedBox(width: 10),
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                recipe.name,
-                                style: const TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w800,
-                                  color: AppTheme.neutral900,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Icon(Icons.timer_outlined,
-                                      size: 16, color: AppTheme.neutral500),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '${recipe.prepTime} min',
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      color: AppTheme.neutral500,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Icon(Icons.restaurant_rounded,
-                                      size: 16, color: AppTheme.neutral500),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    recipe.servings,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      color: AppTheme.neutral500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Description
-                    Text(
-                      recipe.description,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        color: AppTheme.neutral600,
-                        height: 1.6,
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Nutrition
-                    const Text(
-                      'Nutrition',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.neutral800,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        _buildNutritionTile('Calories', '${recipe.calories}', AppTheme.secondaryPink),
-                        const SizedBox(width: 8),
-                        _buildNutritionTile('Protein', '${recipe.protein}g', AppTheme.secondaryBlue),
-                        const SizedBox(width: 8),
-                        _buildNutritionTile('Fiber', '${recipe.fiber}g', AppTheme.primaryGreen),
-                        const SizedBox(width: 8),
-                        _buildNutritionTile('Iron', recipe.iron, AppTheme.accentOrange),
-                      ],
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Ingredients
-                    const Text(
-                      'Ingredients',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.neutral800,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    ...recipe.ingredients.map((ingredient) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryGreen,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            ingredient,
+                          child: Text(
+                            i,
                             style: const TextStyle(
-                              fontSize: 15,
-                              color: AppTheme.neutral700,
+                              fontFamily: 'Inter',
+                              fontSize: 14,
+                              color: AppTheme.textPrimary,
+                              height: 1.5,
                             ),
                           ),
-                        ],
-                      ),
-                    )),
-
-                    const SizedBox(height: 24),
-
-                    // Instructions
-                    const Text(
-                      'Instructions',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.neutral800,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    ...recipe.steps.asMap().entries.map((entry) => Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            width: 28,
-                            height: 28,
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryGreen.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: Center(
-                              child: Text(
-                                '${entry.key + 1}',
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.primaryGreen,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              entry.value,
-                              style: const TextStyle(
-                                fontSize: 15,
-                                color: AppTheme.neutral700,
-                                height: 1.5,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    )),
-
-                    // Tips
-                    if (recipe.tips.isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: AppTheme.accentOrange.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(16),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Text('💡', style: TextStyle(fontSize: 20)),
-                                const SizedBox(width: 8),
-                                const Text(
-                                  'Tips',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.accentOrange,
-                                  ),
-                                ),
-                              ],
+                      ],
+                    ),
+                  )),
+              const SizedBox(height: 24),
+
+              // Instructions
+              _sectionTitle('Instructions'),
+              const SizedBox(height: 8),
+              ...recipe.instructions.asMap().entries.map((entry) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryGreen.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${entry.key + 1}',
+                            style: const TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.primaryGreen,
                             ),
-                            const SizedBox(height: 8),
-                            ...recipe.tips.map((tip) => Padding(
-                              padding: const EdgeInsets.only(bottom: 4),
-                              child: Text(
-                                '• $tip',
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: AppTheme.neutral600,
-                                ),
-                              ),
-                            )),
-                          ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          entry.value,
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 14,
+                            color: AppTheme.textPrimary,
+                            height: 1.5,
+                          ),
                         ),
                       ),
                     ],
+                  ),
+                );
+              }),
+              const SizedBox(height: 24),
 
-                    const SizedBox(height: 32),
-                  ],
+              // Nutrition highlights
+              if (recipe.nutritionHighlights.isNotEmpty) ...[
+                _sectionTitle('Nutrition Highlights'),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: recipe.nutritionHighlights
+                      .map((n) => Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: AppTheme.greenTint,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Text(
+                              n,
+                              style: const TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.primaryGreen,
+                              ),
+                            ),
+                          ))
+                      .toList(),
                 ),
-              ),
+                const SizedBox(height: 24),
+              ],
+
+              // Allergen warnings
+              if (recipe.allergens.isNotEmpty) ...[
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppTheme.secondaryOrange.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                        color: AppTheme.secondaryOrange.withOpacity(0.2)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded,
+                          color: AppTheme.secondaryOrange, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Allergens: ${recipe.allergens.join(', ')}',
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: AppTheme.secondaryOrange,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
             ],
           ),
         );
@@ -1325,89 +793,42 @@ class _RecipeDetailSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildNutritionTile(String label, String value, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          children: [
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: color,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                color: color.withOpacity(0.8),
-              ),
-            ),
-          ],
-        ),
+  Widget _sectionTitle(String text) {
+    return Text(
+      text,
+      style: const TextStyle(
+        fontFamily: 'Nunito',
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+        color: AppTheme.textPrimary,
       ),
     );
   }
-}
 
-/// Recipe model for generated recipes
-class Recipe {
-  final String name;
-  final String emoji;
-  final String category;
-  final String description;
-  final int prepTime;
-  final String servings;
-  final int calories;
-  final int protein;
-  final int fiber;
-  final String iron;
-  final List<String> ingredients;
-  final List<String> steps;
-  final List<String> tips;
-  final List<String> allergens;
-
-  const Recipe({
-    required this.name,
-    required this.emoji,
-    required this.category,
-    required this.description,
-    required this.prepTime,
-    required this.servings,
-    required this.calories,
-    required this.protein,
-    required this.fiber,
-    required this.iron,
-    required this.ingredients,
-    required this.steps,
-    this.tips = const [],
-    this.allergens = const [],
-  });
-
-  factory Recipe.fromJson(Map<String, dynamic> json) {
-    return Recipe(
-      name: json['name'] ?? '',
-      emoji: json['emoji'] ?? '🍽️',
-      category: json['category'] ?? 'meal',
-      description: json['description'] ?? '',
-      prepTime: json['prepTime'] ?? 15,
-      servings: json['servings'] ?? '1 serving',
-      calories: json['calories'] ?? 0,
-      protein: json['protein'] ?? 0,
-      fiber: json['fiber'] ?? 0,
-      iron: json['iron'] ?? 'low',
-      ingredients: List<String>.from(json['ingredients'] ?? []),
-      steps: List<String>.from(json['steps'] ?? []),
-      tips: List<String>.from(json['tips'] ?? []),
-      allergens: List<String>.from(json['allergens'] ?? []),
+  Widget _infoPill(IconData icon, String text, {Color? color}) {
+    final c = color ?? AppTheme.textSecondary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: c.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: c),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: c,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

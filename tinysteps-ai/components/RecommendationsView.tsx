@@ -13,7 +13,6 @@ import {
   Award,
 } from 'lucide-react';
 import { ChildProfile } from '../types';
-import * as geminiService from '../services/geminiService';
 import LanguagePicker from './LanguagePicker';
 import apiService from '../services/apiService';
 
@@ -163,15 +162,19 @@ const RecommendationsView: React.FC<RecommendationsViewProps> = ({
   const loadData = async () => {
     setLoading(true);
     try {
-      const [productsData, activitiesData, tipsData] = await Promise.all([
-        geminiService.generateProductRecommendations(child),
-        geminiService.generateActivities(child),
-        geminiService.generateParentingTips(child),
+      const [productsResult, activitiesResult, tipsResult] = await Promise.all([
+        apiService.getProductRecommendations(child.id),
+        apiService.getActivities(child.id),
+        apiService.getParentingTips(child.id),
       ]);
 
-      if (productsData) setProducts(productsData);
-      if (activitiesData) setActivities(activitiesData);
-      if (tipsData) setTips(tipsData);
+      const productsData = (productsResult as any).data;
+      const activitiesData = (activitiesResult as any).data;
+      const tipsData = (tipsResult as any).data;
+
+      if (productsData?.recommendations) setProducts(productsData.recommendations);
+      if (activitiesData?.activities) setActivities(activitiesData.activities);
+      if (tipsData?.tips) setTips(tipsData.tips);
     } catch (error) {
       console.error('Failed to load recommendations:', error);
     } finally {

@@ -76,7 +76,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen>
 
       final products = await gemini.generateProductRecommendations(
         child: _child!,
-        categories: ['toys', 'books', 'educational', 'safety'],
+        category: 'toys',
       );
 
       if (mounted) {
@@ -298,7 +298,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen>
             ),
             child: Center(
               child: Text(
-                product.emoji,
+                _getCategoryEmoji(product.category),
                 style: const TextStyle(fontSize: 36),
               ),
             ),
@@ -741,7 +741,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen>
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: AppTheme.accentOrange.withOpacity(0.1),
+                  color: AppTheme.secondaryOrange.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Center(
@@ -765,7 +765,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen>
                       margin: const EdgeInsets.only(top: 4),
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: AppTheme.accentOrange.withOpacity(0.1),
+                        color: AppTheme.secondaryOrange.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -773,7 +773,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen>
                         style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
-                          color: AppTheme.accentOrange,
+                          color: AppTheme.secondaryOrange,
                         ),
                       ),
                     ),
@@ -997,6 +997,21 @@ class _RecommendationsScreenState extends State<RecommendationsScreen>
     );
   }
 
+  String _getCategoryEmoji(String category) {
+    switch (category.toLowerCase()) {
+      case 'toys':
+        return '🧸';
+      case 'books':
+        return '📚';
+      case 'educational':
+        return '🎓';
+      case 'safety':
+        return '🛡️';
+      default:
+        return '🛍️';
+    }
+  }
+
   Color _getCategoryColor(String category) {
     switch (category.toLowerCase()) {
       case 'toys':
@@ -1006,7 +1021,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen>
       case 'educational':
         return AppTheme.primaryGreen;
       case 'safety':
-        return AppTheme.accentOrange;
+        return AppTheme.secondaryOrange;
       default:
         return AppTheme.neutral500;
     }
@@ -1032,42 +1047,6 @@ class _RecommendationsScreenState extends State<RecommendationsScreen>
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
-  }
-}
-
-/// Activity model
-class Activity {
-  final String name;
-  final String emoji;
-  final String domain;
-  final String description;
-  final String duration;
-  final List<String> materials;
-  final List<String> skills;
-  final List<String> steps;
-
-  const Activity({
-    required this.name,
-    required this.emoji,
-    required this.domain,
-    required this.description,
-    required this.duration,
-    this.materials = const [],
-    this.skills = const [],
-    this.steps = const [],
-  });
-
-  factory Activity.fromJson(Map<String, dynamic> json) {
-    return Activity(
-      name: json['name'] ?? '',
-      emoji: json['emoji'] ?? '🎯',
-      domain: json['domain'] ?? 'General',
-      description: json['description'] ?? '',
-      duration: json['duration'] ?? '10-15 min',
-      materials: List<String>.from(json['materials'] ?? []),
-      skills: List<String>.from(json['skills'] ?? []),
-      steps: List<String>.from(json['steps'] ?? []),
-    );
   }
 }
 

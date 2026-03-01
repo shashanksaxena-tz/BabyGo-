@@ -106,6 +106,18 @@ router.post('/growth-percentiles', authMiddleware, async (req, res) => {
   }
 });
 
+// Get WHO growth curves reference data
+router.get('/growth-curves', async (req, res) => {
+  try {
+    const { gender = 'male', metric = 'weight' } = req.query;
+    const curves = whoDataService.getGrowthCurves(gender, metric);
+    res.json(curves);
+  } catch (error) {
+    console.error('Growth curves error:', error);
+    res.status(500).json({ error: 'Failed to fetch growth curves' });
+  }
+});
+
 // Save pre-computed analysis result (from browser-side Gemini)
 router.post('/save', authMiddleware, async (req, res) => {
   try {
