@@ -11,6 +11,8 @@ class SarvamService {
 
   String get _baseUrl => ApiConfig.apiUrl;
 
+  // TODO: This hardcoded language list should be fetched from the backend
+  // /api/config endpoint, which now provides supported languages dynamically.
   /// Supported Indian languages (BCP-47 codes)
   static const Map<String, String> supportedLanguages = {
     'en-IN': 'English',

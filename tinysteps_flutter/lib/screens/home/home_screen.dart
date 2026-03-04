@@ -55,6 +55,9 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  // TODO: Status labels should come from the backend /api/config endpoint
+  // instead of being hardcoded here. The backend now provides statusLabels
+  // in the config response (e.g., { "on_track": { "label": "On Track", ... } }).
   String _getStatusLabel(String? status) {
     switch (status) {
       case 'on_track':

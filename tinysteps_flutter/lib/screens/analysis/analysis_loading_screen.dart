@@ -3,8 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
-import '../../services/gemini_service.dart';
-import '../../services/storage_service.dart';
 import '../../utils/app_theme.dart';
 import 'analysis_results_screen.dart';
 
@@ -99,50 +97,22 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen>
       // Step 4: WHO comparison
       await _updateStep(3, 'Comparing with WHO developmental milestones...');
 
-      // Try backend API first
+      // Call backend API for analysis
       final apiService = ApiService();
-      AnalysisResult? result;
 
-      try {
-        final response = await apiService.createAnalysis(
-          childId: widget.child.id,
-          mediaFiles: widget.mediaFiles,
-          audioFile: widget.audioFile,
-        );
+      final response = await apiService.createAnalysis(
+        childId: widget.child.id,
+        mediaFiles: widget.mediaFiles,
+        audioFile: widget.audioFile,
+      );
 
-        if (response['success'] == true && response['data'] != null) {
-          // Step 5: Generate insights
-          await _updateStep(4, 'Generating personalized insights...');
-          result = AnalysisResult.fromJson(response['data']);
-        }
-      } catch (e) {
-        debugPrint('Backend analysis failed, falling back to Gemini: $e');
+      if (response['success'] != true || response['data'] == null) {
+        throw Exception(response['error'] ?? 'Analysis failed');
       }
 
-      // Fallback to direct Gemini if backend fails
-      if (result == null) {
-        await _updateStep(4, 'Generating personalized insights...');
-
-        final gemini = GeminiService();
-        final storage = StorageService();
-
-        final apiKey = storage.getApiKey();
-        if (apiKey == null || apiKey.isEmpty) {
-          throw Exception('Please set your Gemini API key in Settings');
-        }
-
-        if (!gemini.isInitialized) {
-          await gemini.initialize(apiKey);
-        }
-
-        result = await gemini.analyzeDevelopment(
-          child: widget.child,
-          mediaFiles: widget.mediaFiles,
-          audioFile: widget.audioFile,
-        );
-
-        await storage.saveAnalysis(result);
-      }
+      // Step 5: Generate insights
+      await _updateStep(4, 'Generating personalized insights...');
+      final result = AnalysisResult.fromJson(response['data']);
 
       // Step 6: Finalizing
       await _updateStep(5, 'Finalizing your report...');

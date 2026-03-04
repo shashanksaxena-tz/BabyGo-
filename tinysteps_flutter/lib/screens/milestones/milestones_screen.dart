@@ -3,7 +3,6 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../services/storage_service.dart';
-import '../../services/who_data_service.dart';
 import '../../utils/app_theme.dart';
 import '../../widgets/bottom_nav_bar.dart';
 
@@ -48,6 +47,7 @@ class _MilestonesScreenState extends State<MilestonesScreen> {
 
   // Milestone tracking state
   Map<String, AchievedMilestone> _achievedMilestones = {};
+  List<Milestone> _allMilestones = [];
 
   // Date picker state
   DateTime _selectedDate = DateTime.now();
@@ -77,11 +77,45 @@ class _MilestonesScreenState extends State<MilestonesScreen> {
       _child = child;
     });
 
+    if (child != null) {
+      await _loadMilestones();
+    }
     await _syncWithBackend();
 
     setState(() {
       _isLoading = false;
     });
+  }
+
+  Future<void> _loadMilestones() async {
+    if (_child == null) return;
+    try {
+      final response = await _apiService.getMilestones(_child!.ageInMonths);
+      if (response['success'] == true && response['data'] != null) {
+        final data = response['data'];
+        final milestonesList = (data['milestones'] as List?) ?? (data is List ? data : []);
+        setState(() {
+          _allMilestones = milestonesList.map((m) {
+            final domainStr = (m['domain'] ?? 'motor').toString().toLowerCase();
+            final domain = DevelopmentDomain.values.firstWhere(
+              (d) => d.name == domainStr,
+              orElse: () => DevelopmentDomain.motor,
+            );
+            return Milestone(
+              id: m['id'] ?? '',
+              title: m['title'] ?? '',
+              description: m['description'] ?? '',
+              domain: domain,
+              minMonths: m['minMonths'] ?? 0,
+              maxMonths: m['maxMonths'] ?? 0,
+              typicalMonths: m['typicalMonths'] ?? 0,
+            );
+          }).toList();
+        });
+      }
+    } catch (e) {
+      debugPrint('Failed to load milestones from API: $e');
+    }
   }
 
   Future<void> _syncWithBackend() async {
@@ -470,11 +504,9 @@ class _MilestonesScreenState extends State<MilestonesScreen> {
   Widget _buildProgressCard() {
     if (_child == null) return const SizedBox();
 
-    final ageMonths = _child!.ageInMonths;
-    final allMilestones = WHODataService.getMilestonesForAge(ageMonths);
-    final totalCount = allMilestones.length;
+    final totalCount = _allMilestones.length;
     final achievedCount =
-        allMilestones.where((m) => _achievedMilestones.containsKey(m.id)).length;
+        _allMilestones.where((m) => _achievedMilestones.containsKey(m.id)).length;
     final progress = totalCount > 0 ? achievedCount / totalCount : 0.0;
     final progressPercent = (progress * 100).toStringAsFixed(0);
 
@@ -678,19 +710,16 @@ class _MilestonesScreenState extends State<MilestonesScreen> {
   Widget _buildMilestoneList() {
     if (_child == null) return const SizedBox();
 
-    final ageMonths = _child!.ageInMonths;
-    final allMilestones = WHODataService.getMilestonesForAge(ageMonths);
-
     // Filter by domain
     List<Milestone> filtered;
     if (_selectedDomain == 'all') {
-      filtered = allMilestones;
+      filtered = _allMilestones;
     } else {
       final domain = DevelopmentDomain.values.firstWhere(
         (d) => d.name == _selectedDomain,
         orElse: () => DevelopmentDomain.motor,
       );
-      filtered = allMilestones.where((m) => m.domain == domain).toList();
+      filtered = _allMilestones.where((m) => m.domain == domain).toList();
     }
 
     // Sort: achieved first, then upcoming

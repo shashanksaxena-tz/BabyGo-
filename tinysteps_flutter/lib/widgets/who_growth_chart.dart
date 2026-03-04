@@ -2,15 +2,17 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../models/models.dart';
-import '../services/who_data_service.dart';
 import '../utils/app_theme.dart';
 
-/// Enhanced growth chart widget with WHO percentile curves overlay
+/// Enhanced growth chart widget with WHO percentile curves overlay.
+/// The [currentPercentile] parameter allows passing a backend-computed
+/// percentile instead of computing it locally.
 class WHOGrowthChart extends StatelessWidget {
   final ChildProfile child;
   final List<GrowthMeasurement> measurements;
   final GrowthMetricType metricType;
   final Color primaryColor;
+  final double? currentPercentile;
 
   const WHOGrowthChart({
     super.key,
@@ -18,6 +20,7 @@ class WHOGrowthChart extends StatelessWidget {
     required this.measurements,
     required this.metricType,
     this.primaryColor = AppTheme.primaryGreen,
+    this.currentPercentile,
   });
 
   @override
@@ -410,26 +413,40 @@ class WHOGrowthChart extends StatelessWidget {
   }
 
   double _getCurrentPercentile() {
-    switch (metricType) {
-      case GrowthMetricType.weight:
-        return WHODataService.calculateWeightPercentile(
-          weightKg: child.weight,
-          ageMonths: child.ageInMonths,
-          gender: child.gender,
-        );
-      case GrowthMetricType.height:
-        return WHODataService.calculateHeightPercentile(
-          heightCm: child.height,
-          ageMonths: child.ageInMonths,
-          gender: child.gender,
-        );
-      case GrowthMetricType.headCircumference:
-        return WHODataService.calculateHeadCircumferencePercentile(
-          headCircumferenceCm: child.headCircumference ?? 0,
-          ageMonths: child.ageInMonths,
-          gender: child.gender,
-        );
+    // Use the backend-provided percentile if available
+    if (currentPercentile != null) return currentPercentile!;
+
+    // Simple local estimate using WHO median data as fallback
+    final medians = _getWHOMedians();
+    final ageMonths = child.ageInMonths;
+    final value = _getCurrentValue();
+
+    if (ageMonths >= 0 && ageMonths < medians.length) {
+      final median = medians[ageMonths];
+      final sdFactor = _getSDFactor();
+      final sd = median * sdFactor;
+      if (sd > 0) {
+        final zScore = (value - median) / sd;
+        // Convert z-score to approximate percentile
+        return (50 * (1 + _erf(zScore / math.sqrt(2)))).clamp(1.0, 99.0);
+      }
     }
+    return 50.0;
+  }
+
+  /// Error function approximation for z-score to percentile conversion
+  double _erf(double x) {
+    final sign = x >= 0 ? 1.0 : -1.0;
+    final absX = x.abs();
+    const a1 = 0.254829592;
+    const a2 = -0.284496736;
+    const a3 = 1.421413741;
+    const a4 = -1.453152027;
+    const a5 = 1.061405429;
+    const p = 0.3275911;
+    final t = 1.0 / (1.0 + p * absX);
+    final y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * math.exp(-absX * absX);
+    return sign * y;
   }
 
   List<double> _getWHOMedians() {

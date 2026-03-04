@@ -653,6 +653,110 @@ class ApiService {
     }
   }
 
+  // ==================== Baby Sound Analysis ====================
+
+  /// Analyze baby sounds/vocalizations via backend
+  Future<Map<String, dynamic>> analyzeBabySounds({
+    required String childId,
+    required String audioPath,
+  }) async {
+    try {
+      final uri = Uri.parse('$_baseUrl/analysis/baby-sounds');
+      final request = http.MultipartRequest('POST', uri);
+
+      if (_token != null) {
+        request.headers['Authorization'] = 'Bearer $_token';
+      }
+
+      request.fields['childId'] = childId;
+      request.files.add(await http.MultipartFile.fromPath('audio', audioPath));
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      final data = json.decode(response.body);
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {'success': true, 'data': data};
+      }
+      return {'success': false, 'error': data['error'] ?? 'Failed'};
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  /// Transcribe audio via backend
+  Future<Map<String, dynamic>> transcribeAudio({
+    required String audioPath,
+  }) async {
+    try {
+      final uri = Uri.parse('$_baseUrl/analysis/transcribe');
+      final request = http.MultipartRequest('POST', uri);
+
+      if (_token != null) {
+        request.headers['Authorization'] = 'Bearer $_token';
+      }
+
+      request.files.add(await http.MultipartFile.fromPath('audio', audioPath));
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      final data = json.decode(response.body);
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {'success': true, 'data': data};
+      }
+      return {'success': false, 'error': data['error'] ?? 'Failed'};
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  // ==================== Story Illustrations ====================
+
+  /// Generate a story illustration via backend
+  Future<Map<String, dynamic>> generateIllustration({
+    required String prompt,
+    String? childPhotoBase64,
+  }) async {
+    return _request('POST', '/stories/illustration', body: {
+      'prompt': prompt,
+      if (childPhotoBase64 != null) 'childPhotoBase64': childPhotoBase64,
+    });
+  }
+
+  // ==================== Config ====================
+
+  /// Get app configuration (domain config, status labels, etc.)
+  Future<Map<String, dynamic>> getAppConfig() async {
+    return _request('GET', '/config');
+  }
+
+  // ==================== Analysis Trends ====================
+
+  /// Get analysis trends for a child
+  Future<Map<String, dynamic>> getAnalysisTrends({
+    required String childId,
+    String period = '3M',
+  }) async {
+    return _request('GET', '/analysis/$childId/trends', queryParams: {'period': period});
+  }
+
+  // ==================== Detailed Activities ====================
+
+  /// Get detailed activity recommendations for a child
+  Future<Map<String, dynamic>> getDetailedActivities({
+    required String childId,
+    String? domain,
+  }) async {
+    final params = <String, String>{};
+    if (domain != null) params['domain'] = domain;
+    return _request(
+      'GET',
+      '/recommendations/activities/$childId',
+      queryParams: params.isEmpty ? null : params,
+    );
+  }
+
   // ==================== Helpers ====================
 
   String _getMimeType(String path) {

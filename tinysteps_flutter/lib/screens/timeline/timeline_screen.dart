@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../models/models.dart';
 import '../../services/storage_service.dart';
-import '../../services/who_data_service.dart';
+import '../../services/api_service.dart';
 import '../../utils/app_theme.dart';
 import '../../animations/custom_animations.dart';
 
@@ -18,10 +18,12 @@ class _TimelineScreenState extends State<TimelineScreen>
   ChildProfile? _child;
   List<AnalysisResult> _analyses = [];
   List<GrowthMeasurement> _measurements = [];
+  List<GrowthPercentile> _percentiles = [];
   bool _isLoading = true;
   int _selectedTab = 0;
 
   late TabController _tabController;
+  final ApiService _apiService = ApiService();
 
   @override
   void initState() {
@@ -47,10 +49,59 @@ class _TimelineScreenState extends State<TimelineScreen>
       final analyses = await storage.getAnalyses(child.id);
       final measurements = await storage.getMeasurements(child.id);
 
+      // Fetch growth percentiles from backend
+      List<GrowthPercentile> percentiles = [];
+      try {
+        final response = await _apiService.getGrowthPercentiles(
+          weight: child.weight,
+          height: child.height,
+          headCircumference: child.headCircumference,
+          ageMonths: child.ageInMonths,
+          gender: child.gender.name,
+        );
+        if (response['success'] == true && response['data'] != null) {
+          final data = response['data'];
+          final percentileList = (data['percentiles'] as List?) ?? (data is List ? data : []);
+          percentiles = percentileList
+              .map((p) => GrowthPercentile(
+                    metric: p['metric'] ?? '',
+                    value: (p['value'] ?? 0).toDouble(),
+                    percentile: (p['percentile'] ?? 50).toDouble(),
+                    interpretation: p['interpretation'] ?? 'Typical',
+                    source: WHOSource(
+                      title: p['source']?['title'] ?? 'WHO Child Growth Standards',
+                      url: p['source']?['url'] ?? 'https://www.who.int/tools/child-growth-standards/standards',
+                      description: p['source']?['description'] ?? '',
+                      type: p['source']?['type'] ?? 'standard',
+                    ),
+                  ))
+              .toList();
+        }
+      } catch (e) {
+        debugPrint('Failed to fetch growth percentiles: $e');
+      }
+
+      // Provide defaults if API call failed
+      if (percentiles.isEmpty) {
+        final defaultSource = WHOSource(
+          title: 'WHO Child Growth Standards',
+          url: 'https://www.who.int/tools/child-growth-standards/standards',
+          description: 'WHO Child Growth Standards: Methods and development',
+          type: 'standard',
+        );
+        percentiles = [
+          GrowthPercentile(metric: 'weight', value: child.weight, percentile: 50, interpretation: 'Typical', source: defaultSource),
+          GrowthPercentile(metric: 'height', value: child.height, percentile: 50, interpretation: 'Typical', source: defaultSource),
+          if (child.headCircumference != null)
+            GrowthPercentile(metric: 'headCircumference', value: child.headCircumference!, percentile: 50, interpretation: 'Typical', source: defaultSource),
+        ];
+      }
+
       setState(() {
         _child = child;
         _analyses = analyses;
         _measurements = measurements;
+        _percentiles = percentiles;
         _isLoading = false;
       });
     } else {
@@ -162,7 +213,12 @@ class _TimelineScreenState extends State<TimelineScreen>
       return const Center(child: Text('No child profile found'));
     }
 
-    final percentiles = WHODataService.assessGrowth(_child!);
+    final defaultSource = WHOSource(
+      title: 'WHO Child Growth Standards',
+      url: 'https://www.who.int/tools/child-growth-standards/standards',
+      description: 'WHO Child Growth Standards: Methods and development',
+      type: 'standard',
+    );
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -177,14 +233,14 @@ class _TimelineScreenState extends State<TimelineScreen>
             title: 'Weight Progress',
             subtitle: 'kg over time',
             color: AppTheme.secondaryBlue,
-            percentile: percentiles.firstWhere(
+            percentile: _percentiles.firstWhere(
               (p) => p.metric == 'weight',
               orElse: () => GrowthPercentile(
                 metric: 'weight',
                 value: _child!.weight,
                 percentile: 50,
                 interpretation: 'Typical',
-                source: WHODataService.whoSources.first,
+                source: defaultSource,
               ),
             ),
           ),
@@ -195,14 +251,14 @@ class _TimelineScreenState extends State<TimelineScreen>
             title: 'Height Progress',
             subtitle: 'cm over time',
             color: AppTheme.primaryGreen,
-            percentile: percentiles.firstWhere(
+            percentile: _percentiles.firstWhere(
               (p) => p.metric == 'height',
               orElse: () => GrowthPercentile(
                 metric: 'height',
                 value: _child!.height,
                 percentile: 50,
                 interpretation: 'Typical',
-                source: WHODataService.whoSources.first,
+                source: defaultSource,
               ),
             ),
           ),
@@ -214,14 +270,14 @@ class _TimelineScreenState extends State<TimelineScreen>
               title: 'Head Circumference',
               subtitle: 'cm over time',
               color: AppTheme.secondaryPurple,
-              percentile: percentiles.firstWhere(
+              percentile: _percentiles.firstWhere(
                 (p) => p.metric == 'headCircumference',
                 orElse: () => GrowthPercentile(
                   metric: 'headCircumference',
                   value: _child!.headCircumference!,
                   percentile: 50,
                   interpretation: 'Typical',
-                  source: WHODataService.whoSources.first,
+                  source: defaultSource,
                 ),
               ),
             ),

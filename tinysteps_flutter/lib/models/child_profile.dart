@@ -87,6 +87,9 @@ class ChildProfile extends Equatable {
   /// Alias for [profilePhotoPath] used by API service.
   String? get photoUrl => profilePhotoPath;
 
+  // NOTE: The backend now computes and returns ageInMonths in child profile
+  // responses. This local getter is kept for offline/local usage but should
+  // prefer the backend-provided value when available.
   int get ageInMonths {
     final now = DateTime.now();
     return (now.year - dateOfBirth.year) * 12 +

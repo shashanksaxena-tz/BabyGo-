@@ -3,8 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../models/models.dart';
 import '../../services/storage_service.dart';
-import '../../services/gemini_service.dart';
-import '../../services/who_data_service.dart';
+import '../../services/api_service.dart';
 import '../../utils/app_theme.dart';
 import '../../animations/custom_animations.dart';
 
@@ -21,9 +20,11 @@ class _RecommendationsScreenState extends State<RecommendationsScreen>
   ChildProfile? _child;
   bool _isLoading = true;
 
+  final ApiService _apiService = ApiService();
+
   // Data
   List<ProductRecommendation> _products = [];
-  List<Activity> _activities = [];
+  List<_Activity> _activities = [];
   List<ParentingTip> _tips = [];
   bool _isLoadingProducts = false;
   bool _isLoadingActivities = false;
@@ -66,24 +67,32 @@ class _RecommendationsScreenState extends State<RecommendationsScreen>
     setState(() => _isLoadingProducts = true);
 
     try {
-      final gemini = GeminiService();
-      final storage = StorageService();
-      final apiKey = storage.getApiKey();
-
-      if (apiKey != null && !gemini.isInitialized) {
-        await gemini.initialize(apiKey);
-      }
-
-      final products = await gemini.generateProductRecommendations(
-        child: _child!,
+      final response = await _apiService.getProductRecommendations(
+        _child!.id,
         category: 'toys',
       );
 
-      if (mounted) {
+      if (mounted && response['success'] == true) {
+        final data = response['data'];
+        final productsList = (data['products'] as List?) ?? (data is List ? data : []);
         setState(() {
-          _products = products;
+          _products = productsList
+              .map((p) => ProductRecommendation(
+                    id: p['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
+                    name: p['name'] ?? '',
+                    description: p['description'] ?? '',
+                    category: p['category'] ?? 'toys',
+                    minAgeMonths: p['minAgeMonths'] ?? _child!.ageInMonths,
+                    maxAgeMonths: p['maxAgeMonths'] ?? (_child!.ageInMonths + 6),
+                    developmentAreas: List<String>.from(p['developmentAreas'] ?? []),
+                    whyRecommended: p['whyRecommended'] ?? '',
+                    affiliateUrl: p['affiliateUrl'],
+                  ))
+              .toList();
           _isLoadingProducts = false;
         });
+      } else {
+        if (mounted) setState(() => _isLoadingProducts = false);
       }
     } catch (e) {
       if (mounted) setState(() => _isLoadingProducts = false);
@@ -95,23 +104,30 @@ class _RecommendationsScreenState extends State<RecommendationsScreen>
     setState(() => _isLoadingActivities = true);
 
     try {
-      final gemini = GeminiService();
-      final storage = StorageService();
-      final apiKey = storage.getApiKey();
-
-      if (apiKey != null && !gemini.isInitialized) {
-        await gemini.initialize(apiKey);
-      }
-
-      final activities = await gemini.generateActivityRecommendations(
-        child: _child!,
+      final response = await _apiService.getDetailedActivities(
+        childId: _child!.id,
       );
 
-      if (mounted) {
+      if (mounted && response['success'] == true) {
+        final data = response['data'];
+        final activitiesList = (data['activities'] as List?) ?? (data is List ? data : []);
         setState(() {
-          _activities = activities;
+          _activities = activitiesList
+              .map((a) => _Activity(
+                    name: a['name'] ?? '',
+                    emoji: a['emoji'] ?? '🎯',
+                    domain: a['domain'] ?? 'general',
+                    description: a['description'] ?? '',
+                    duration: a['duration'] ?? '10 min',
+                    materials: List<String>.from(a['materials'] ?? []),
+                    skills: List<String>.from(a['skills'] ?? []),
+                    steps: List<String>.from(a['steps'] ?? []),
+                  ))
+              .toList();
           _isLoadingActivities = false;
         });
+      } else {
+        if (mounted) setState(() => _isLoadingActivities = false);
       }
     } catch (e) {
       if (mounted) setState(() => _isLoadingActivities = false);
@@ -123,21 +139,19 @@ class _RecommendationsScreenState extends State<RecommendationsScreen>
     setState(() => _isLoadingTips = true);
 
     try {
-      final gemini = GeminiService();
-      final storage = StorageService();
-      final apiKey = storage.getApiKey();
+      final response = await _apiService.getParentingTips(_child!.id);
 
-      if (apiKey != null && !gemini.isInitialized) {
-        await gemini.initialize(apiKey);
-      }
-
-      final tipsData = await gemini.generateParentingTipsRaw(child: _child!);
-
-      if (mounted) {
+      if (mounted && response['success'] == true) {
+        final data = response['data'];
+        final tipsList = (data['tips'] as List?) ?? (data is List ? data : []);
         setState(() {
-          _tips = tipsData.map((t) => ParentingTip.fromJson(t)).toList();
+          _tips = tipsList
+              .map((t) => ParentingTip.fromJson(t is Map<String, dynamic> ? t : {}))
+              .toList();
           _isLoadingTips = false;
         });
+      } else {
+        if (mounted) setState(() => _isLoadingTips = false);
       }
     } catch (e) {
       if (mounted) setState(() => _isLoadingTips = false);
@@ -409,7 +423,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen>
     );
   }
 
-  Widget _buildActivityCard(Activity activity, int index) {
+  Widget _buildActivityCard(_Activity activity, int index) {
     final domainColor = _getDomainColor(activity.domain);
     final isExpanded = _expandedActivities.contains(index);
     final hasSteps = activity.steps.isNotEmpty;
@@ -1048,6 +1062,29 @@ class _RecommendationsScreenState extends State<RecommendationsScreen>
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }
+}
+
+/// Activity model for recommendations (previously in gemini_service.dart)
+class _Activity {
+  final String name;
+  final String emoji;
+  final String domain;
+  final String description;
+  final String duration;
+  final List<String> materials;
+  final List<String> skills;
+  final List<String> steps;
+
+  const _Activity({
+    required this.name,
+    required this.emoji,
+    required this.domain,
+    required this.description,
+    required this.duration,
+    this.materials = const [],
+    this.skills = const [],
+    this.steps = const [],
+  });
 }
 
 /// Parenting tip model
