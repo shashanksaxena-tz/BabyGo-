@@ -17,12 +17,8 @@ import {
   ExternalLink,
   Sparkles,
 } from 'lucide-react';
-import { ChildProfile, WHOSource, MilestoneProgress } from '../types';
+import { ChildProfile, WHOSource } from '../types';
 import apiService from '../services/apiService';
-import {
-  getMilestonesForAge as getLocalMilestones,
-  getUpcomingMilestones,
-} from '../services/whoDataService';
 
 interface AchievedMilestone {
   milestoneId: string;
@@ -66,30 +62,25 @@ const MilestonesView: React.FC<MilestonesViewProps> = ({ child, onBack }) => {
   const loadMilestones = useCallback(async () => {
     setLoading(true);
     try {
-      // Load local WHO milestones
-      const localMilestones = getLocalMilestones(child.ageMonths);
-      const upcomingMilestones = getUpcomingMilestones(child.ageMonths, 20);
+      // Load milestones from backend API
+      const result = await apiService.getMilestones(child.ageMonths);
+      const data = (result as any).data;
 
-      // Combine and deduplicate
-      const allMilestones = [...localMilestones, ...upcomingMilestones];
-      const uniqueMilestones = Array.from(
-        new Map(allMilestones.map(m => [m.id, m])).values()
-      );
+      if (data?.milestones) {
+        const mappedMilestones: Milestone[] = data.milestones.map((m: any) => ({
+          id: m.id,
+          title: m.title,
+          description: m.description,
+          domain: m.domain,
+          minMonths: m.expectedAgeMonths?.min ?? m.minMonths ?? 0,
+          maxMonths: m.expectedAgeMonths?.max ?? m.maxMonths ?? 36,
+          typicalMonths: m.typicalMonths ?? Math.round(((m.expectedAgeMonths?.min ?? 0) + (m.expectedAgeMonths?.max ?? 36)) / 2),
+          source: m.source,
+        }));
+        setMilestones(mappedMilestones);
+      }
 
-      const mappedMilestones: Milestone[] = uniqueMilestones.map((m: MilestoneProgress) => ({
-        id: m.id,
-        title: m.title,
-        description: m.description,
-        domain: m.domain,
-        minMonths: m.expectedAgeMonths.min,
-        maxMonths: m.expectedAgeMonths.max,
-        typicalMonths: Math.round((m.expectedAgeMonths.min + m.expectedAgeMonths.max) / 2),
-        source: m.source,
-      }));
-
-      setMilestones(mappedMilestones);
-
-      // Try to load from backend
+      // Sync achieved/watched milestones with backend
       await syncWithBackend();
     } catch (error) {
       console.error('Failed to load milestones:', error);

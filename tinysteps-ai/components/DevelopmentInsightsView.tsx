@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { ChildProfile, AnalysisResult } from '../types';
 import { getAnalyses, fetchAnalyses } from '../services/storageService';
+import apiService from '../services/apiService';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 interface DevelopmentInsightsViewProps {
@@ -20,14 +21,15 @@ interface DevelopmentInsightsViewProps {
   onNavigate: (step: string, data?: any) => void;
 }
 
-const TIME_FILTERS = [
+// Default fallbacks - will be overridden by /api/config data
+const DEFAULT_timeFilters = [
   { id: '1W', label: '1W', days: 7 },
   { id: '1M', label: '1M', days: 30 },
   { id: '3M', label: '3M', days: 90 },
   { id: 'ALL', label: 'All', days: 9999 },
 ];
 
-const DOMAIN_CONFIG = {
+const DEFAULT_domainConfig: Record<string, any> = {
   motor: { label: 'Motor Skills', emoji: '🏃', color: '#3b82f6', bgColor: 'bg-blue-50', textColor: 'text-blue-600' },
   cognitive: { label: 'Cognitive', emoji: '🧠', color: '#8b5cf6', bgColor: 'bg-purple-50', textColor: 'text-purple-600' },
   language: { label: 'Language', emoji: '💬', color: '#ec4899', bgColor: 'bg-pink-50', textColor: 'text-pink-600' },
@@ -42,6 +44,8 @@ const DevelopmentInsightsView: React.FC<DevelopmentInsightsViewProps> = ({
 }) => {
   const [timeFilter, setTimeFilter] = useState('ALL');
   const [analyses, setAnalyses] = useState<AnalysisResult[]>([]);
+  const [domainConfig, setDomainConfig] = useState<Record<string, any>>(DEFAULT_domainConfig);
+  const [timeFilters, setTimeFilters] = useState(DEFAULT_timeFilters);
 
   useEffect(() => {
     // Load from localStorage immediately
@@ -51,10 +55,21 @@ const DevelopmentInsightsView: React.FC<DevelopmentInsightsViewProps> = ({
     fetchAnalyses(childId).then((apiAnalyses) => {
       setAnalyses(apiAnalyses);
     }).catch(() => {});
+
+    // Fetch config from backend API
+    apiService.getAppConfig().then((result) => {
+      const data = (result as any).data;
+      if (data?.domains) {
+        setDomainConfig(data.domains);
+      }
+      if (data?.timeFilters) {
+        setTimeFilters(data.timeFilters);
+      }
+    }).catch(() => {});
   }, [childId]);
 
   const getFilteredAnalyses = () => {
-    const filter = TIME_FILTERS.find((f) => f.id === timeFilter);
+    const filter = timeFilters.find((f) => f.id === timeFilter);
     if (!filter || filter.id === 'ALL') return analyses;
 
     const cutoff = new Date();
@@ -151,7 +166,7 @@ const DevelopmentInsightsView: React.FC<DevelopmentInsightsViewProps> = ({
 
         {/* Time Filter Pills */}
         <div className="flex gap-2">
-          {TIME_FILTERS.map((filter) => (
+          {timeFilters.map((filter) => (
             <button
               key={filter.id}
               onClick={() => setTimeFilter(filter.id)}
@@ -199,7 +214,7 @@ const DevelopmentInsightsView: React.FC<DevelopmentInsightsViewProps> = ({
                   <Line
                     type="monotone"
                     dataKey="motor"
-                    stroke={DOMAIN_CONFIG.motor.color}
+                    stroke={domainConfig.motor.color}
                     strokeWidth={2}
                     dot={{ r: 4 }}
                     name="Motor"
@@ -207,7 +222,7 @@ const DevelopmentInsightsView: React.FC<DevelopmentInsightsViewProps> = ({
                   <Line
                     type="monotone"
                     dataKey="cognitive"
-                    stroke={DOMAIN_CONFIG.cognitive.color}
+                    stroke={domainConfig.cognitive.color}
                     strokeWidth={2}
                     dot={{ r: 4 }}
                     name="Cognitive"
@@ -215,7 +230,7 @@ const DevelopmentInsightsView: React.FC<DevelopmentInsightsViewProps> = ({
                   <Line
                     type="monotone"
                     dataKey="language"
-                    stroke={DOMAIN_CONFIG.language.color}
+                    stroke={domainConfig.language.color}
                     strokeWidth={2}
                     dot={{ r: 4 }}
                     name="Language"
@@ -223,7 +238,7 @@ const DevelopmentInsightsView: React.FC<DevelopmentInsightsViewProps> = ({
                   <Line
                     type="monotone"
                     dataKey="social"
-                    stroke={DOMAIN_CONFIG.social.color}
+                    stroke={domainConfig.social.color}
                     strokeWidth={2}
                     dot={{ r: 4 }}
                     name="Social"
@@ -235,7 +250,7 @@ const DevelopmentInsightsView: React.FC<DevelopmentInsightsViewProps> = ({
 
           {/* Legend */}
           <div className="flex flex-wrap gap-4 mt-4">
-            {Object.entries(DOMAIN_CONFIG).map(([key, config]) => (
+            {Object.entries(domainConfig).map(([key, config]) => (
               <div key={key} className="flex items-center gap-1.5">
                 <div
                   className="w-3 h-3 rounded-full"
@@ -250,8 +265,8 @@ const DevelopmentInsightsView: React.FC<DevelopmentInsightsViewProps> = ({
         {/* Domain Detail Cards */}
         <div className="space-y-3">
           <h3 className="font-bold text-gray-800 text-lg">Domain Details</h3>
-          {(Object.keys(DOMAIN_CONFIG) as Array<keyof typeof DOMAIN_CONFIG>).map((domain) => {
-            const config = DOMAIN_CONFIG[domain];
+          {Object.keys(domainConfig).map((domain) => {
+            const config = domainConfig[domain];
             const score = getLatestScore(domain);
             const trend = getTrend(domain);
             const status = getLatestStatus(domain);

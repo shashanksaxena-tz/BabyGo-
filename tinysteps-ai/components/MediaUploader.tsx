@@ -15,15 +15,16 @@ import {
   Check,
 } from 'lucide-react';
 import { MediaUpload } from '../types';
-import { transcribeAudio, analyzeBabySounds } from '../services/geminiService';
+import apiService from '../services/apiService';
 
 interface MediaUploaderProps {
   onMediaChange: (media: File[], babyAudio?: Blob) => void;
   ageMonths: number;
   childName: string;
+  childId: string;
 }
 
-const MediaUploader: React.FC<MediaUploaderProps> = ({ onMediaChange, ageMonths, childName }) => {
+const MediaUploader: React.FC<MediaUploaderProps> = ({ onMediaChange, ageMonths, childName, childId }) => {
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [babyAudioBlob, setBabyAudioBlob] = useState<Blob | null>(null);
@@ -85,7 +86,12 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({ onMediaChange, ageMonths,
         // Analyze baby sounds
         setIsProcessingAudio(true);
         try {
-          const analysis = await analyzeBabySounds(audioBlob, ageMonths);
+          const result = await apiService.analyzeBabySounds(childId, audioBlob);
+          const analysis = result.data || {
+            vocalizations: [],
+            languageObservations: 'Unable to analyze audio',
+            recommendations: [],
+          };
           setAudioAnalysis(analysis);
         } catch (err) {
           console.error('Audio analysis failed:', err);

@@ -51,25 +51,46 @@ interface ReportData {
   findings: string[];
 }
 
-/** Domain display labels */
-const DOMAIN_LABELS: Record<string, string> = {
+// Default domain labels - will be overridden by /api/config data when available
+let _domainLabels: Record<string, string> = {
   motor: 'Motor Skills',
   cognitive: 'Cognitive Skills',
   language: 'Language Skills',
   social: 'Social-Emotional',
 };
 
+// Default status mapping - will be overridden by /api/config data when available
+let _statusMapping: Record<string, string> = {
+  on_track: 'on-track',
+  emerging: 'monitor',
+  needs_support: 'discuss',
+};
+
+// Fetch config once on module load (cached)
+let _configLoaded = false;
+function loadConfigIfNeeded() {
+  if (_configLoaded) return;
+  _configLoaded = true;
+  apiService.getAppConfig().then((result) => {
+    const data = (result as any).data;
+    if (data?.domainLabels) _domainLabels = { ..._domainLabels, ...data.domainLabels };
+    if (data?.statusMapping) _statusMapping = { ..._statusMapping, ...data.statusMapping };
+  }).catch(() => {});
+}
+
+// Eagerly load config on module initialization
+loadConfigIfNeeded();
+
+function getDomainLabel(domainId: string): string {
+  return _domainLabels[domainId] ?? domainId.charAt(0).toUpperCase() + domainId.slice(1);
+}
+
 /**
- * Maps backend status values (on_track, emerging, needs_support) to
- * frontend display values (on-track, monitor, discuss).
+ * Maps backend status values to frontend display values.
+ * Uses config from /api/config when available, falls back to defaults.
  */
 function mapBackendStatus(status: string): string {
-  switch (status) {
-    case 'on_track': return 'on-track';
-    case 'emerging': return 'monitor';
-    case 'needs_support': return 'discuss';
-    default: return status;
-  }
+  return _statusMapping[status] ?? status;
 }
 
 /** Formats age in months to a human-readable string. */
@@ -114,7 +135,7 @@ function mapBackendReportToData(raw: any): ReportData {
       const domainId = da.domain ?? 'unknown';
       domains.push({
         id: domainId,
-        label: DOMAIN_LABELS[domainId] ?? domainId.charAt(0).toUpperCase() + domainId.slice(1),
+        label: getDomainLabel(domainId),
         score: da.score ?? 0,
         status: mapBackendStatus(da.status ?? ''),
         observations: [

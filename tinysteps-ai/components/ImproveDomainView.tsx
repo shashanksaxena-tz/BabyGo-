@@ -58,7 +58,8 @@ interface ImproveDomainViewProps {
   onNavigate: (step: string, data?: any) => void;
 }
 
-const DOMAIN_CONFIG = {
+// Default domain display config - can be overridden by /api/config
+const DEFAULT_DOMAIN_CONFIG: Record<string, any> = {
   motor: {
     label: 'Motor Skills',
     emoji: '🏃',
@@ -116,8 +117,19 @@ const ImproveDomainView: React.FC<ImproveDomainViewProps> = ({
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [domainConfigs, setDomainConfigs] = useState<Record<string, any>>(DEFAULT_DOMAIN_CONFIG);
 
-  const config = DOMAIN_CONFIG[domain];
+  const config = domainConfigs[domain] || DEFAULT_DOMAIN_CONFIG[domain];
+
+  useEffect(() => {
+    // Fetch domain config from backend API
+    apiService.getAppConfig().then((result) => {
+      const data = (result as any).data;
+      if (data?.domains) {
+        setDomainConfigs(prev => ({ ...prev, ...data.domains }));
+      }
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetchResources();

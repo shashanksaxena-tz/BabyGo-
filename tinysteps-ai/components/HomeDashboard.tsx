@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { ChildProfile, AnalysisResult, TimelineEntry, Notification } from '../types';
 import { getTimeline, getAnalyses, getNotifications, getChildren, setCurrentChild, fetchAnalyses, fetchTimeline } from '../services/storageService';
-import { getMilestonesForAge, getUpcomingMilestones, assessGrowth } from '../services/whoDataService';
+import apiService from '../services/apiService';
 import { getPersonalizedGreeting, getThemedNotification } from '../data/interests';
 import { RadialBarChart, RadialBar, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from 'recharts';
 
@@ -47,6 +47,12 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ child, onNavigate, onStar
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isSwitchingProfile, setIsSwitchingProfile] = useState(false);
   const [allChildren, setAllChildren] = useState<ChildProfile[]>([]);
+  const [upcomingMilestones, setUpcomingMilestones] = useState<any[]>([]);
+  const [growthAssessment, setGrowthAssessment] = useState<any>({
+    weightPercentile: 50,
+    heightPercentile: 50,
+    headCircumferencePercentile: null,
+  });
 
   useEffect(() => {
     setGreeting(getPersonalizedGreeting(child.name, child.interests));
@@ -65,17 +71,37 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ child, onNavigate, onStar
     fetchTimeline(child.id).then((apiTimeline) => {
       setTimeline(apiTimeline.slice(0, 5));
     }).catch(() => {});
-  }, [child]);
 
-  const milestones = getMilestonesForAge(child.ageMonths);
-  const upcomingMilestones = getUpcomingMilestones(child.ageMonths, 3);
-  const growthAssessment = assessGrowth(
-    child.weight,
-    child.height,
-    child.headCircumference,
-    child.ageMonths,
-    child.gender
-  );
+    // Fetch milestones from backend API
+    apiService.getMilestones(child.ageMonths).then((result) => {
+      const data = (result as any).data;
+      if (data?.milestones) {
+        // Get upcoming milestones (those with min age > child's age)
+        const upcoming = data.milestones
+          .filter((m: any) => (m.expectedAgeMonths?.min || m.minMonths || 0) > child.ageMonths)
+          .slice(0, 3);
+        setUpcomingMilestones(upcoming);
+      }
+    }).catch(() => {});
+
+    // Fetch growth percentiles from backend API
+    apiService.getGrowthPercentiles({
+      weight: child.weight,
+      height: child.height,
+      headCircumference: child.headCircumference,
+      ageMonths: child.ageMonths,
+      gender: child.gender,
+    }).then((result) => {
+      const data = (result as any).data;
+      if (data) {
+        setGrowthAssessment({
+          weightPercentile: data.weightPercentile ?? 50,
+          heightPercentile: data.heightPercentile ?? 50,
+          headCircumferencePercentile: data.headCircumferencePercentile ?? null,
+        });
+      }
+    }).catch(() => {});
+  }, [child]);
 
   const latestAnalysis = analyses[0];
   const overallScore = latestAnalysis?.overallScore || 0;

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AppStep, ChildProfile, AnalysisResult } from './types';
 import { getCurrentChild, isOnboardingComplete, setOnboardingComplete, saveAnalysis, getAnalysisById, getChildren, isMongoId, syncLocalChildToBackend, mapBackendAnalysis, generateId, fetchChildren } from './services/storageService';
-import { analyzeDevelopment } from './services/geminiService';
 import apiService from './services/apiService';
 
 // Components
@@ -31,7 +30,6 @@ import {
   Baby,
   AlertCircle,
   ArrowLeft,
-  Mic,
   Loader2,
 } from 'lucide-react';
 import RecordButton from './components/RecordButton';
@@ -164,28 +162,16 @@ const App: React.FC = () => {
     setError(null);
 
     try {
-      const analysisResult = await analyzeDevelopment(
-        mediaFiles,
-        currentChild,
-        contextNotes,
-        babyAudio
-      );
+      const backendResult = await apiService.createAnalysis(currentChild.id, mediaFiles);
 
-      // Save to backend first to get a stable MongoDB ID
-      let finalAnalysis: AnalysisResult;
-      try {
-        const backendResult = await apiService.saveAnalysisResult(currentChild.id, {
-          ...analysisResult,
-          childAgeMonths: currentChild.ageMonths,
-        });
-        const backendData = (backendResult as any).data;
-        finalAnalysis = backendData?.analysis
-          ? mapBackendAnalysis(backendData.analysis)
-          : { ...analysisResult, id: generateId() };
-      } catch (err) {
-        console.error('Failed to save analysis to backend, saving locally:', err);
-        finalAnalysis = { ...analysisResult, id: generateId() };
+      if (backendResult.error) {
+        throw new Error(backendResult.error);
       }
+
+      const backendData = backendResult.data as any;
+      const finalAnalysis: AnalysisResult = backendData?.analysis
+        ? mapBackendAnalysis(backendData.analysis)
+        : mapBackendAnalysis(backendData);
 
       saveAnalysis(finalAnalysis);
       setResult(finalAnalysis);
@@ -377,6 +363,7 @@ const App: React.FC = () => {
               onMediaChange={handleMediaChange}
               ageMonths={currentChild.ageMonths}
               childName={currentChild.name}
+              childId={currentChild.id}
             />
           </div>
 

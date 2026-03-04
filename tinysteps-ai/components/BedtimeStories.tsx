@@ -18,7 +18,6 @@ import {
 } from 'lucide-react';
 import { ChildProfile, BedtimeStory } from '../types';
 import { getStories, saveStory, updateStory, fetchStories } from '../services/storageService';
-import { generateStoryIllustration } from '../services/geminiService';
 import apiService, { dataUrlToFile } from '../services/apiService';
 import LanguagePicker from './LanguagePicker';
 import CustomStoryBuilder from './CustomStoryBuilder';
@@ -213,12 +212,16 @@ const BedtimeStories: React.FC<BedtimeStoriesProps> = ({ child, onBack }) => {
 
     try {
       const style = (illustration.style === 'realistic' ? 'storybook' : illustration.style) || 'storybook';
-      const imageUrl = await generateStoryIllustration(
-        child.profilePhoto,
-        illustration.description,
-        child.name,
-        style as 'watercolor' | 'cartoon' | 'storybook'
-      );
+      const prompt = `Create a beautiful ${style} illustration for a children's bedtime story. Scene: ${illustration.description}. The main character is a child named ${child.name}. Make it child-friendly, warm, and magical.`;
+
+      // Extract base64 from child photo if available
+      let childPhotoBase64: string | undefined;
+      if (child.profilePhoto && child.profilePhoto.startsWith('data:')) {
+        childPhotoBase64 = child.profilePhoto.split(',')[1];
+      }
+
+      const result = await apiService.generateIllustration(prompt, childPhotoBase64);
+      const imageUrl = result.data?.url ? `data:${result.data.mimeType};base64,${result.data.url}` : null;
 
       if (!imageUrl) return;
 

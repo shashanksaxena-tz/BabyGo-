@@ -16,8 +16,37 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { ChildProfile, Interest, Region } from '../types';
-import { REGIONS } from '../services/whoDataService';
 import { AVAILABLE_INTERESTS, INTEREST_CATEGORIES, POPULAR_CHARACTERS, FAVORITE_COLORS } from '../data/interests';
+
+// Static region list for profile selection (previously from whoDataService)
+const REGIONS: Region[] = [
+  { code: 'US', name: 'United States', whoRegion: 'AMRO' },
+  { code: 'CA', name: 'Canada', whoRegion: 'AMRO' },
+  { code: 'MX', name: 'Mexico', whoRegion: 'AMRO' },
+  { code: 'BR', name: 'Brazil', whoRegion: 'AMRO' },
+  { code: 'AR', name: 'Argentina', whoRegion: 'AMRO' },
+  { code: 'GB', name: 'United Kingdom', whoRegion: 'EURO' },
+  { code: 'DE', name: 'Germany', whoRegion: 'EURO' },
+  { code: 'FR', name: 'France', whoRegion: 'EURO' },
+  { code: 'IT', name: 'Italy', whoRegion: 'EURO' },
+  { code: 'ES', name: 'Spain', whoRegion: 'EURO' },
+  { code: 'IN', name: 'India', whoRegion: 'SEARO' },
+  { code: 'BD', name: 'Bangladesh', whoRegion: 'SEARO' },
+  { code: 'TH', name: 'Thailand', whoRegion: 'SEARO' },
+  { code: 'ID', name: 'Indonesia', whoRegion: 'SEARO' },
+  { code: 'CN', name: 'China', whoRegion: 'WPRO' },
+  { code: 'JP', name: 'Japan', whoRegion: 'WPRO' },
+  { code: 'KR', name: 'South Korea', whoRegion: 'WPRO' },
+  { code: 'AU', name: 'Australia', whoRegion: 'WPRO' },
+  { code: 'PH', name: 'Philippines', whoRegion: 'WPRO' },
+  { code: 'NG', name: 'Nigeria', whoRegion: 'AFRO' },
+  { code: 'ZA', name: 'South Africa', whoRegion: 'AFRO' },
+  { code: 'KE', name: 'Kenya', whoRegion: 'AFRO' },
+  { code: 'EG', name: 'Egypt', whoRegion: 'EMRO' },
+  { code: 'SA', name: 'Saudi Arabia', whoRegion: 'EMRO' },
+  { code: 'AE', name: 'United Arab Emirates', whoRegion: 'EMRO' },
+  { code: 'PK', name: 'Pakistan', whoRegion: 'EMRO' },
+];
 import { saveChildAsync, getChildren } from '../services/storageService';
 
 interface ProfileSetupProps {

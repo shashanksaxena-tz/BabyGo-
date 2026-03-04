@@ -20,7 +20,7 @@ import {
 import { ChildProfile, TimelineEntry, AnalysisResult } from '../types';
 import { getTimeline, getAnalyses, fetchTimeline, fetchAnalyses } from '../services/storageService';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
-import { calculatePercentile, getMilestoneById, WHO_SOURCES } from '../services/whoDataService';
+import apiService from '../services/apiService';
 
 interface TimelineViewProps {
   child: ChildProfile;
@@ -33,6 +33,8 @@ const TimelineView: React.FC<TimelineViewProps> = ({ child, onBack, onNavigate }
   const [analyses, setAnalyses] = useState<AnalysisResult[]>([]);
   const [filter, setFilter] = useState<string>('all');
   const [chartMetric, setChartMetric] = useState<'weight' | 'height'>('weight');
+  const [currentPercentiles, setCurrentPercentiles] = useState<{ weight: number; height: number }>({ weight: 50, height: 50 });
+  const [milestoneCache, setMilestoneCache] = useState<Map<string, any>>(new Map());
 
   useEffect(() => {
     // Load from localStorage immediately
@@ -46,6 +48,33 @@ const TimelineView: React.FC<TimelineViewProps> = ({ child, onBack, onNavigate }
 
     fetchAnalyses(child.id).then((apiAnalyses) => {
       setAnalyses(apiAnalyses);
+    }).catch(() => {});
+
+    // Fetch growth percentiles from API
+    apiService.getGrowthPercentiles({
+      weight: child.weight,
+      height: child.height,
+      headCircumference: child.headCircumference,
+      ageMonths: child.ageMonths,
+      gender: child.gender,
+    }).then((result) => {
+      const data = (result as any).data;
+      if (data) {
+        setCurrentPercentiles({
+          weight: data.weightPercentile ?? 50,
+          height: data.heightPercentile ?? 50,
+        });
+      }
+    }).catch(() => {});
+
+    // Fetch milestones for lookup cache
+    apiService.getMilestones(child.ageMonths).then((result) => {
+      const data = (result as any).data;
+      if (data?.milestones) {
+        const cache = new Map<string, any>();
+        data.milestones.forEach((m: any) => cache.set(m.id, m));
+        setMilestoneCache(cache);
+      }
     }).catch(() => {});
   }, [child.id]);
 
@@ -74,8 +103,8 @@ const TimelineView: React.FC<TimelineViewProps> = ({ child, onBack, onNavigate }
       date: 'Today',
       weight: child.weight,
       height: child.height,
-      weightPercentile: calculatePercentile(child.weight, 'weight', child.ageMonths, child.gender),
-      heightPercentile: calculatePercentile(child.height, 'height', child.ageMonths, child.gender),
+      weightPercentile: currentPercentiles.weight,
+      heightPercentile: currentPercentiles.height,
     });
   }
 
@@ -110,11 +139,10 @@ const TimelineView: React.FC<TimelineViewProps> = ({ child, onBack, onNavigate }
     }
   };
 
-  // Get milestone details from WHO data
+  // Get milestone details from cached API data
   const getMilestoneDetails = (entry: TimelineEntry) => {
     if (entry.type !== 'milestone' || !entry.data?.milestoneId) return null;
-    const milestone = getMilestoneById(entry.data.milestoneId);
-    return milestone;
+    return milestoneCache.get(entry.data.milestoneId) || null;
   };
 
   return (

@@ -461,6 +461,70 @@ class ApiService {
     });
     return result.data ? { success: true } : { error: result.error };
   }
+  // ============ BABY SOUNDS & TRANSCRIPTION ============
+
+  async analyzeBabySounds(childId: string, audioBlob: Blob) {
+    const formData = new FormData();
+    formData.append('childId', childId);
+    formData.append('audio', audioBlob);
+
+    const url = `${API_BASE_URL}/analysis/baby-sounds`;
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          ...(this.token && { Authorization: `Bearer ${this.token}` }),
+        },
+        body: formData,
+      });
+      const data = await response.json();
+      if (!response.ok) return { error: data.error || 'Baby sound analysis failed' };
+      return { data };
+    } catch (error) {
+      return { error: 'Network error during baby sound analysis' };
+    }
+  }
+
+  async transcribeAudio(audioBlob: Blob) {
+    const formData = new FormData();
+    formData.append('audio', audioBlob);
+
+    const url = `${API_BASE_URL}/analysis/transcribe`;
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          ...(this.token && { Authorization: `Bearer ${this.token}` }),
+        },
+        body: formData,
+      });
+      const data = await response.json();
+      if (!response.ok) return { error: data.error || 'Transcription failed' };
+      return { data };
+    } catch (error) {
+      return { error: 'Network error during transcription' };
+    }
+  }
+
+  // ============ ILLUSTRATION ============
+
+  async generateIllustration(prompt: string, childPhotoBase64?: string) {
+    return this.request<{ url: string; mimeType: string }>('/stories/illustration', {
+      method: 'POST',
+      body: JSON.stringify({ prompt, childPhotoBase64 }),
+    });
+  }
+
+  // ============ CONFIG & TRENDS ============
+
+  async getAppConfig() {
+    return this.request<any>('/config');
+  }
+
+  async getAnalysisTrends(childId: string, period: string = '3M') {
+    return this.request<any>(`/analysis/${childId}/trends?period=${period}`);
+  }
+
   // ============ COMMUNITY ============
 
   async getCommunityPosts(params?: { category?: string; search?: string; sort?: string; limit?: number; offset?: number }) {
