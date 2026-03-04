@@ -13,18 +13,18 @@ const router = express.Router();
 // Map frontend status strings to backend enum values
 function mapStatus(status) {
   const statusMap = {
-    'ahead': 'on_track',
+    'ahead': 'ahead',
     'on-track': 'on_track',
     'on_track': 'on_track',
     'on_track_with_monitoring': 'on_track_with_monitoring',
     'on-track-with-monitoring': 'on_track_with_monitoring',
-    'monitor': 'emerging',
+    'monitor': 'on_track_with_monitoring',
     'emerging': 'emerging',
     'discuss': 'needs_support',
     'needs_support': 'needs_support',
     'needs-support': 'needs_support',
   };
-  return statusMap[status] || 'on_track';
+  return statusMap[status?.toLowerCase()] || 'on_track';
 }
 
 // Map frontend domain data to backend assessment schema

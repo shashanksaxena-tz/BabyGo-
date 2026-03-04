@@ -14,7 +14,7 @@ const domainAssessmentSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['on_track', 'on_track_with_monitoring', 'emerging', 'needs_support'],
+    enum: ['ahead', 'on_track', 'on_track_with_monitoring', 'emerging', 'needs_support'],
     required: true,
   },
   observations: [String],
@@ -75,7 +75,7 @@ const analysisSchema = new mongoose.Schema({
   },
   overallStatus: {
     type: String,
-    enum: ['on_track', 'on_track_with_monitoring', 'emerging', 'needs_support'],
+    enum: ['ahead', 'on_track', 'on_track_with_monitoring', 'emerging', 'needs_support'],
     required: true,
   },
   summary: {
@@ -89,6 +89,33 @@ const analysisSchema = new mongoose.Schema({
   growthPercentiles: [growthPercentileSchema],
   personalizedTips: [String],
   activities: [String],
+  // Structured tips (merged from Web's richer format)
+  structuredTips: [{
+    category: { type: String, enum: ['sleep', 'feeding', 'behavior', 'safety', 'development', 'health', 'bonding'] },
+    title: String,
+    description: String,
+    priority: { type: String, enum: ['high', 'medium', 'low'] },
+  }],
+  // Activity tracking (from Web)
+  activityProfile: {
+    pattern: String,
+    description: String,
+    engagementLevel: String,
+    focusDuration: String,
+    playStyle: String,
+  },
+  // Warnings (from Web)
+  warnings: [String],
+  // Baby sound analysis data
+  babySoundAnalysis: {
+    vocalizations: [{
+      type: String,
+      description: String,
+      developmentalSignificance: String,
+    }],
+    languageObservations: [String],
+    recommendations: [String],
+  },
   sources: [{
     title: String,
     url: String,
