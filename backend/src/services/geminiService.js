@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import whoDataService from './whoDataService.js';
+import { REGION_CUISINE_MAP } from '../routes/config.js';
 
 class GeminiService {
   constructor() {
@@ -160,9 +161,19 @@ Respond in this JSON format:
     }
   }
 
-  async generateBedtimeStory(child, theme) {
+  async generateBedtimeStory(child, theme, childPhotoBase64 = null, childPhotoMime = 'image/jpeg') {
     if (!this.model) {
       throw new Error('Gemini service not initialized');
+    }
+
+    // If a child photo is provided, describe the child's appearance for story personalization
+    let appearanceDescription = '';
+    if (childPhotoBase64) {
+      try {
+        appearanceDescription = await this.describeImage(childPhotoBase64, childPhotoMime);
+      } catch (err) {
+        console.warn('Failed to describe child photo for story:', err.message);
+      }
     }
 
     const prompt = `
@@ -171,6 +182,7 @@ Create a bedtime story for a ${child.ageInMonths}-month-old child named ${child.
 STORY REQUIREMENTS:
 - Theme: ${theme.name} (${theme.description || ''})
 - Make ${child.name} the protagonist/hero of the story
+${appearanceDescription ? `- ${child.name}'s appearance: ${appearanceDescription}` : ''}
 - Include their interests: ${child.interests?.join(', ') || 'general'}
 - Include their favorite characters if relevant: ${child.favoriteCharacters?.join(', ') || 'none specified'}
 - Use simple, age-appropriate language
@@ -178,10 +190,15 @@ STORY REQUIREMENTS:
 - 4-6 pages, each with 2-3 short paragraphs
 - Include a gentle moral or lesson
 - End with ${child.name} falling peacefully asleep
+- Include a list of all characters in the story with a brief description of each
 
 Respond in this JSON format:
 {
   "title": "Story Title",
+  "characters": [
+    { "name": "Character Name", "description": "Brief character description", "role": "protagonist|supporting|companion" }
+  ],
+  "duration": "estimated reading time in minutes (e.g. 5)",
   "pages": [
     {
       "pageNumber": 1,
@@ -202,6 +219,8 @@ Respond in this JSON format:
       if (data) {
         return {
           title: data.title || `A Story for ${child.name}`,
+          characters: data.characters || [],
+          duration: data.duration || null,
           pages: data.pages || [],
           moral: data.moral || '',
           theme: theme,
@@ -316,23 +335,35 @@ Respond in this JSON format:
       throw new Error('Gemini service not initialized');
     }
 
+    const ageMin = Math.max(0, child.ageInMonths - 3);
+    const ageMax = child.ageInMonths + 6;
+
     const prompt = `
-Recommend age-appropriate ${category} for a ${child.ageInMonths}-month-old child.
+Recommend 6 age-appropriate products for a ${child.ageInMonths}-month-old child.
 
 CHILD PROFILE:
 - Age: ${child.ageInMonths} months
+- Target age range for products: ${ageMin}-${ageMax} months
 - Interests: ${child.interests?.join(', ') || 'general'}
 - Favorite characters: ${child.favoriteCharacters?.join(', ') || 'none'}
 
-Provide 5 recommendations focusing on developmental benefits.
+REQUIREMENTS:
+- Provide 6 product recommendations
+- Mix categories: toys, books, educational, outdoor, sensory
+${category !== 'all' ? `- Focus on category: ${category}` : '- Include a variety from all categories'}
+- Each product should have clear developmental benefits
+- Include a relevant emoji, price range, and target age range
 
 Respond in JSON format:
 {
   "recommendations": [
     {
-      "name": "Product/Activity Name",
+      "name": "Product Name",
       "description": "Brief description",
-      "category": "${category}",
+      "category": "toys|books|educational|outdoor|sensory",
+      "emoji": "relevant emoji",
+      "priceRange": "$10-$20",
+      "ageRange": "${ageMin}-${ageMax} months",
       "developmentAreas": ["motor", "cognitive"],
       "whyRecommended": "Why this helps development"
     }
@@ -357,16 +388,23 @@ Respond in JSON format:
     }
   }
 
-  async generateRecipes(child, count = 3, filters = {}) {
+  async generateRecipes(child, count = 6, filters = {}) {
     if (!this.model) {
       throw new Error('Gemini service not initialized');
     }
 
     const { excludeAllergens, dietaryPreferences, foodLikings } = filters;
 
+    // Regional cuisine context
+    const regionInfo = REGION_CUISINE_MAP[child.region] || REGION_CUISINE_MAP['US'] || { name: 'International', description: 'varied global cuisine' };
+
     let filterInstructions = '';
     if (excludeAllergens && excludeAllergens.length > 0) {
-      filterInstructions += `\n- EXCLUDE these allergens entirely: ${Array.isArray(excludeAllergens) ? excludeAllergens.join(', ') : excludeAllergens}. Do not use any ingredients containing these allergens.`;
+      filterInstructions += `\nCRITICAL ALLERGEN RESTRICTION - This is a safety requirement:
+- ABSOLUTELY EXCLUDE these allergens: ${Array.isArray(excludeAllergens) ? excludeAllergens.join(', ') : excludeAllergens}
+- Do NOT use any ingredients that contain or may contain these allergens
+- Do NOT suggest recipes where cross-contamination is likely
+- Double-check every ingredient against the allergen list`;
     }
     if (dietaryPreferences && dietaryPreferences.length > 0) {
       filterInstructions += `\n- Respect these dietary preferences: ${Array.isArray(dietaryPreferences) ? dietaryPreferences.join(', ') : dietaryPreferences}.`;
@@ -378,12 +416,17 @@ Respond in JSON format:
     const prompt = `
 Create ${count} age-appropriate recipes for a ${child.ageInMonths}-month-old child.
 
+REGIONAL CUISINE CONTEXT:
+- Region: ${child.region || 'US'}
+- Cuisine style: ${regionInfo.name} (${regionInfo.description})
+- Incorporate regional flavors and ingredients familiar to this cuisine tradition
+
 Consider:
-- Age-appropriate textures and ingredients
-- Nutritional needs for this age
-- Easy preparation
-- WHO feeding guidelines
-- Include a mealType field for each recipe (breakfast, lunch, dinner, or snack)
+- Age-appropriate textures and ingredients for a ${child.ageInMonths}-month-old
+- Nutritional needs for this age (iron, protein, fiber are critical)
+- Easy preparation for busy parents
+- WHO complementary feeding guidelines
+- Mix of mealTypes: include at least one each of breakfast, lunch, dinner, and snack
 ${filterInstructions}
 
 Respond in JSON format:
@@ -392,14 +435,17 @@ Respond in JSON format:
     {
       "name": "Recipe Name",
       "description": "Brief description",
+      "mealType": "breakfast|lunch|dinner|snack",
       "ingredients": ["ingredient1", "ingredient2"],
       "instructions": ["step1", "step2"],
       "prepTime": "10 mins",
       "cookTime": "15 mins",
-      "nutritionHighlights": ["Iron-rich", "Good source of protein"],
-      "allergens": ["dairy"],
       "difficulty": "Easy",
-      "mealType": "breakfast|lunch|dinner|snack"
+      "allergens": ["dairy"],
+      "nutrition": { "calories": 150, "protein": "5g", "fiber": "2g", "iron": "1mg" },
+      "nutritionHighlights": ["Iron-rich", "Good source of protein"],
+      "ageAppropriate": "Why this recipe suits a ${child.ageInMonths}-month-old",
+      "texture": "pureed|mashed|soft chunks|finger food"
     }
   ]
 }
@@ -429,24 +475,42 @@ Respond in JSON format:
 
     const focusText = focusArea
       ? `Focus on ${focusArea} development.`
-      : 'Cover all development areas.';
+      : 'Cover all development areas including sleep, feeding, behavior, safety, development, health, and bonding.';
+
+    const regionNote = child.region
+      ? `\nCULTURAL CONTEXT: The family is in region "${child.region}". Be culturally sensitive and consider local parenting norms and practices.`
+      : '';
 
     const prompt = `
-Provide 5 research-backed parenting tips for a ${child.ageInMonths}-month-old child.
+Provide 6 research-backed parenting tips for a ${child.ageInMonths}-month-old child.
 
 ${focusText}
+${regionNote}
 
 Child's interests: ${child.interests?.join(', ') || 'general'}
 
 Tips should be:
-- Specific and actionable
-- Based on developmental science
+- Specific and actionable with concrete steps
+- Based on developmental science from WHO, AAP, or CDC guidelines
 - Incorporate the child's interests when possible
 - Appropriate for the child's age
+- Include a relevant emoji for visual appeal
+- Include source attribution (WHO, AAP, or CDC)
 
 Respond in JSON format:
 {
-  "tips": ["tip1", "tip2", "tip3", "tip4", "tip5"]
+  "tips": [
+    {
+      "title": "Short tip title",
+      "description": "Detailed explanation of the tip",
+      "category": "sleep|feeding|behavior|safety|development|health|bonding",
+      "emoji": "relevant emoji",
+      "priority": "high|medium|low",
+      "actionSteps": ["Concrete step 1", "Concrete step 2"],
+      "source": "WHO/AAP/CDC source name",
+      "sourceUrl": "URL to source or null"
+    }
+  ]
 }
 `;
 

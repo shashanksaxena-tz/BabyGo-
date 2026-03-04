@@ -85,7 +85,7 @@ router.post('/', authMiddleware, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { childId, themeId } = req.body;
+    const { childId, themeId, childPhotoBase64, childPhotoMime } = req.body;
 
     // Get child
     const child = await Child.findOne({
@@ -111,7 +111,7 @@ router.post('/', authMiddleware, [
     geminiService.initialize(apiKey);
 
     // Generate story
-    const storyData = await geminiService.generateBedtimeStory(child, theme);
+    const storyData = await geminiService.generateBedtimeStory(child, theme, childPhotoBase64 || null, childPhotoMime || 'image/jpeg');
 
     // Save story
     const story = new Story({
