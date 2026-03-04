@@ -43,42 +43,38 @@ router.get('/products/:childId', authMiddleware, async (req, res) => {
   }
 });
 
-// Get activity suggestions
+// GET /api/recommendations/activities/:childId?domain=motor
 router.get('/activities/:childId', authMiddleware, async (req, res) => {
   try {
-    const { domain } = req.query;
+    const child = await Child.findById(req.params.childId);
+    if (!child) return res.status(404).json({ error: 'Child not found' });
 
-    const child = await Child.findOne({
-      _id: req.params.childId
-    });
-
-    if (!child) {
-      return res.status(404).json({ error: 'Child not found' });
-    }
-
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return res.status(400).json({ error: 'Gemini API key not configured' });
-    }
-
+    const apiKey = req.user.geminiApiKey || process.env.GEMINI_API_KEY;
+    if (!apiKey) return res.status(400).json({ error: 'No API key configured' });
     geminiService.initialize(apiKey);
 
-    const recommendations = await geminiService.generateRecommendations(child, 'activities');
+    const domain = req.query.domain || null;
+    const achievedMilestones = (child.achievedMilestones || []).map(m => ({
+      title: m.title || m.milestoneId,
+    }));
 
-    // Get WHO milestones for context
-    const milestones = domain
-      ? whoDataService.getMilestonesByDomain(domain, child.ageInMonths)
-      : whoDataService.getMilestonesForAge(child.ageInMonths);
+    const activities = await geminiService.generateActivities(child, domain, achievedMilestones);
+
+    // Get related milestones from WHO data
+    const ageMonths = child.ageInMonths || Math.floor((Date.now() - new Date(child.dateOfBirth)) / (1000 * 60 * 60 * 24 * 30.44));
+    const relatedMilestones = domain
+      ? whoDataService.getMilestonesByDomain(domain, ageMonths).slice(0, 5)
+      : whoDataService.getMilestonesForAge(ageMonths).slice(0, 10);
 
     res.json({
+      childAge: ageMonths,
       domain: domain || 'all',
-      childAge: child.ageInMonths,
-      activities: recommendations,
-      relatedMilestones: milestones.slice(0, 5),
+      activities,
+      relatedMilestones,
     });
   } catch (error) {
     console.error('Activities error:', error);
-    res.status(500).json({ error: 'Failed to get activities' });
+    res.status(500).json({ error: 'Failed to generate activities' });
   }
 });
 
