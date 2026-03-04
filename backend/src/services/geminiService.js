@@ -17,7 +17,7 @@ class GeminiService {
     return this.model !== null;
   }
 
-  async analyzeDevelopment(child, mediaData = [], audioData = null) {
+  async analyzeDevelopment(child, mediaData = [], audioData = null, achievedMilestones = []) {
     if (!this.model) {
       throw new Error('Gemini service not initialized');
     }
@@ -29,6 +29,12 @@ class GeminiService {
 
     const milestoneContext = this._buildMilestoneContext(milestones, ageMonths);
     const growthContext = this._buildGrowthContext(growthPercentiles);
+
+    let achievedContext = '';
+    if (achievedMilestones && achievedMilestones.length > 0) {
+      achievedContext = `\n\nALREADY ACHIEVED MILESTONES (do NOT re-suggest these, instead suggest building upon them):\n`;
+      achievedContext += achievedMilestones.map(m => `- [ACHIEVED] ${m.title} (${m.domain})`).join('\n');
+    }
 
     const prompt = `
 You are a child development specialist using WHO standards to analyze a ${ageMonths}-month-old ${child.gender} child named ${child.name}.
@@ -46,6 +52,7 @@ ${growthContext}
 
 WHO DEVELOPMENTAL MILESTONES FOR THIS AGE:
 ${milestoneContext}
+${achievedContext}
 
 Analyze the child's development based on the provided information and any media content.
 
@@ -56,7 +63,12 @@ IMPORTANT GUIDELINES:
 4. Recommend consulting a pediatrician for any concerns
 5. Be encouraging and supportive in tone
 6. Provide specific, actionable activities for each domain
-7. For "overallStatus" and each domain "status", use ONLY one of these values: "on_track", "on_track_with_monitoring", "emerging", "needs_support"
+7. Use ONLY these status values for "overallStatus" and each domain "status":
+   - "ahead": Child exceeds age-typical expectations
+   - "on_track": Meeting expected developmental milestones
+   - "on_track_with_monitoring": Generally on track but specific areas need watching
+   - "emerging": Skills are developing but behind typical timeline
+   - "needs_support": Significant delay requiring professional guidance
 
 Respond in this JSON format:
 {
@@ -99,7 +111,18 @@ Respond in this JSON format:
     "achievedMilestones": ["milestone_id1"],
     "activities": ["activity1"]
   },
-  "personalizedTips": ["tip1", "tip2", "tip3"]
+  "personalizedTips": ["tip1", "tip2", "tip3"],
+  "structuredTips": [
+    { "category": "sleep|feeding|behavior|safety|development|health|bonding", "title": "...", "description": "...", "priority": "high|medium|low" }
+  ],
+  "activityProfile": {
+    "pattern": "description of observed activity patterns",
+    "description": "detailed activity assessment",
+    "engagementLevel": "high|moderate|low",
+    "focusDuration": "estimated focus duration",
+    "playStyle": "description of play style"
+  },
+  "warnings": ["any developmental concerns requiring professional attention"]
 }
 `;
 
@@ -797,6 +820,9 @@ Valid priorities: high, medium, low
       personalizedTips: data.personalizedTips || [],
       sources: sources.slice(0, 5),
       childAgeAtAnalysis: child.ageInMonths,
+      ...(data.structuredTips ? { structuredTips: data.structuredTips } : {}),
+      ...(data.activityProfile ? { activityProfile: data.activityProfile } : {}),
+      ...(data.warnings ? { warnings: data.warnings } : {}),
     };
   }
 }

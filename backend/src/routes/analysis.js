@@ -243,8 +243,14 @@ router.post('/', authMiddleware, upload.array('media', 10), async (req, res) => 
       filename: file.originalname,
     }));
 
+    // Fetch achieved milestones for richer analysis context
+    const achievedMilestoneContext = (child.achievedMilestones || []).map(m => ({
+      title: m.title || m.milestoneId,
+      domain: m.domain || 'general',
+    }));
+
     // Run analysis
-    const analysisResult = await geminiService.analyzeDevelopment(child, mediaData);
+    const analysisResult = await geminiService.analyzeDevelopment(child, mediaData, null, achievedMilestoneContext);
 
     // Save analysis
     const analysis = new Analysis({
