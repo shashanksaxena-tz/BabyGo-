@@ -8,9 +8,9 @@ class GeminiService {
   }
 
   initialize(apiKey) {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    this.model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-    this.visionModel = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    this.genAI = new GoogleGenerativeAI(apiKey);
+    this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    this.visionModel = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
   }
 
   isInitialized() {
@@ -467,22 +467,40 @@ Respond in JSON format:
     }
   }
 
-  /**
-   * Generate an illustration from a text prompt.
-   * The Gemini text model cannot generate images directly, so we store the
-   * prompt itself as a placeholder URL and mark the story as processed so it
-   * doesn't retry on every read.  If a future Gemini image generation API
-   * becomes available, swap this implementation.
-   *
-   * @param {string} prompt - The illustration description prompt
-   * @returns {Promise<Buffer|null>} Image buffer or null if generation unsupported
-   */
-  async generateIllustration(prompt) {
-    // Gemini text models do not support image generation.
-    // Return null so the caller knows no image was produced.
-    // The story route will still mark illustrationsGenerated = true
-    // to prevent retrying.
-    return null;
+  async generateIllustration(prompt, childPhotoBase64 = null, childPhotoMime = 'image/jpeg') {
+    if (!this.model) throw new Error('Gemini service not initialized');
+
+    const styledPrompt = `Create a children's storybook illustration in a warm, friendly, watercolor-pastel style.
+The scene: ${prompt}
+Style: Soft colors, gentle lighting, child-friendly, no scary elements. Suitable for a bedtime storybook. Round shapes, warm tones.`;
+
+    const parts = [{ text: styledPrompt }];
+
+    if (childPhotoBase64) {
+      parts.unshift({ inlineData: { data: childPhotoBase64, mimeType: childPhotoMime } });
+      parts[parts.length - 1].text += '\nBase the main child character appearance on the provided photo.';
+    }
+
+    try {
+      const imageModel = this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash-preview-image-generation' });
+      const result = await imageModel.generateContent({
+        contents: [{ role: 'user', parts }],
+        generationConfig: { responseModalities: ['image', 'text'] },
+      });
+
+      const response = result.response;
+      for (const candidate of response.candidates || []) {
+        for (const part of candidate.content?.parts || []) {
+          if (part.inlineData) {
+            return { data: part.inlineData.data, mimeType: part.inlineData.mimeType || 'image/png' };
+          }
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error('Illustration generation error:', error.message);
+      return null;
+    }
   }
 
   /**
@@ -824,6 +842,87 @@ Valid priorities: high, medium, low
       ...(data.activityProfile ? { activityProfile: data.activityProfile } : {}),
       ...(data.warnings ? { warnings: data.warnings } : {}),
     };
+  }
+  async generateActivities(child, domain = null, achievedMilestones = []) {
+    if (!this.model) throw new Error('Gemini service not initialized');
+    const ageMonths = child.ageInMonths || child.ageMonths || 12;
+
+    let achievedContext = '';
+    if (achievedMilestones.length > 0) {
+      achievedContext = `\nAlready achieved milestones (suggest building upon these, DO NOT re-suggest):\n`;
+      achievedContext += achievedMilestones.map(m => `- ${m.title}`).join('\n');
+    }
+
+    const domainFilter = domain ? `Focus on the "${domain}" development domain.` : 'Cover all 4 domains: motor, cognitive, language, social.';
+
+    const prompt = `You are a child development expert. Generate 8 age-appropriate developmental activities for a ${ageMonths}-month-old child named ${child.name}.
+
+${domainFilter}
+${achievedContext}
+
+Use common household items only. Each activity should last 10-20 minutes.
+
+Return JSON array:
+[
+  {
+    "title": "Activity name",
+    "description": "How to do the activity",
+    "domain": "motor|cognitive|language|social",
+    "duration": "10-15 min",
+    "materials": ["item1", "item2"],
+    "skills": ["skill being developed"],
+    "difficulty": "easy|medium|challenging",
+    "milestoneTarget": "Which milestone this helps achieve"
+  }
+]`;
+
+    const result = await this.model.generateContent(prompt);
+    const text = result.response.text();
+    const parsed = this._parseJsonResponse(text);
+    return Array.isArray(parsed) ? parsed : parsed.activities || [];
+  }
+
+  async analyzeBabySounds(child, audioData) {
+    if (!this.model) throw new Error('Gemini service not initialized');
+    const ageMonths = child.ageInMonths || child.ageMonths || 12;
+
+    const prompt = `You are a pediatric speech-language development expert. Analyze this baby audio recording for a ${ageMonths}-month-old ${child.gender || 'child'} named ${child.name}.
+
+Evaluate the vocalizations for age-appropriate speech and language development based on WHO milestones.
+
+Return JSON:
+{
+  "vocalizations": [
+    { "type": "babbling|cooing|word_attempt|word|phrase|cry|laugh|other", "description": "Description of what you hear", "developmentalSignificance": "What this means for development" }
+  ],
+  "languageObservations": ["observation1", "observation2"],
+  "recommendations": ["recommendation1", "recommendation2"],
+  "developmentStatus": "on_track|emerging|needs_support",
+  "summary": "Brief overall assessment"
+}`;
+
+    const parts = [{ text: prompt }];
+    if (audioData) {
+      parts.push({ inlineData: { data: audioData.data || audioData.base64, mimeType: audioData.mimeType || 'audio/webm' } });
+    }
+
+    const result = await this.model.generateContent(parts);
+    const text = result.response.text();
+    return this._parseJsonResponse(text);
+  }
+
+  async transcribeAudio(audioData) {
+    if (!this.model) throw new Error('Gemini service not initialized');
+
+    const prompt = `Transcribe this audio recording. The speaker is a parent describing their child's behavior, activities, or development. Return the transcription as plain text, cleaning up any filler words or false starts for clarity.`;
+
+    const parts = [
+      { text: prompt },
+      { inlineData: { data: audioData.data || audioData.base64, mimeType: audioData.mimeType || 'audio/webm' } },
+    ];
+
+    const result = await this.model.generateContent(parts);
+    return result.response.text().trim();
   }
 }
 

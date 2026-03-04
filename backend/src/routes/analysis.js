@@ -120,6 +120,48 @@ router.get('/growth-curves', async (req, res) => {
   }
 });
 
+// POST /api/analysis/baby-sounds
+router.post('/baby-sounds', authMiddleware, upload.single('audio'), async (req, res) => {
+  try {
+    const { childId } = req.body;
+    const child = await Child.findById(childId);
+    if (!child) return res.status(404).json({ error: 'Child not found' });
+
+    const apiKey = req.user.geminiApiKey || process.env.GEMINI_API_KEY;
+    if (!apiKey) return res.status(400).json({ error: 'No API key configured' });
+    geminiService.initialize(apiKey);
+
+    let audioData = null;
+    if (req.file) {
+      audioData = { data: req.file.buffer.toString('base64'), mimeType: req.file.mimetype };
+    }
+
+    const analysis = await geminiService.analyzeBabySounds(child, audioData);
+    res.json({ message: 'Baby sound analysis complete', analysis });
+  } catch (error) {
+    console.error('Baby sound analysis error:', error);
+    res.status(500).json({ error: 'Failed to analyze baby sounds' });
+  }
+});
+
+// POST /api/analysis/transcribe
+router.post('/transcribe', authMiddleware, upload.single('audio'), async (req, res) => {
+  try {
+    const apiKey = req.user.geminiApiKey || process.env.GEMINI_API_KEY;
+    if (!apiKey) return res.status(400).json({ error: 'No API key configured' });
+    geminiService.initialize(apiKey);
+
+    if (!req.file) return res.status(400).json({ error: 'No audio file provided' });
+
+    const audioData = { data: req.file.buffer.toString('base64'), mimeType: req.file.mimetype };
+    const transcription = await geminiService.transcribeAudio(audioData);
+    res.json({ transcription });
+  } catch (error) {
+    console.error('Transcription error:', error);
+    res.status(500).json({ error: 'Failed to transcribe audio' });
+  }
+});
+
 // Save pre-computed analysis result (from browser-side Gemini)
 router.post('/save', authMiddleware, async (req, res) => {
   try {
