@@ -8,4 +8,12 @@
 | ID | Time | T | Title | Read |
 |----|------|---|-------|------|
 | #8083 | 4:15 PM | 🔵 | Deep Code Review Reveals 25 Issues Across Backend Routes and Frontend Components | ~693 |
+
+### Mar 2, 2026
+
+| ID | Time | T | Title | Read |
+|----|------|---|-------|------|
+| #12853 | 8:31 AM | 🔵 | Original web app Recommendations feature provides products, activities, and parenting tips with WHO citations | ~610 |
+| #12851 | 8:30 AM | 🔵 | Original web app GrowthCharts feature uses WHO percentile data with Recharts visualization | ~555 |
+| #12845 | 8:29 AM | 🔵 | Stories feature implementation discovered in original web app | ~590 |
 </claude-mem-context>

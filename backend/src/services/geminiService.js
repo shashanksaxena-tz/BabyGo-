@@ -56,6 +56,7 @@ IMPORTANT GUIDELINES:
 4. Recommend consulting a pediatrician for any concerns
 5. Be encouraging and supportive in tone
 6. Provide specific, actionable activities for each domain
+7. For "overallStatus" and each domain "status", use ONLY one of these values: "on_track", "on_track_with_monitoring", "emerging", "needs_support"
 
 Respond in this JSON format:
 {
@@ -124,9 +125,8 @@ Respond in this JSON format:
       const text = response.text();
 
       // Parse JSON from response
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const data = JSON.parse(jsonMatch[0]);
+      const data = this._parseJsonResponse(text);
+      if (data) {
         return this._buildAnalysisResult(data, child, milestones, growthPercentiles, sources);
       }
 
@@ -175,9 +175,8 @@ Respond in this JSON format:
       const response = await result.response;
       const text = response.text();
 
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const data = JSON.parse(jsonMatch[0]);
+      const data = this._parseJsonResponse(text);
+      if (data) {
         return {
           title: data.title || `A Story for ${child.name}`,
           pages: data.pages || [],
@@ -279,9 +278,8 @@ Respond in this JSON format:
 
     const result = await this.model.generateContent(prompt);
     const text = result.response.text();
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('Invalid response format from AI');
-    const data = JSON.parse(jsonMatch[0]);
+    const data = this._parseJsonResponse(text);
+    if (!data) throw new Error('Invalid response format from AI');
     return {
       title: data.title || `${child.name}'s Special Story`,
       coverImageDescription: data.coverImageDescription || '',
@@ -324,9 +322,9 @@ Respond in JSON format:
       const response = await result.response;
       const text = response.text();
 
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]).recommendations || [];
+      const data = this._parseJsonResponse(text);
+      if (data) {
+        return data.recommendations || [];
       }
 
       return [];
@@ -389,9 +387,9 @@ Respond in JSON format:
       const response = await result.response;
       const text = response.text();
 
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]).recipes || [];
+      const data = this._parseJsonResponse(text);
+      if (data) {
+        return data.recipes || [];
       }
 
       return [];
@@ -434,9 +432,9 @@ Respond in JSON format:
       const response = await result.response;
       const text = response.text();
 
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]).tips || [];
+      const data = this._parseJsonResponse(text);
+      if (data) {
+        return data.tips || [];
       }
 
       return [];
@@ -542,9 +540,8 @@ Valid priorities: high, medium, low
         const response = await result.response;
         const text = response.text();
 
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const data = JSON.parse(jsonMatch[0]);
+        const data = this._parseJsonResponse(text);
+        if (data) {
           const resources = (data.resources || []).map(r => ({
             type: r.type || 'activity',
             title: r.title || 'Untitled Resource',
@@ -565,6 +562,163 @@ Valid priorities: high, medium, low
     }
 
     return allResources;
+  }
+
+  /**
+   * Robustly parse JSON from Gemini's text response.
+   * Handles code fences, truncated arrays/objects, and greedy regex fallback.
+   */
+  _parseJsonResponse(text) {
+    // Strategy 1: Extract from ```json ... ``` code fences
+    const fenceMatch = text.match(/```json\s*([\s\S]*?)```/);
+    if (fenceMatch) {
+      try {
+        return JSON.parse(fenceMatch[1].trim());
+      } catch (_) {
+        // Fence content may be truncated, try to repair below
+        const repaired = this._repairTruncatedJson(fenceMatch[1].trim());
+        if (repaired) return repaired;
+      }
+    }
+
+    // Strategy 2: Greedy regex to find outermost { ... }
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        return JSON.parse(jsonMatch[0]);
+      } catch (_) {
+        // Attempt repair on the matched text
+        const repaired = this._repairTruncatedJson(jsonMatch[0]);
+        if (repaired) return repaired;
+      }
+    }
+
+    // Strategy 3: Find the first '{' and try to parse from there
+    const firstBrace = text.indexOf('{');
+    if (firstBrace !== -1) {
+      const candidate = text.slice(firstBrace);
+      const repaired = this._repairTruncatedJson(candidate);
+      if (repaired) return repaired;
+    }
+
+    return null;
+  }
+
+  /**
+   * Try to repair truncated JSON by closing open brackets/braces.
+   * Handles the common Gemini issue where an array is cut mid-element.
+   */
+  _repairTruncatedJson(text) {
+    // Remove any trailing incomplete string/value after the last complete element
+    // Find the last complete object in an array by looking for the last '}' that
+    // could be an array element boundary
+    let candidate = text.trim();
+
+    // Remove trailing comma if present
+    candidate = candidate.replace(/,\s*$/, '');
+
+    // Count open vs close brackets/braces
+    let braces = 0;
+    let brackets = 0;
+    let inString = false;
+    let escape = false;
+    let lastValidEnd = -1;
+
+    for (let i = 0; i < candidate.length; i++) {
+      const ch = candidate[i];
+      if (escape) {
+        escape = false;
+        continue;
+      }
+      if (ch === '\\' && inString) {
+        escape = true;
+        continue;
+      }
+      if (ch === '"') {
+        inString = !inString;
+        continue;
+      }
+      if (inString) continue;
+
+      if (ch === '{') braces++;
+      else if (ch === '}') {
+        braces--;
+        if (braces >= 0) lastValidEnd = i;
+      }
+      else if (ch === '[') brackets++;
+      else if (ch === ']') {
+        brackets--;
+        if (brackets >= 0) lastValidEnd = i;
+      }
+    }
+
+    // If already balanced, try parsing directly
+    if (braces === 0 && brackets === 0 && !inString) {
+      try {
+        return JSON.parse(candidate);
+      } catch (_) {
+        // fall through to truncation repair
+      }
+    }
+
+    // If we were inside a string, close it
+    if (inString) {
+      candidate += '"';
+    }
+
+    // Remove trailing partial value after the last complete element
+    // Look backward from the end for a clean cut point (after a complete element)
+    // Try truncating at the last '}' or ']' that was balanced
+    if (lastValidEnd > 0 && (braces > 0 || brackets > 0)) {
+      // Truncate to last valid end, then close remaining open brackets/braces
+      candidate = candidate.slice(0, lastValidEnd + 1);
+      // Recount
+      braces = 0;
+      brackets = 0;
+      inString = false;
+      escape = false;
+      for (let i = 0; i < candidate.length; i++) {
+        const ch = candidate[i];
+        if (escape) { escape = false; continue; }
+        if (ch === '\\' && inString) { escape = true; continue; }
+        if (ch === '"') { inString = !inString; continue; }
+        if (inString) continue;
+        if (ch === '{') braces++;
+        else if (ch === '}') braces--;
+        else if (ch === '[') brackets++;
+        else if (ch === ']') brackets--;
+      }
+    }
+
+    // Remove trailing comma before we close
+    candidate = candidate.replace(/,\s*$/, '');
+
+    // Close open brackets and braces in LIFO order
+    // We need to track the actual order they were opened
+    const openStack = [];
+    inString = false;
+    escape = false;
+    for (let i = 0; i < candidate.length; i++) {
+      const ch = candidate[i];
+      if (escape) { escape = false; continue; }
+      if (ch === '\\' && inString) { escape = true; continue; }
+      if (ch === '"') { inString = !inString; continue; }
+      if (inString) continue;
+      if (ch === '{') openStack.push('}');
+      else if (ch === '[') openStack.push(']');
+      else if (ch === '}' || ch === ']') openStack.pop();
+    }
+
+    // Close in reverse order
+    while (openStack.length > 0) {
+      candidate += openStack.pop();
+    }
+
+    try {
+      return JSON.parse(candidate);
+    } catch (_) {
+      return null;
+    }
   }
 
   _buildMilestoneContext(milestones, ageMonths) {

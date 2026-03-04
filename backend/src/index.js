@@ -180,16 +180,26 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Database connection
+// Database connection with retry logic for Docker startup race condition
 const connectDB = async () => {
   const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/tinysteps';
+  const maxRetries = 10;
+  const retryDelay = 3000; // 3 seconds
 
-  try {
-    await mongoose.connect(mongoUri);
-    console.log('✅ Connected to MongoDB');
-  } catch (error) {
-    console.warn('⚠️ MongoDB not available, using in-memory storage');
-    console.warn('   Set MONGODB_URI environment variable for persistence');
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 5000 });
+      console.log('✅ Connected to MongoDB');
+      return;
+    } catch (error) {
+      if (attempt < maxRetries) {
+        console.warn(`⚠️ MongoDB connection attempt ${attempt}/${maxRetries} failed, retrying in ${retryDelay / 1000}s...`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+      } else {
+        console.warn('⚠️ MongoDB not available after all retries, using in-memory storage');
+        console.warn('   Set MONGODB_URI environment variable for persistence');
+      }
+    }
   }
 };
 

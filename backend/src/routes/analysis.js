@@ -16,6 +16,8 @@ function mapStatus(status) {
     'ahead': 'on_track',
     'on-track': 'on_track',
     'on_track': 'on_track',
+    'on_track_with_monitoring': 'on_track_with_monitoring',
+    'on-track-with-monitoring': 'on_track_with_monitoring',
     'monitor': 'emerging',
     'emerging': 'emerging',
     'discuss': 'needs_support',

@@ -12,14 +12,41 @@ export const generateRefreshToken = (userId) => {
 };
 
 export const authMiddleware = async (req, res, next) => {
-  // Authentication disabled as requested
-  req.user = {
-    _id: '000000000000000000000000',
-    name: 'Guest User',
-    email: 'guest@example.com',
-    geminiApiKey: process.env.GEMINI_API_KEY
-  };
-  next();
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      const decoded = jwt.verify(token, JWT_SECRET);
+      const user = await User.findById(decoded.userId).select('-password');
+      if (user) {
+        // Attach geminiApiKey from env if user doesn't have one
+        if (!user.geminiApiKey && process.env.GEMINI_API_KEY) {
+          user.geminiApiKey = process.env.GEMINI_API_KEY;
+        }
+        req.user = user;
+        return next();
+      }
+    }
+
+    // Fallback: no token or invalid token — use guest user for backward compatibility
+    req.user = {
+      _id: '000000000000000000000000',
+      name: 'Guest User',
+      email: 'guest@example.com',
+      geminiApiKey: process.env.GEMINI_API_KEY
+    };
+    next();
+  } catch (error) {
+    // Token expired or invalid — fall back to guest
+    req.user = {
+      _id: '000000000000000000000000',
+      name: 'Guest User',
+      email: 'guest@example.com',
+      geminiApiKey: process.env.GEMINI_API_KEY
+    };
+    next();
+  }
 };
 
 // Optional auth - doesn't fail if no token, but attaches user if present

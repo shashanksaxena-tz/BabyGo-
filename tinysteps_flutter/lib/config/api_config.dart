@@ -16,7 +16,7 @@ class ApiConfig {
 
   /// Current environment setting
   /// Change this to switch between environments
-  static const Environment currentEnvironment = Environment.development;
+  static const Environment currentEnvironment = Environment.androidEmulator;
 
   /// Get the API URL for the current environment
   static String get apiUrl {

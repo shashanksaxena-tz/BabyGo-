@@ -9,4 +9,11 @@
 |----|------|---|-------|------|
 | #8084 | 6:44 PM | 🔵 | Gemini API Key Configuration Issue in Resource Regeneration Endpoint | ~502 |
 | #8083 | 4:15 PM | 🔵 | Deep Code Review Reveals 25 Issues Across Backend Routes and Frontend Components | ~693 |
+
+### Mar 2, 2026
+
+| ID | Time | T | Title | Read |
+|----|------|---|-------|------|
+| #12854 | 8:32 AM | 🔵 | Backend recommendations routes provide AI-generated products, activities, recipes, tips, and WHO evidence | ~597 |
+| #12850 | 8:30 AM | 🔵 | Backend analysis routes expose WHO milestones, growth curves, and AI-powered assessment endpoints | ~560 |
 </claude-mem-context>

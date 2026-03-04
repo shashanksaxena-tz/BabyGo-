@@ -40,7 +40,7 @@ dependencies:
   # Media
   image_picker: ^1.0.7
   camera: ^0.10.5+9
-  record: ^5.0.5
+  record: ^6.2.0
   audioplayers: ^6.0.0
   video_player: ^2.8.3
   permission_handler: ^11.2.0
@@ -66,7 +66,7 @@ dependencies:
   flutter_local_notifications: ^17.0.0
 
   # File handling
-  file_picker: ^6.1.1
+  file_picker: ^10.3.10
   path: ^1.8.3
 
   # Sharing
