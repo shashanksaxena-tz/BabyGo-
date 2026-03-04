@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useChild } from '../contexts/ChildContext';
 import api from '../api';
+import { useAppConfig } from '../hooks/useAppConfig';
 import {
     LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend
 } from 'recharts';
@@ -41,77 +42,46 @@ interface AnalysisData {
 
 type DomainKey = 'motor' | 'cognitive' | 'language' | 'social';
 
-// ─── Constants ───────────────────────────────────────────────────────────────
+// ─── Constants (fallback, overridden by config) ──────────────────────────────
 
-const TIME_FILTERS = [
+const FALLBACK_TIME_FILTERS = [
     { id: '1W', label: '1W', days: 7 },
     { id: '1M', label: '1M', days: 30 },
     { id: '3M', label: '3M', days: 90 },
     { id: 'ALL', label: 'All', days: 9999 },
 ];
 
-const DOMAIN_CONFIG: Record<DomainKey, {
-    label: string;
-    emoji: string;
-    color: string;
-    bgClass: string;
-    textClass: string;
-    borderClass: string;
-    iconBg: string;
-    assessmentKey: keyof Pick<AnalysisData, 'motorAssessment' | 'cognitiveAssessment' | 'languageAssessment' | 'socialAssessment'>;
-    icon: React.ReactNode;
-}> = {
-    motor: {
-        label: 'Motor Skills',
-        emoji: '🏃',
-        color: '#3b82f6',
-        bgClass: 'bg-blue-50',
-        textClass: 'text-blue-600',
-        borderClass: 'border-blue-200',
-        iconBg: 'bg-blue-100',
-        assessmentKey: 'motorAssessment',
-        icon: <Activity className="w-6 h-6 text-blue-500" />,
-    },
-    cognitive: {
-        label: 'Cognitive',
-        emoji: '🧠',
-        color: '#8b5cf6',
-        bgClass: 'bg-purple-50',
-        textClass: 'text-purple-600',
-        borderClass: 'border-purple-200',
-        iconBg: 'bg-purple-100',
-        assessmentKey: 'cognitiveAssessment',
-        icon: <Brain className="w-6 h-6 text-purple-500" />,
-    },
-    language: {
-        label: 'Language',
-        emoji: '💬',
-        color: '#ec4899',
-        bgClass: 'bg-pink-50',
-        textClass: 'text-pink-600',
-        borderClass: 'border-pink-200',
-        iconBg: 'bg-pink-100',
-        assessmentKey: 'languageAssessment',
-        icon: <MessageCircle className="w-6 h-6 text-pink-500" />,
-    },
-    social: {
-        label: 'Social & Emotional',
-        emoji: '❤️',
-        color: '#10b981',
-        bgClass: 'bg-emerald-50',
-        textClass: 'text-emerald-600',
-        borderClass: 'border-emerald-200',
-        iconBg: 'bg-emerald-100',
-        assessmentKey: 'socialAssessment',
-        icon: <Heart className="w-6 h-6 text-emerald-500" />,
-    },
+// Tailwind class mapping from hex domain colors
+const DOMAIN_TW: Record<string, { bgClass: string; textClass: string; borderClass: string; iconBg: string }> = {
+    '#3b82f6': { bgClass: 'bg-blue-50', textClass: 'text-blue-600', borderClass: 'border-blue-200', iconBg: 'bg-blue-100' },
+    '#8b5cf6': { bgClass: 'bg-purple-50', textClass: 'text-purple-600', borderClass: 'border-purple-200', iconBg: 'bg-purple-100' },
+    '#ec4899': { bgClass: 'bg-pink-50', textClass: 'text-pink-600', borderClass: 'border-pink-200', iconBg: 'bg-pink-100' },
+    '#f59e0b': { bgClass: 'bg-amber-50', textClass: 'text-amber-600', borderClass: 'border-amber-200', iconBg: 'bg-amber-100' },
+    '#10b981': { bgClass: 'bg-emerald-50', textClass: 'text-emerald-600', borderClass: 'border-emerald-200', iconBg: 'bg-emerald-100' },
+    '#06b6d4': { bgClass: 'bg-cyan-50', textClass: 'text-cyan-600', borderClass: 'border-cyan-200', iconBg: 'bg-cyan-100' },
+};
+
+const DOMAIN_ICON_MAP: Record<string, React.ReactNode> = {
+    motor: <Activity className="w-6 h-6 text-blue-500" />,
+    cognitive: <Brain className="w-6 h-6 text-purple-500" />,
+    language: <MessageCircle className="w-6 h-6 text-pink-500" />,
+    social: <Heart className="w-6 h-6 text-emerald-500" />,
+};
+
+const ASSESSMENT_KEY_MAP: Record<string, keyof Pick<AnalysisData, 'motorAssessment' | 'cognitiveAssessment' | 'languageAssessment' | 'socialAssessment'>> = {
+    motorAssessment: 'motorAssessment',
+    cognitiveAssessment: 'cognitiveAssessment',
+    languageAssessment: 'languageAssessment',
+    socialAssessment: 'socialAssessment',
 };
 
 const DOMAINS: DomainKey[] = ['motor', 'cognitive', 'language', 'social'];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function formatStatus(status: string): string {
+// These are used as standalone functions; config is accessed in the component
+function formatStatus(status: string, statuses?: Record<string, any>): string {
+    if (statuses?.[status]) return statuses[status].label;
     const map: Record<string, string> = {
         on_track: 'On Track',
         on_track_with_monitoring: 'On Track (Monitoring)',
@@ -121,18 +91,23 @@ function formatStatus(status: string): string {
     return map[status] || status;
 }
 
-function statusBadgeClasses(status: string): string {
+function statusBadgeClasses(status: string, statuses?: Record<string, any>): string {
+    if (statuses?.[status]) {
+        const colorMap: Record<string, string> = {
+            '#10b981': 'bg-emerald-50 text-emerald-700',
+            '#059669': 'bg-emerald-50 text-emerald-700',
+            '#0ea5e9': 'bg-sky-50 text-sky-700',
+            '#f59e0b': 'bg-amber-50 text-amber-700',
+            '#ef4444': 'bg-red-50 text-red-700',
+        };
+        return colorMap[statuses[status].color] || 'bg-gray-50 text-gray-700';
+    }
     switch (status) {
-        case 'on_track':
-            return 'bg-emerald-50 text-emerald-700';
-        case 'on_track_with_monitoring':
-            return 'bg-sky-50 text-sky-700';
-        case 'emerging':
-            return 'bg-amber-50 text-amber-700';
-        case 'needs_support':
-            return 'bg-red-50 text-red-700';
-        default:
-            return 'bg-gray-50 text-gray-700';
+        case 'on_track': return 'bg-emerald-50 text-emerald-700';
+        case 'on_track_with_monitoring': return 'bg-sky-50 text-sky-700';
+        case 'emerging': return 'bg-amber-50 text-amber-700';
+        case 'needs_support': return 'bg-red-50 text-red-700';
+        default: return 'bg-gray-50 text-gray-700';
     }
 }
 
@@ -140,6 +115,7 @@ function statusBadgeClasses(status: string): string {
 
 export default function Insights() {
     const { activeChild } = useChild();
+    const { config } = useAppConfig();
     const child = activeChild;
 
     const [loading, setLoading] = useState(true);
@@ -147,41 +123,106 @@ export default function Insights() {
     const [timeFilter, setTimeFilter] = useState('ALL');
     const [selectedDomain, setSelectedDomain] = useState<DomainKey | null>(null);
 
+    // Trends data from backend
+    const [trendData, setTrendData] = useState<{
+        chartData: any[];
+        trends: Record<string, { direction: string; diff: number; latestScore: number; previousScore: number }>;
+        milestoneStats: { achieved: number; upcoming: number };
+        analysisCount: number;
+    } | null>(null);
+
+    // Build domain config from API config
+    const DOMAIN_CONFIG = useMemo(() => {
+        const fallback: Record<DomainKey, { label: string; emoji: string; color: string; bgClass: string; textClass: string; borderClass: string; iconBg: string; assessmentKey: keyof Pick<AnalysisData, 'motorAssessment' | 'cognitiveAssessment' | 'languageAssessment' | 'socialAssessment'>; icon: React.ReactNode }> = {
+            motor: { label: 'Motor Skills', emoji: '🏃', color: '#3b82f6', bgClass: 'bg-blue-50', textClass: 'text-blue-600', borderClass: 'border-blue-200', iconBg: 'bg-blue-100', assessmentKey: 'motorAssessment', icon: DOMAIN_ICON_MAP.motor },
+            cognitive: { label: 'Cognitive', emoji: '🧠', color: '#8b5cf6', bgClass: 'bg-purple-50', textClass: 'text-purple-600', borderClass: 'border-purple-200', iconBg: 'bg-purple-100', assessmentKey: 'cognitiveAssessment', icon: DOMAIN_ICON_MAP.cognitive },
+            language: { label: 'Language', emoji: '💬', color: '#ec4899', bgClass: 'bg-pink-50', textClass: 'text-pink-600', borderClass: 'border-pink-200', iconBg: 'bg-pink-100', assessmentKey: 'languageAssessment', icon: DOMAIN_ICON_MAP.language },
+            social: { label: 'Social & Emotional', emoji: '❤️', color: '#10b981', bgClass: 'bg-emerald-50', textClass: 'text-emerald-600', borderClass: 'border-emerald-200', iconBg: 'bg-emerald-100', assessmentKey: 'socialAssessment', icon: DOMAIN_ICON_MAP.social },
+        };
+
+        if (!config?.domains) return fallback;
+
+        const result = { ...fallback };
+        for (const dk of DOMAINS) {
+            const apiDomain = config.domains[dk];
+            if (apiDomain) {
+                const tw = DOMAIN_TW[apiDomain.color] || { bgClass: 'bg-gray-50', textClass: 'text-gray-600', borderClass: 'border-gray-200', iconBg: 'bg-gray-100' };
+                result[dk] = {
+                    ...result[dk],
+                    label: apiDomain.label,
+                    emoji: apiDomain.emoji,
+                    color: apiDomain.color,
+                    ...tw,
+                };
+            }
+        }
+        return result;
+    }, [config?.domains]);
+
+    // Build time filters from config
+    const timeFilters = useMemo(() => {
+        if (!config?.timeFilters) return FALLBACK_TIME_FILTERS;
+        return config.timeFilters.map(f => ({
+            id: f.id,
+            label: f.id, // short label for pills
+            days: f.days ?? 9999,
+        }));
+    }, [config?.timeFilters]);
+
     // ─── Fetch ───────────────────────────────────────────────────────────────
 
     useEffect(() => {
         if (!child?._id) return;
-        fetchAnalyses();
-    }, [child?._id]);
+        fetchData();
+    }, [child?._id, timeFilter]);
 
-    const fetchAnalyses = async () => {
+    const fetchData = async () => {
         setLoading(true);
         try {
-            const response = await api.get(`/analysis/${child!._id}`);
-            const data: AnalysisData[] = response.data.analyses || [];
-            setAnalyses(data);
+            // Map timeFilter to backend period param
+            const periodMap: Record<string, string> = { '1W': '1W', '1M': '1M', '3M': '3M', '6M': '6M', 'ALL': 'ALL' };
+            const period = periodMap[timeFilter] || 'ALL';
+
+            const [analysesRes, trendsRes] = await Promise.all([
+                api.get(`/analysis/${child!._id}`),
+                api.get(`/analysis/${child!._id}/trends`, { params: { period } }),
+            ]);
+
+            setAnalyses(analysesRes.data.analyses || []);
+            setTrendData(trendsRes.data);
         } catch (error) {
-            console.error('Failed to fetch analyses:', error);
+            console.error('Failed to fetch data:', error);
         } finally {
             setLoading(false);
         }
     };
 
-    // ─── Filtered data ──────────────────────────────────────────────────────
+    // ─── Filtered data (use backend trend data for chart, local for latest) ─
 
     const filteredAnalyses = useMemo(() => {
-        const filter = TIME_FILTERS.find(f => f.id === timeFilter);
+        const filter = timeFilters.find(f => f.id === timeFilter);
         if (!filter || filter.id === 'ALL') return analyses;
         const cutoff = new Date();
-        cutoff.setDate(cutoff.getDate() - filter.days);
+        cutoff.setDate(cutoff.getDate() - (filter.days || 9999));
         return analyses.filter(a => new Date(a.createdAt) >= cutoff);
-    }, [analyses, timeFilter]);
+    }, [analyses, timeFilter, timeFilters]);
 
     const latest = filteredAnalyses.length > 0 ? filteredAnalyses[0] : null;
 
-    // ─── Chart data ─────────────────────────────────────────────────────────
+    // ─── Chart data from backend ────────────────────────────────────────────
 
     const chartData = useMemo(() => {
+        if (trendData?.chartData && trendData.chartData.length > 0) {
+            return trendData.chartData.map(d => ({
+                date: d.dateLabel || new Date(d.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+                motor: d.motor ?? 0,
+                cognitive: d.cognitive ?? 0,
+                language: d.language ?? 0,
+                social: d.social ?? 0,
+                overall: d.overall,
+            }));
+        }
+        // Fallback to local computation
         return filteredAnalyses
             .slice()
             .reverse()
@@ -193,7 +234,7 @@ export default function Insights() {
                 social: a.socialAssessment?.score ?? 0,
                 overall: a.overallScore,
             }));
-    }, [filteredAnalyses]);
+    }, [trendData, filteredAnalyses]);
 
     // ─── Domain helpers ─────────────────────────────────────────────────────
 
@@ -218,6 +259,10 @@ export default function Insights() {
     };
 
     const getTrend = (domain: DomainKey): 'up' | 'down' | 'stable' => {
+        // Use backend trends if available
+        if (trendData?.trends?.[domain]) {
+            return trendData.trends[domain].direction as 'up' | 'down' | 'stable';
+        }
         if (filteredAnalyses.length < 2) return 'stable';
         const latestScore = getAssessment(filteredAnalyses[0], domain)?.score ?? 0;
         const previousScore = getAssessment(filteredAnalyses[1], domain)?.score ?? 0;
@@ -226,9 +271,11 @@ export default function Insights() {
         return 'stable';
     };
 
-    // ─── Milestone velocity ─────────────────────────────────────────────────
+    // ─── Milestone velocity (from backend) ──────────────────────────────────
 
     const milestoneStats = useMemo(() => {
+        if (trendData?.milestoneStats) return trendData.milestoneStats;
+        // Fallback
         let achieved = 0;
         let upcoming = 0;
         for (const a of filteredAnalyses) {
@@ -239,7 +286,7 @@ export default function Insights() {
             }
         }
         return { achieved, upcoming };
-    }, [filteredAnalyses]);
+    }, [trendData, filteredAnalyses]);
 
     // ─── Trend UI helpers ───────────────────────────────────────────────────
 
@@ -335,8 +382,8 @@ export default function Insights() {
                                 <h3 className="text-xl font-bold text-gray-900">{config.label}</h3>
                                 <div className="flex items-center gap-2 mt-1">
                                     <span className={`text-lg font-bold ${config.textClass}`}>{assessment.score}/100</span>
-                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusBadgeClasses(assessment.status)}`}>
-                                        {formatStatus(assessment.status)}
+                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusBadgeClasses(assessment.status, config?.statuses)}`}>
+                                        {formatStatus(assessment.status, config?.statuses)}
                                     </span>
                                     <TrendBadge trend={getTrend(selectedDomain)} />
                                 </div>
@@ -508,7 +555,7 @@ export default function Insights() {
 
                             {/* Time filter pills */}
                             <div className="flex gap-2">
-                                {TIME_FILTERS.map(filter => (
+                                {timeFilters.map(filter => (
                                     <button
                                         key={filter.id}
                                         onClick={() => setTimeFilter(filter.id)}
@@ -532,7 +579,7 @@ export default function Insights() {
                                     : latest.overallStatus === 'emerging' ? 'bg-yellow-400/30 text-yellow-100'
                                         : 'bg-red-400/30 text-red-100'
                                     }`}>
-                                    {formatStatus(latest.overallStatus)}
+                                    {formatStatus(latest.overallStatus, config?.statuses)}
                                 </span>
                             </div>
                         )}
@@ -549,7 +596,7 @@ export default function Insights() {
                         {latest ? 'Development Trend' : 'Getting Started'}
                     </h3>
                     <button
-                        onClick={fetchAnalyses}
+                        onClick={fetchData}
                         disabled={loading}
                         className="flex items-center gap-1.5 text-emerald-600 font-medium text-sm hover:text-emerald-700 transition"
                     >
@@ -643,8 +690,8 @@ export default function Insights() {
                                                     <div className="flex items-center gap-2 mt-1">
                                                         <span className={`text-xl font-bold ${config.textClass}`}>{score}</span>
                                                         <span className="text-xs text-gray-400 font-medium">/100</span>
-                                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${statusBadgeClasses(status)}`}>
-                                                            {formatStatus(status)}
+                                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${statusBadgeClasses(status, config?.statuses)}`}>
+                                                            {formatStatus(status, config?.statuses)}
                                                         </span>
                                                     </div>
                                                 </div>

@@ -27,6 +27,7 @@ import { useChild } from '../contexts/ChildContext';
 import { format } from 'date-fns';
 import { toast } from 'react-toastify';
 import api from '../api';
+import { useAppConfig } from '../hooks/useAppConfig';
 
 // --- Types ---
 
@@ -73,51 +74,46 @@ interface AnalysisData {
 
 // --- Helpers ---
 
-const getStatusLabel = (status: string): string => {
-    switch (status) {
-        case 'on_track': return 'On Track';
-        case 'on_track_with_monitoring': return 'On Track (Monitoring)';
-        case 'emerging': return 'Emerging';
-        case 'needs_support': return 'Needs Support';
-        default: return status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-    }
-};
+// Config-driven helpers that accept the config object
+function getStatusLabelFromConfig(status: string, statuses?: Record<string, any>): string {
+    if (statuses?.[status]) return statuses[status].label;
+    return status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
 
-const getStatusColors = (status: string) => {
-    switch (status) {
-        case 'on_track':
-            return { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200' };
-        case 'on_track_with_monitoring':
-            return { bg: 'bg-sky-100', text: 'text-sky-700', border: 'border-sky-200' };
-        case 'emerging':
-            return { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-200' };
-        case 'needs_support':
-            return { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-200' };
-        default:
-            return { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-200' };
-    }
-};
+// Color mapping from hex config to tailwind classes (used for status badges)
+function hexToStatusClasses(color?: string, bgColor?: string) {
+    // Map known config colors to tailwind classes
+    const colorMap: Record<string, { bg: string; text: string; border: string }> = {
+        '#10b981': { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200' },
+        '#059669': { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200' },
+        '#0ea5e9': { bg: 'bg-sky-100', text: 'text-sky-700', border: 'border-sky-200' },
+        '#f59e0b': { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-200' },
+        '#ef4444': { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-200' },
+    };
+    return colorMap[color || ''] || { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-200' };
+}
 
-const getOverallStatusColors = (status: string) => {
-    switch (status) {
-        case 'on_track':
-            return { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' };
-        case 'on_track_with_monitoring':
-            return { bg: 'bg-sky-50', text: 'text-sky-700', border: 'border-sky-200' };
-        case 'emerging':
-            return { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' };
-        case 'needs_support':
-            return { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' };
-        default:
-            return { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200' };
-    }
-};
+function hexToOverallStatusClasses(color?: string) {
+    const colorMap: Record<string, { bg: string; text: string; border: string }> = {
+        '#10b981': { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
+        '#059669': { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
+        '#0ea5e9': { bg: 'bg-sky-50', text: 'text-sky-700', border: 'border-sky-200' },
+        '#f59e0b': { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
+        '#ef4444': { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' },
+    };
+    return colorMap[color || ''] || { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200' };
+}
 
-const getScoreColor = (score: number) => {
+function getScoreColorFromConfig(score: number, scoreThresholds?: Record<string, any>): string {
+    if (scoreThresholds) {
+        if (score >= (scoreThresholds.excellent?.min ?? 70)) return scoreThresholds.excellent?.color ?? '#10b981';
+        if (score >= (scoreThresholds.moderate?.min ?? 50)) return scoreThresholds.moderate?.color ?? '#f59e0b';
+        return scoreThresholds.concern?.color ?? '#ef4444';
+    }
     if (score >= 70) return '#10b981';
     if (score >= 50) return '#f59e0b';
     return '#ef4444';
-};
+}
 
 const getSourceOrgColor = (type: string) => {
     switch (type?.toLowerCase()) {
@@ -134,39 +130,30 @@ const getPercentileColor = (percentile: number) => {
     return { bg: 'bg-red-50', text: 'text-red-600', icon: 'text-red-500' };
 };
 
-const domainConfig = [
-    {
-        key: 'motorAssessment',
-        name: 'Motor Skills',
-        color: 'bg-blue-500',
-        lightBg: 'bg-blue-100',
-        textColor: 'text-blue-600',
-        icon: Activity,
-    },
-    {
-        key: 'cognitiveAssessment',
-        name: 'Cognitive Skills',
-        color: 'bg-purple-500',
-        lightBg: 'bg-purple-100',
-        textColor: 'text-purple-600',
-        icon: Brain,
-    },
-    {
-        key: 'languageAssessment',
-        name: 'Language Skills',
-        color: 'bg-pink-500',
-        lightBg: 'bg-pink-100',
-        textColor: 'text-pink-600',
-        icon: MessageCircle,
-    },
-    {
-        key: 'socialAssessment',
-        name: 'Social-Emotional',
-        color: 'bg-amber-500',
-        lightBg: 'bg-amber-100',
-        textColor: 'text-amber-600',
-        icon: HeartHandshake,
-    },
+// Icon mapping for domain keys
+const DOMAIN_ICON_MAP: Record<string, React.ComponentType<any>> = {
+    motor: Activity,
+    cognitive: Brain,
+    language: MessageCircle,
+    social: HeartHandshake,
+};
+
+// Tailwind class mappings for domain colors (derived from hex)
+const DOMAIN_TW_MAP: Record<string, { color: string; lightBg: string; textColor: string }> = {
+    '#3b82f6': { color: 'bg-blue-500', lightBg: 'bg-blue-100', textColor: 'text-blue-600' },
+    '#8b5cf6': { color: 'bg-purple-500', lightBg: 'bg-purple-100', textColor: 'text-purple-600' },
+    '#ec4899': { color: 'bg-pink-500', lightBg: 'bg-pink-100', textColor: 'text-pink-600' },
+    '#f59e0b': { color: 'bg-amber-500', lightBg: 'bg-amber-100', textColor: 'text-amber-600' },
+    '#10b981': { color: 'bg-emerald-500', lightBg: 'bg-emerald-100', textColor: 'text-emerald-600' },
+    '#06b6d4': { color: 'bg-cyan-500', lightBg: 'bg-cyan-100', textColor: 'text-cyan-600' },
+};
+
+// Fallback domain config used when the API config is not yet loaded
+const FALLBACK_DOMAIN_CONFIG = [
+    { key: 'motorAssessment', name: 'Motor Skills', color: 'bg-blue-500', lightBg: 'bg-blue-100', textColor: 'text-blue-600', icon: Activity },
+    { key: 'cognitiveAssessment', name: 'Cognitive Skills', color: 'bg-purple-500', lightBg: 'bg-purple-100', textColor: 'text-purple-600', icon: Brain },
+    { key: 'languageAssessment', name: 'Language Skills', color: 'bg-pink-500', lightBg: 'bg-pink-100', textColor: 'text-pink-600', icon: MessageCircle },
+    { key: 'socialAssessment', name: 'Social-Emotional', color: 'bg-amber-500', lightBg: 'bg-amber-100', textColor: 'text-amber-600', icon: HeartHandshake },
 ];
 
 // --- Components ---
@@ -177,16 +164,21 @@ function DomainCard({
     isExpanded,
     onToggle,
     onImprove,
+    statuses,
+    scoreThresholds,
 }: {
     domain: DomainAssessment;
-    config: typeof domainConfig[number];
+    config: typeof FALLBACK_DOMAIN_CONFIG[number];
     isExpanded: boolean;
     onToggle: () => void;
     onImprove: () => void;
+    statuses?: Record<string, any>;
+    scoreThresholds?: Record<string, any>;
 }) {
-    const statusColors = getStatusColors(domain.status);
+    const statusCfg = statuses?.[domain.status];
+    const statusColors = statusCfg ? hexToStatusClasses(statusCfg.color) : hexToStatusClasses();
     const Icon = config.icon;
-    const scoreColor = getScoreColor(domain.score);
+    const scoreColor = getScoreColorFromConfig(domain.score, scoreThresholds);
 
     return (
         <div className={`bg-white rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border overflow-hidden transition-all ${statusColors.border}`}>
@@ -202,7 +194,7 @@ function DomainCard({
                         <h3 className="font-bold text-gray-900">{config.name}</h3>
                         <div className="flex items-center gap-2 mt-1">
                             <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${statusColors.bg} ${statusColors.text}`}>
-                                {getStatusLabel(domain.status)}
+                                {getStatusLabelFromConfig(domain.status, statuses)}
                             </span>
                             <span className="text-sm text-gray-500">Score: {domain.score}/100</span>
                         </div>
@@ -324,12 +316,42 @@ export default function AnalysisResult() {
     const location = useLocation();
     const navigate = useNavigate();
     const { activeChild } = useChild();
+    const { config } = useAppConfig();
     const [analysis, setAnalysis] = useState<AnalysisData | null>(location.state?.analysis || null);
     const [loading, setLoading] = useState(!analysis);
     const [expandedDomain, setExpandedDomain] = useState<string | null>('motorAssessment');
     const [showAllSources, setShowAllSources] = useState(false);
 
     const child = activeChild;
+
+    // Build domain config from API config, falling back to hardcoded
+    const domainConfig = config?.domains
+        ? Object.values(config.domains)
+            .filter(d => d.assessmentKey) // only domains with assessment keys
+            .map(d => {
+                const tw = DOMAIN_TW_MAP[d.color] || { color: 'bg-gray-500', lightBg: 'bg-gray-100', textColor: 'text-gray-600' };
+                return {
+                    key: d.assessmentKey,
+                    name: d.label,
+                    color: tw.color,
+                    lightBg: tw.lightBg,
+                    textColor: tw.textColor,
+                    icon: DOMAIN_ICON_MAP[d.key] || Activity,
+                };
+            })
+            .filter(d => ['motorAssessment', 'cognitiveAssessment', 'languageAssessment', 'socialAssessment'].includes(d.key))
+        : FALLBACK_DOMAIN_CONFIG;
+
+    const getStatusLabel = (status: string) => getStatusLabelFromConfig(status, config?.statuses);
+    const getScoreColor = (score: number) => getScoreColorFromConfig(score, config?.scoreThresholds);
+    const getStatusColors = (status: string) => {
+        const statusCfg = config?.statuses?.[status];
+        return statusCfg ? hexToStatusClasses(statusCfg.color) : hexToStatusClasses();
+    };
+    const getOverallStatusColors = (status: string) => {
+        const statusCfg = config?.statuses?.[status];
+        return statusCfg ? hexToOverallStatusClasses(statusCfg.color) : hexToOverallStatusClasses();
+    };
 
     useEffect(() => {
         if (!analysis && child?._id) {
@@ -557,6 +579,8 @@ export default function AnalysisResult() {
                                         isExpanded={expandedDomain === cfg.key}
                                         onToggle={() => setExpandedDomain(expandedDomain === cfg.key ? null : cfg.key)}
                                         onImprove={() => navigate(`/improve-domain?domain=${cfg.key.replace('Assessment', '')}`)}
+                                        statuses={config?.statuses}
+                                        scoreThresholds={config?.scoreThresholds}
                                     />
                                 ))}
                             </div>

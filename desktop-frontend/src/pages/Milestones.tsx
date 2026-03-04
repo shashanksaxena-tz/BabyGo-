@@ -25,45 +25,12 @@ interface Milestone {
 type DomainFilter = 'all' | 'motor' | 'language' | 'cognitive' | 'social' | 'sensory';
 type TabType = 'current' | 'upcoming' | 'achieved';
 
-// WHO Milestone Data - matching the mobile app's whoDataService
-const WHO_MILESTONES: Milestone[] = [
-    // Motor
-    { id: 'head_control', title: 'Head control when held upright', description: 'Can hold head steady when held in a sitting position', domain: 'motor', minMonths: 1, maxMonths: 4, typicalMonths: 3 },
-    { id: 'rolls_over', title: 'Rolls over', description: 'Can roll from tummy to back and back to tummy', domain: 'motor', minMonths: 3, maxMonths: 7, typicalMonths: 5 },
-    { id: 'sits_unsupported', title: 'Sits without support', description: 'Can sit independently without falling over', domain: 'motor', minMonths: 4, maxMonths: 9, typicalMonths: 6 },
-    { id: 'crawls', title: 'Crawls', description: 'Moves forward on hands and knees', domain: 'motor', minMonths: 6, maxMonths: 11, typicalMonths: 8 },
-    { id: 'pulls_to_stand', title: 'Pulls to stand', description: 'Can pull up to standing using furniture', domain: 'motor', minMonths: 6, maxMonths: 12, typicalMonths: 9 },
-    { id: 'walks_alone', title: 'Walks alone', description: 'Takes independent steps without holding on', domain: 'motor', minMonths: 9, maxMonths: 18, typicalMonths: 12 },
-    { id: 'runs', title: 'Runs confidently', description: 'Can run with coordination and balance', domain: 'motor', minMonths: 18, maxMonths: 30, typicalMonths: 24 },
-    { id: 'jumps_both_feet', title: 'Jumps with both feet', description: 'Can jump off the ground with both feet simultaneously', domain: 'motor', minMonths: 24, maxMonths: 36, typicalMonths: 30 },
-    { id: 'kicks_ball', title: 'Kicks ball forward', description: 'Can kick a ball in a forward direction', domain: 'motor', minMonths: 18, maxMonths: 30, typicalMonths: 24 },
-    { id: 'walks_stairs', title: 'Walks up stairs', description: 'Walks up stairs with alternating feet', domain: 'motor', minMonths: 24, maxMonths: 36, typicalMonths: 30 },
-    // Language
-    { id: 'coos', title: 'Coos and makes sounds', description: 'Makes cooing and gurgling sounds', domain: 'language', minMonths: 1, maxMonths: 4, typicalMonths: 2 },
-    { id: 'babbles', title: 'Babbles consonant sounds', description: 'Makes repeated consonant-vowel combinations like ba-ba, da-da', domain: 'language', minMonths: 4, maxMonths: 8, typicalMonths: 6 },
-    { id: 'first_word', title: 'Says first word', description: 'Uses a word consistently to mean something', domain: 'language', minMonths: 9, maxMonths: 15, typicalMonths: 12 },
-    { id: 'ten_words', title: 'Says 10+ words', description: 'Uses at least 10 different words with meaning', domain: 'language', minMonths: 15, maxMonths: 24, typicalMonths: 18 },
-    { id: 'two_word_sentences', title: 'Two-word sentences', description: 'Combines two words to make simple sentences', domain: 'language', minMonths: 18, maxMonths: 30, typicalMonths: 24 },
-    { id: 'follows_instructions', title: 'Follows 2-step instructions', description: 'Can follow simple two-step directions', domain: 'language', minMonths: 24, maxMonths: 36, typicalMonths: 30 },
-    // Cognitive
-    { id: 'tracks_objects', title: 'Tracks moving objects', description: 'Eyes follow a moving object or person', domain: 'cognitive', minMonths: 1, maxMonths: 4, typicalMonths: 2 },
-    { id: 'reaches_for_objects', title: 'Reaches for objects', description: 'Deliberately reaches out to grab things', domain: 'cognitive', minMonths: 3, maxMonths: 6, typicalMonths: 4 },
-    { id: 'object_permanence', title: 'Object permanence', description: 'Understands that objects still exist when hidden', domain: 'cognitive', minMonths: 6, maxMonths: 12, typicalMonths: 8 },
-    { id: 'stacks_blocks', title: 'Stacks 4+ blocks', description: 'Can stack at least 4 blocks on top of each other', domain: 'cognitive', minMonths: 15, maxMonths: 24, typicalMonths: 18 },
-    { id: 'sorts_shapes', title: 'Sorts shapes', description: 'Can sort objects by shape or color', domain: 'cognitive', minMonths: 18, maxMonths: 30, typicalMonths: 24 },
-    { id: 'counts_to_ten', title: 'Counts to 10', description: 'Can count objects up to 10', domain: 'cognitive', minMonths: 24, maxMonths: 42, typicalMonths: 36 },
-    // Social
-    { id: 'social_smile', title: 'Social smile', description: 'Smiles in response to people', domain: 'social', minMonths: 1, maxMonths: 3, typicalMonths: 2 },
-    { id: 'stranger_anxiety', title: 'Stranger anxiety', description: 'Shows wariness around unfamiliar people', domain: 'social', minMonths: 6, maxMonths: 12, typicalMonths: 8 },
-    { id: 'waves_bye', title: 'Waves bye-bye', description: 'Waves goodbye when prompted', domain: 'social', minMonths: 9, maxMonths: 15, typicalMonths: 12 },
-    { id: 'parallel_play', title: 'Parallel play', description: 'Plays alongside other children', domain: 'social', minMonths: 18, maxMonths: 30, typicalMonths: 24 },
-    { id: 'shares_toys', title: 'Shares toys with others', description: 'Voluntarily shares toys with peers', domain: 'social', minMonths: 24, maxMonths: 36, typicalMonths: 30 },
-    { id: 'pretend_play', title: 'Plays pretend games', description: 'Engages in imaginative play scenarios', domain: 'social', minMonths: 24, maxMonths: 36, typicalMonths: 30 },
-];
-
 export default function Milestones() {
     const { activeChild } = useChild();
-    const [milestones] = useState<Milestone[]>(WHO_MILESTONES);
+    const [milestones, setMilestones] = useState<Milestone[]>([]);
+    const [upcomingSidebar, setUpcomingSidebar] = useState<Milestone[]>([]);
+    const [milestoneCounts, setMilestoneCounts] = useState<{ current: number; upcoming: number; achieved: number; total: number }>({ current: 0, upcoming: 0, achieved: 0, total: 0 });
+    const [progress, setProgress] = useState(0);
     const [loading, setLoading] = useState(true);
     const [syncing, setSyncing] = useState(false);
     const [selectedDomain, setSelectedDomain] = useState<DomainFilter>('all');
@@ -77,44 +44,62 @@ export default function Milestones() {
 
     const child = activeChild;
 
-    const getAgeMonths = () => {
+    // Use computed ageInMonths from API response, fallback to local calc
+    const ageMonths = (child as any)?.ageInMonths ?? (() => {
         if (!child?.dateOfBirth) return 12;
         const today = new Date();
         const dob = new Date(child.dateOfBirth);
         return (today.getFullYear() - dob.getFullYear()) * 12 + (today.getMonth() - dob.getMonth());
-    };
+    })();
 
-    const ageMonths = getAgeMonths();
-
-    // Sync with backend
-    const syncWithBackend = useCallback(async () => {
+    // Fetch milestones from backend API with filtering
+    const fetchMilestones = useCallback(async () => {
         if (!child?._id) return;
         setLoading(true);
         try {
-            const response = await api.get(`/children/${child._id}/milestones`);
-            const data = response.data;
+            // Fetch milestones with server-side filtering
+            const params: Record<string, string> = { childId: child._id };
+            if (selectedDomain !== 'all') params.domain = selectedDomain;
+            if (activeTab !== 'current') params.status = activeTab; // current is default
 
+            params.status = activeTab;
+
+            const [milestoneRes, childMilestoneRes, upcomingRes] = await Promise.all([
+                api.get(`/analysis/milestones/${ageMonths}`, { params }),
+                api.get(`/children/${child._id}/milestones`),
+                // Always fetch upcoming for sidebar
+                api.get(`/analysis/milestones/${ageMonths}`, { params: { childId: child._id, status: 'upcoming' } }),
+            ]);
+
+            const milestoneData = milestoneRes.data;
+            setMilestones(milestoneData.milestones || []);
+            setMilestoneCounts(milestoneData.counts || { current: 0, upcoming: 0, achieved: 0, total: 0 });
+            setProgress(milestoneData.progress || 0);
+            setUpcomingSidebar((upcomingRes.data.milestones || []).slice(0, 4));
+
+            // Sync achieved/watched from child endpoint
+            const childData = childMilestoneRes.data;
             const achievedMap = new Map<string, AchievedMilestone>();
-            (data.achievedMilestones || []).forEach((m: AchievedMilestone) => {
+            (childData.achievedMilestones || []).forEach((m: AchievedMilestone) => {
                 achievedMap.set(m.milestoneId, m);
             });
             setAchievedMilestones(achievedMap);
 
             const watchedSet = new Set<string>();
-            (data.watchedMilestones || []).forEach((m: any) => {
+            (childData.watchedMilestones || []).forEach((m: any) => {
                 watchedSet.add(m.milestoneId);
             });
             setWatchedMilestones(watchedSet);
         } catch (error) {
-            console.error('Failed to sync milestones:', error);
+            console.error('Failed to fetch milestones:', error);
         } finally {
             setLoading(false);
         }
-    }, [child?._id]);
+    }, [child?._id, ageMonths, selectedDomain, activeTab]);
 
     useEffect(() => {
-        syncWithBackend();
-    }, [syncWithBackend]);
+        fetchMilestones();
+    }, [fetchMilestones]);
 
     // Mark milestone as achieved
     const markAchieved = async (milestoneId: string) => {
@@ -227,23 +212,8 @@ export default function Milestones() {
         { id: 'social' as DomainFilter, label: 'Social', dot: 'bg-emerald-500' },
     ];
 
-    // Filter milestones based on tab and domain
-    const filteredMilestones = milestones.filter(m => {
-        if (selectedDomain !== 'all' && m.domain !== selectedDomain) return false;
-
-        if (activeTab === 'current') {
-            return !achievedMilestones.has(m.id) && ageMonths >= m.minMonths && ageMonths <= m.maxMonths;
-        } else if (activeTab === 'upcoming') {
-            return !achievedMilestones.has(m.id) && m.minMonths > ageMonths;
-        } else {
-            return achievedMilestones.has(m.id);
-        }
-    });
-
-    // Calculate progress
-    const currentMilestones = milestones.filter(m => ageMonths >= m.minMonths && ageMonths <= m.maxMonths);
-    const achievedCount = currentMilestones.filter(m => achievedMilestones.has(m.id)).length;
-    const progress = currentMilestones.length > 0 ? (achievedCount / currentMilestones.length) * 100 : 0;
+    // Milestones are now pre-filtered by the backend API
+    const filteredMilestones = milestones;
 
     if (!child) {
         return (
@@ -270,8 +240,8 @@ export default function Milestones() {
                             <div className="bg-white rounded-[24px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.02)] border border-gray-50 flex flex-col justify-center">
                                 <span className="text-sm font-bold font-heading text-gray-900 mb-2">Milestones Achieved</span>
                                 <div className="flex items-baseline gap-1">
-                                    <span className="text-4xl font-bold font-heading text-gray-900">{achievedMilestones.size}</span>
-                                    <span className="text-xl text-gray-400 font-bold font-heading">/{milestones.length}</span>
+                                    <span className="text-4xl font-bold font-heading text-gray-900">{milestoneCounts.achieved}</span>
+                                    <span className="text-xl text-gray-400 font-bold font-heading">/{milestoneCounts.total}</span>
                                 </div>
                             </div>
 
@@ -319,7 +289,7 @@ export default function Milestones() {
                             {([
                                 { id: 'current' as TabType, label: '🎯 Current' },
                                 { id: 'upcoming' as TabType, label: '🚀 Upcoming' },
-                                { id: 'achieved' as TabType, label: `🏆 Achieved (${achievedMilestones.size})` },
+                                { id: 'achieved' as TabType, label: `🏆 Achieved (${milestoneCounts.achieved})` },
                             ]).map(tab => (
                                 <button
                                     key={tab.id}
@@ -474,14 +444,11 @@ export default function Milestones() {
                             <div className="flex justify-between items-center mb-6 relative z-10">
                                 <h3 className="text-lg font-bold font-heading text-gray-900">Upcoming</h3>
                                 <span className="bg-amber-100 text-amber-600 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">
-                                    {milestones.filter(m => !achievedMilestones.has(m.id) && m.minMonths > ageMonths).length} left
+                                    {milestoneCounts.upcoming} left
                                 </span>
                             </div>
                             <div className="flex flex-col gap-5 relative z-10">
-                                {milestones
-                                    .filter(m => !achievedMilestones.has(m.id) && m.minMonths > ageMonths)
-                                    .slice(0, 4)
-                                    .map(m => {
+                                {upcomingSidebar.map(m => {
                                         const domainInfo = getDomainInfo(m.domain);
                                         return (
                                             <div key={m.id} className="flex gap-3 items-start">
@@ -510,7 +477,7 @@ export default function Milestones() {
                         </div>
 
                         <button
-                            onClick={syncWithBackend}
+                            onClick={fetchMilestones}
                             disabled={loading || syncing}
                             className="w-full flex justify-center items-center gap-2 bg-white text-emerald-600 border border-emerald-500 font-semibold py-3 rounded-xl hover:bg-emerald-50 transition disabled:opacity-50"
                         >
