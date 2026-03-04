@@ -19,6 +19,7 @@ import resourceRoutes from './routes/resources.js';
 import reportRoutes from './routes/reports.js';
 import sarvamRoutes from './routes/sarvam.js';
 import communityRoutes from './routes/community.js';
+import configRoutes from './routes/config.js';
 import storageService from './services/storageService.js';
 import { runMigrations } from './services/migrationRunner.js';
 
@@ -85,6 +86,7 @@ app.use('/api/resources', resourceRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/sarvam', sarvamRoutes);
 app.use('/api/community', communityRoutes);
+app.use('/api/config', configRoutes);
 
 // API documentation endpoint
 app.get('/api', (req, res) => {
