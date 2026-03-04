@@ -25,6 +25,34 @@ router.get('/themes', (_req, res) => {
   res.json({ themes: STORY_THEMES });
 });
 
+// POST /api/stories/illustration
+router.post('/illustration', authMiddleware, async (req, res) => {
+  try {
+    const { prompt, childPhotoBase64, childPhotoMime } = req.body;
+    if (!prompt) return res.status(400).json({ error: 'Illustration prompt required' });
+
+    const apiKey = req.user.geminiApiKey || process.env.GEMINI_API_KEY;
+    if (!apiKey) return res.status(400).json({ error: 'No API key configured' });
+    geminiService.initialize(apiKey);
+
+    const imageResult = await geminiService.generateIllustration(prompt, childPhotoBase64, childPhotoMime);
+
+    if (!imageResult) {
+      return res.status(500).json({ error: 'Failed to generate illustration' });
+    }
+
+    // Upload to MinIO
+    const filename = `illustration-${Date.now()}.png`;
+    const buffer = Buffer.from(imageResult.data, 'base64');
+    const { url } = await storageService.uploadBuffer('story-illustrations', buffer, imageResult.mimeType, filename);
+
+    res.json({ url, mimeType: imageResult.mimeType });
+  } catch (error) {
+    console.error('Illustration endpoint error:', error);
+    res.status(500).json({ error: 'Failed to generate illustration' });
+  }
+});
+
 // Get stories for child
 router.get('/:childId', authMiddleware, async (req, res) => {
   try {
