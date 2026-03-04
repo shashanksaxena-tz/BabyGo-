@@ -105,6 +105,7 @@ const MOTOR_MILESTONES = [
   { id: 'reaches-for-objects', title: 'Reaches for Objects', description: 'Reaches out to grab toys', domain: 'motor', minMonths: 3, maxMonths: 5, typicalMonths: 4 },
   { id: 'grasps-rattle', title: 'Grasps Rattle or Toy', description: 'Holds and shakes toys', domain: 'motor', minMonths: 3, maxMonths: 6, typicalMonths: 4 },
   { id: 'transfers-objects', title: 'Transfers Objects Between Hands', description: 'Passes objects from one hand to the other', domain: 'motor', minMonths: 5, maxMonths: 9, typicalMonths: 7 },
+  { id: 'raking-grasp', title: 'Raking Grasp', description: 'Uses whole hand to pick up small objects', domain: 'motor', minMonths: 6, maxMonths: 9, typicalMonths: 7 },
   { id: 'pincer-grasp', title: 'Pincer Grasp', description: 'Picks up small objects with thumb and finger', domain: 'motor', minMonths: 8, maxMonths: 12, typicalMonths: 10 },
   { id: 'bangs-objects', title: 'Bangs Objects Together', description: 'Holds two objects and bangs them together', domain: 'motor', minMonths: 8, maxMonths: 12, typicalMonths: 10 },
   // Fine Motor 12-36 months
@@ -224,7 +225,7 @@ const SENSORY_MILESTONES = [
   { id: 'focuses-on-faces', title: 'Focuses on Faces', description: 'Focuses on faces 8-12 inches away', domain: 'sensory', minMonths: 0, maxMonths: 3, typicalMonths: 2 },
   { id: 'tracks-objects', title: 'Tracks Moving Objects', description: 'Follows moving objects with eyes smoothly', domain: 'sensory', minMonths: 2, maxMonths: 6, typicalMonths: 4 },
   { id: 'recognizes-voices', title: 'Recognizes Familiar Voices', description: 'Shows recognition of familiar voices', domain: 'sensory', minMonths: 3, maxMonths: 6, typicalMonths: 4 },
-  { id: 'responds-to-sounds', title: 'Responds to Sounds from All Directions', description: 'Turns head toward sounds', domain: 'sensory', minMonths: 6, maxMonths: 10, typicalMonths: 8 },
+  { id: 'responds-to-sounds-direction', title: 'Responds to Sounds from All Directions', description: 'Turns head toward sounds from any direction', domain: 'sensory', minMonths: 6, maxMonths: 10, typicalMonths: 8 },
   { id: 'texture-exploration', title: 'Explores Textures', description: 'Shows interest in different textures', domain: 'sensory', minMonths: 6, maxMonths: 12, typicalMonths: 9 },
   { id: 'identifies-sounds', title: 'Identifies Common Sounds', description: 'Recognizes familiar sounds', domain: 'sensory', minMonths: 12, maxMonths: 24, typicalMonths: 18 },
   { id: 'tolerates-messy-play', title: 'Tolerates Messy Play', description: 'Engages with different textures in messy play', domain: 'sensory', minMonths: 12, maxMonths: 24, typicalMonths: 18 },
@@ -271,6 +272,7 @@ const whoDataService = {
       language: LANGUAGE_MILESTONES,
       cognitive: COGNITIVE_MILESTONES,
       social: SOCIAL_MILESTONES,
+      sensory: SENSORY_MILESTONES,
     }[domain] || [];
 
     return domainMilestones.filter(m => ageMonths >= m.minMonths - 1 && ageMonths <= m.maxMonths + 3);
