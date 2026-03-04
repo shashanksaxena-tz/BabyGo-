@@ -329,6 +329,84 @@ router.get('/:childId', authMiddleware, async (req, res) => {
   }
 });
 
+// Get trend data and chart points for child analyses
+router.get('/:childId/trends', authMiddleware, async (req, res) => {
+  try {
+    const { childId } = req.params;
+    const period = req.query.period || '3M';
+
+    const periodDays = { '1W': 7, '1M': 30, '3M': 90, '6M': 180 };
+    const days = periodDays[period];
+
+    let query = { childId, userId: String(req.user._id) };
+    if (days) {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - days);
+      query.createdAt = { $gte: cutoff };
+    }
+
+    const analyses = await Analysis.find(query).sort({ createdAt: 1 }).lean();
+
+    // Build chart data
+    const chartData = analyses.map(a => ({
+      date: a.createdAt,
+      dateLabel: new Date(a.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+      motor: a.motorAssessment?.score ?? null,
+      cognitive: a.cognitiveAssessment?.score ?? null,
+      language: a.languageAssessment?.score ?? null,
+      social: a.socialAssessment?.score ?? null,
+      overall: a.overallScore,
+    }));
+
+    // Calculate trends
+    const TREND_THRESHOLD = 2;
+    const domains = ['motor', 'cognitive', 'language', 'social'];
+    const trends = {};
+
+    if (analyses.length >= 2) {
+      const latest = analyses[analyses.length - 1];
+      const previous = analyses[analyses.length - 2];
+
+      for (const domain of domains) {
+        const latestScore = latest[`${domain}Assessment`]?.score ?? 0;
+        const previousScore = previous[`${domain}Assessment`]?.score ?? 0;
+        const diff = latestScore - previousScore;
+        trends[domain] = {
+          direction: diff > TREND_THRESHOLD ? 'up' : diff < -TREND_THRESHOLD ? 'down' : 'stable',
+          diff: Math.round(diff * 10) / 10,
+          latestScore,
+          previousScore,
+        };
+      }
+    } else {
+      for (const domain of domains) {
+        trends[domain] = { direction: 'stable', diff: 0, latestScore: 0, previousScore: 0 };
+      }
+    }
+
+    // Milestone stats
+    let achievedCount = 0, upcomingCount = 0;
+    for (const a of analyses) {
+      for (const domain of domains) {
+        const assessment = a[`${domain}Assessment`];
+        achievedCount += assessment?.achievedMilestones?.length ?? 0;
+        upcomingCount += assessment?.upcomingMilestones?.length ?? 0;
+      }
+    }
+
+    res.json({
+      chartData,
+      trends,
+      milestoneStats: { achieved: achievedCount, upcoming: upcomingCount },
+      analysisCount: analyses.length,
+      period,
+    });
+  } catch (error) {
+    console.error('Trends error:', error);
+    res.status(500).json({ error: 'Failed to calculate trends' });
+  }
+});
+
 // Get specific analysis
 router.get('/:childId/:id', authMiddleware, async (req, res) => {
   try {
