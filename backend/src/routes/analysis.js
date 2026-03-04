@@ -71,16 +71,61 @@ const upload = multer({
 });
 
 // Get WHO milestones for age (MUST be before /:childId route)
+// Supports query params: domain, status (current|upcoming|achieved), childId
 router.get('/milestones/:ageMonths', async (req, res) => {
   try {
     const ageMonths = parseInt(req.params.ageMonths);
     if (isNaN(ageMonths) || ageMonths < 0) {
       return res.status(400).json({ error: 'Invalid age in months' });
     }
-    const milestones = whoDataService.getMilestonesForAge(ageMonths);
+
+    const { domain, status, childId } = req.query;
+
+    let milestones = whoDataService.getMilestonesForAge(ageMonths);
     const sources = whoDataService.getSources();
 
-    res.json({ milestones, sources });
+    // Filter by domain if provided
+    if (domain && domain !== 'all') {
+      milestones = milestones.filter(m => m.domain === domain);
+    }
+
+    // Get achieved milestones if childId provided
+    let achievedIds = new Set();
+    if (childId) {
+      try {
+        const child = await Child.findById(childId);
+        if (child?.achievedMilestones) {
+          achievedIds = new Set(child.achievedMilestones.map(m => m.milestoneId));
+        }
+      } catch (childErr) {
+        // Child lookup failed - proceed without achieved data
+        console.warn('Failed to look up child for milestone status:', childErr.message);
+      }
+    }
+
+    // Categorize milestones
+    const current = milestones.filter(m => !achievedIds.has(m.id) && ageMonths >= m.minMonths && ageMonths <= m.maxMonths);
+    const upcoming = milestones.filter(m => !achievedIds.has(m.id) && m.minMonths > ageMonths);
+    const achieved = milestones.filter(m => achievedIds.has(m.id));
+
+    // Calculate progress based on current-age milestones
+    const currentAgeMilestones = milestones.filter(m => ageMonths >= m.minMonths && ageMonths <= m.maxMonths);
+    const progress = currentAgeMilestones.length > 0
+      ? Math.round((currentAgeMilestones.filter(m => achievedIds.has(m.id)).length / currentAgeMilestones.length) * 100)
+      : 0;
+
+    // Filter by status tab if provided
+    let result = milestones;
+    if (status === 'current') result = current;
+    else if (status === 'upcoming') result = upcoming;
+    else if (status === 'achieved') result = achieved;
+
+    res.json({
+      milestones: result,
+      counts: { current: current.length, upcoming: upcoming.length, achieved: achieved.length, total: milestones.length },
+      progress,
+      sources,
+    });
   } catch (error) {
     console.error('Milestones error:', error);
     res.status(500).json({ error: 'Failed to fetch milestones: ' + error.message });
