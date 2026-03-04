@@ -8,6 +8,33 @@ import whoDataService from '../services/whoDataService.js';
 
 const router = express.Router();
 
+// Helper to enrich child profile with computed age fields
+function enrichChildWithAge(child) {
+  const obj = child.toObject ? child.toObject() : { ...child };
+  if (obj.dateOfBirth) {
+    const now = new Date();
+    const dob = new Date(obj.dateOfBirth);
+    const ageInMonths = (now.getFullYear() - dob.getFullYear()) * 12 + (now.getMonth() - dob.getMonth());
+    const ageInDays = Math.floor((now - dob) / (1000 * 60 * 60 * 24));
+
+    let displayAge;
+    if (ageInMonths < 1) {
+      displayAge = `${ageInDays} day${ageInDays !== 1 ? 's' : ''}`;
+    } else if (ageInMonths < 24) {
+      displayAge = `${ageInMonths} month${ageInMonths !== 1 ? 's' : ''}`;
+    } else {
+      const years = Math.floor(ageInMonths / 12);
+      const months = ageInMonths % 12;
+      displayAge = months > 0 ? `${years}y ${months}m` : `${years} year${years !== 1 ? 's' : ''}`;
+    }
+
+    obj.ageInMonths = ageInMonths;
+    obj.ageInDays = ageInDays;
+    obj.displayAge = displayAge;
+  }
+  return obj;
+}
+
 // Helper to check if a string is a valid MongoDB ObjectId
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id) && String(new mongoose.Types.ObjectId(id)) === id;
 
@@ -15,7 +42,7 @@ const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id) && String(ne
 router.get('/', authMiddleware, async (req, res) => {
   try {
     const children = await Child.find({ userId: String(req.user._id) }).sort({ createdAt: 1 });
-    res.json({ children });
+    res.json({ children: children.map(enrichChildWithAge) });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch children' });
   }
@@ -45,7 +72,7 @@ router.post('/', authMiddleware, [
 
     res.status(201).json({
       message: 'Child profile created',
-      child,
+      child: enrichChildWithAge(child),
     });
   } catch (error) {
     console.error('Create child error:', error);
@@ -64,7 +91,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Child not found' });
     }
 
-    res.json({ child });
+    res.json({ child: enrichChildWithAge(child) });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch child' });
   }
@@ -83,7 +110,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Child not found' });
     }
 
-    res.json({ message: 'Child profile updated', child });
+    res.json({ message: 'Child profile updated', child: enrichChildWithAge(child) });
   } catch (error) {
     res.status(500).json({ error: 'Failed to update child profile' });
   }
