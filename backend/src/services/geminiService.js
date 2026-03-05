@@ -859,7 +859,7 @@ Valid priorities: high, medium, low
         return {
           domain,
           score: 50,
-          status: 'unknown',
+          status: 'on_track',
           observations: [],
           strengths: [],
           areasToSupport: [],
@@ -875,7 +875,7 @@ Valid priorities: high, medium, low
       return {
         domain,
         score: domainData.score || 50,
-        status: domainData.status || 'unknown',
+        status: domainData.status || 'on_track',
         observations: domainData.observations || [],
         strengths: domainData.strengths || [],
         areasToSupport: domainData.areasToSupport || [],
@@ -891,7 +891,7 @@ Valid priorities: high, medium, low
 
     return {
       overallScore: data.overallScore || 50,
-      overallStatus: data.overallStatus || 'unknown',
+      overallStatus: data.overallStatus || 'on_track',
       summary: data.summary || '',
       motorAssessment: buildAssessment('motor', data.motor),
       languageAssessment: buildAssessment('language', data.language),

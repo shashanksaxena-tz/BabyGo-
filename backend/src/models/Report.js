@@ -14,7 +14,7 @@ const domainAssessmentSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['on_track', 'emerging', 'needs_support'],
+    enum: ['ahead', 'on_track', 'on_track_with_monitoring', 'emerging', 'needs_support'],
     required: true,
   },
   observations: [String],
@@ -101,7 +101,7 @@ const reportSchema = new mongoose.Schema({
   },
   overallStatus: {
     type: String,
-    enum: ['on_track', 'emerging', 'needs_support'],
+    enum: ['ahead', 'on_track', 'on_track_with_monitoring', 'emerging', 'needs_support'],
     required: true,
   },
   overallSummary: {

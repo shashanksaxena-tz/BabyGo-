@@ -330,6 +330,7 @@ router.post('/', authMiddleware, upload.array('media', 10), geminiInit, async (r
       mediaFiles: mediaData.map((m, i) => ({
         filename: m.filename,
         type: m.mimeType.startsWith('video') ? 'video' : 'image',
+        url: '',
       })),
       ...analysisResult,
     });
@@ -458,14 +459,17 @@ router.get('/:childId/trends', authMiddleware, async (req, res) => {
       }
     }
 
-    // Milestone stats
+    // Milestone stats - use Child's achievedMilestones and WHO data for accurate counts
     let achievedCount = 0, upcomingCount = 0;
-    for (const a of analyses) {
-      for (const domain of DOMAINS) {
-        const assessment = a[`${domain}Assessment`];
-        achievedCount += assessment?.achievedMilestones?.length ?? 0;
-        upcomingCount += assessment?.upcomingMilestones?.length ?? 0;
+    try {
+      const child = await Child.findById(childId);
+      if (child) {
+        achievedCount = child.achievedMilestones?.length ?? 0;
+        const allMilestones = whoDataService.getMilestonesForAge(child.ageInMonths ?? 0);
+        upcomingCount = Math.max(0, allMilestones.length - achievedCount);
       }
+    } catch (milestoneErr) {
+      console.warn('Failed to compute milestone stats:', milestoneErr.message);
     }
 
     res.json({

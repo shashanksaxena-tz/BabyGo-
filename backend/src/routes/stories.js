@@ -346,6 +346,7 @@ router.patch('/:childId/:id/page/:pageNumber/illustration', authMiddleware, asyn
     }
 
     page.illustrationUrl = illustrationUrl;
+    story.illustrationsGenerated = true;
     await story.save();
 
     res.json({ message: 'Illustration updated', illustrationUrl });
