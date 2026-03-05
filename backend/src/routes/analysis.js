@@ -7,6 +7,7 @@ import TimelineEntry from '../models/Timeline.js';
 import { authMiddleware } from '../middleware/auth.js';
 import geminiService from '../services/geminiService.js';
 import whoDataService from '../services/whoDataService.js';
+import { DOMAINS } from '../config/appConfig.js';
 
 const router = express.Router();
 
@@ -453,14 +454,13 @@ router.get('/:childId/trends', authMiddleware, async (req, res) => {
 
     // Calculate trends
     const TREND_THRESHOLD = 2;
-    const domains = ['motor', 'cognitive', 'language', 'social'];
     const trends = {};
 
     if (analyses.length >= 2) {
       const latest = analyses[analyses.length - 1];
       const previous = analyses[analyses.length - 2];
 
-      for (const domain of domains) {
+      for (const domain of DOMAINS) {
         const latestScore = latest[`${domain}Assessment`]?.score ?? 0;
         const previousScore = previous[`${domain}Assessment`]?.score ?? 0;
         const diff = latestScore - previousScore;
@@ -472,7 +472,7 @@ router.get('/:childId/trends', authMiddleware, async (req, res) => {
         };
       }
     } else {
-      for (const domain of domains) {
+      for (const domain of DOMAINS) {
         trends[domain] = { direction: 'stable', diff: 0, latestScore: 0, previousScore: 0 };
       }
     }
@@ -480,7 +480,7 @@ router.get('/:childId/trends', authMiddleware, async (req, res) => {
     // Milestone stats
     let achievedCount = 0, upcomingCount = 0;
     for (const a of analyses) {
-      for (const domain of domains) {
+      for (const domain of DOMAINS) {
         const assessment = a[`${domain}Assessment`];
         achievedCount += assessment?.achievedMilestones?.length ?? 0;
         upcomingCount += assessment?.upcomingMilestones?.length ?? 0;

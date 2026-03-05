@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import whoDataService from './whoDataService.js';
-import { REGION_CUISINE_MAP } from '../routes/config.js';
+import { DOMAINS, REGION_CUISINE_MAP } from '../config/appConfig.js';
 
 class GeminiService {
   constructor() {
@@ -584,10 +584,9 @@ Style: Soft colors, gentle lighting, child-friendly, no scary elements. Suitable
       (Date.now() - new Date(child.dateOfBirth).getTime()) / (30.44 * 24 * 60 * 60 * 1000)
     );
 
-    const domains = ['motor', 'language', 'cognitive', 'social'];
     const allResources = [];
 
-    for (const domain of domains) {
+    for (const domain of DOMAINS) {
       const assessment = analysis[`${domain}Assessment`];
       if (!assessment) continue;
 
@@ -834,7 +833,7 @@ Valid priorities: high, medium, low
     }
 
     let context = '';
-    for (const domain of ['motor', 'language', 'cognitive', 'social']) {
+    for (const domain of DOMAINS) {
       const domainMilestones = byDomain[domain] || [];
       if (domainMilestones.length === 0) continue;
 
