@@ -3,6 +3,7 @@ import { body, validationResult } from 'express-validator';
 import Child from '../models/Child.js';
 import Story from '../models/Story.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { geminiInit } from '../middleware/geminiInit.js';
 import geminiService from '../services/geminiService.js';
 import storageService, { BUCKETS } from '../services/storageService.js';
 
@@ -26,14 +27,10 @@ router.get('/themes', (_req, res) => {
 });
 
 // POST /api/stories/illustration
-router.post('/illustration', authMiddleware, async (req, res) => {
+router.post('/illustration', authMiddleware, geminiInit, async (req, res) => {
   try {
     const { prompt, childPhotoBase64, childPhotoMime } = req.body;
     if (!prompt) return res.status(400).json({ error: 'Illustration prompt required' });
-
-    const apiKey = req.user.geminiApiKey || process.env.GEMINI_API_KEY;
-    if (!apiKey) return res.status(400).json({ error: 'No API key configured' });
-    geminiService.initialize(apiKey);
 
     const imageResult = await geminiService.generateIllustration(prompt, childPhotoBase64, childPhotoMime);
 
@@ -78,7 +75,7 @@ router.get('/:childId', authMiddleware, async (req, res) => {
 router.post('/', authMiddleware, [
   body('childId').notEmpty(),
   body('themeId').notEmpty(),
-], async (req, res) => {
+], geminiInit, async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -101,14 +98,6 @@ router.post('/', authMiddleware, [
     if (!theme) {
       return res.status(400).json({ error: 'Invalid theme' });
     }
-
-    // Initialize Gemini
-    const apiKey = req.user.geminiApiKey || process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return res.status(400).json({ error: 'Gemini API key not configured' });
-    }
-
-    geminiService.initialize(apiKey);
 
     // Generate story
     const storyData = await geminiService.generateBedtimeStory(child, theme, childPhotoBase64 || null, childPhotoMime || 'image/jpeg');
@@ -142,7 +131,7 @@ router.post('/', authMiddleware, [
 });
 
 // Generate custom story
-router.post('/custom', authMiddleware, async (req, res) => {
+router.post('/custom', authMiddleware, geminiInit, async (req, res) => {
   try {
     const {
       childId,
@@ -160,10 +149,6 @@ router.post('/custom', authMiddleware, async (req, res) => {
 
     const child = await Child.findOne({ _id: childId });
     if (!child) return res.status(404).json({ error: 'Child not found' });
-
-    const apiKey = req.user.geminiApiKey || process.env.GEMINI_API_KEY;
-    if (!apiKey) return res.status(400).json({ error: 'Gemini API key not configured' });
-    geminiService.initialize(apiKey);
 
     // Describe uploaded character images via Vision
     const characterDescriptions = [];

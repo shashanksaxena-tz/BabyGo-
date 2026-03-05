@@ -3,6 +3,7 @@ import Child from '../models/Child.js';
 import Analysis from '../models/Analysis.js';
 import Resource from '../models/Resource.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { geminiInit } from '../middleware/geminiInit.js';
 import geminiService from '../services/geminiService.js';
 
 const router = express.Router();
@@ -65,7 +66,7 @@ router.get('/:childId', authMiddleware, async (req, res) => {
 
 // POST /api/resources/:childId/regenerate
 // Regenerate resources using Gemini based on latest analysis
-router.post('/:childId/regenerate', authMiddleware, async (req, res) => {
+router.post('/:childId/regenerate', authMiddleware, geminiInit, async (req, res) => {
   try {
     // 1. Find child and latest analysis
     const child = await Child.findByAnyId(req.params.childId);
@@ -79,13 +80,6 @@ router.post('/:childId/regenerate', authMiddleware, async (req, res) => {
     if (!latestAnalysis) {
       return res.status(404).json({ error: 'No analysis found for this child. Run an analysis first.' });
     }
-
-    // Initialize Gemini
-    const apiKey = req.user.geminiApiKey || process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return res.status(400).json({ error: 'Gemini API key not configured' });
-    }
-    geminiService.initialize(apiKey);
 
     // 2. Mark old resources as not current
     await Resource.updateMany(

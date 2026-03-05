@@ -3,6 +3,7 @@ import Child from '../models/Child.js';
 import Analysis from '../models/Analysis.js';
 import RecipeCache from '../models/RecipeCache.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { geminiInit } from '../middleware/geminiInit.js';
 import geminiService from '../services/geminiService.js';
 import whoDataService from '../services/whoDataService.js';
 
@@ -11,7 +12,7 @@ const RECIPE_CACHE_TTL_DAYS = 7;
 const router = express.Router();
 
 // Get product recommendations
-router.get('/products/:childId', authMiddleware, async (req, res) => {
+router.get('/products/:childId', authMiddleware, geminiInit, async (req, res) => {
   try {
     const { category = 'toys' } = req.query;
 
@@ -22,13 +23,6 @@ router.get('/products/:childId', authMiddleware, async (req, res) => {
     if (!child) {
       return res.status(404).json({ error: 'Child not found' });
     }
-
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return res.status(400).json({ error: 'Gemini API key not configured' });
-    }
-
-    geminiService.initialize(apiKey);
 
     const recommendations = await geminiService.generateRecommendations(child, category);
 
@@ -44,14 +38,10 @@ router.get('/products/:childId', authMiddleware, async (req, res) => {
 });
 
 // GET /api/recommendations/activities/:childId?domain=motor
-router.get('/activities/:childId', authMiddleware, async (req, res) => {
+router.get('/activities/:childId', authMiddleware, geminiInit, async (req, res) => {
   try {
     const child = await Child.findById(req.params.childId);
     if (!child) return res.status(404).json({ error: 'Child not found' });
-
-    const apiKey = req.user.geminiApiKey || process.env.GEMINI_API_KEY;
-    if (!apiKey) return res.status(400).json({ error: 'No API key configured' });
-    geminiService.initialize(apiKey);
 
     const domain = req.query.domain || null;
     const achievedMilestones = (child.achievedMilestones || []).map(m => ({
@@ -116,14 +106,10 @@ router.get('/recipes/:childId', authMiddleware, async (req, res) => {
 });
 
 // Force-regenerate recipes (called by refresh button, supports filter params)
-router.post('/recipes/:childId/regenerate', authMiddleware, async (req, res) => {
+router.post('/recipes/:childId/regenerate', authMiddleware, geminiInit, async (req, res) => {
   try {
     const child = await Child.findOne({ _id: req.params.childId });
     if (!child) return res.status(404).json({ error: 'Child not found' });
-
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) return res.status(400).json({ error: 'Gemini API key not configured' });
-    geminiService.initialize(apiKey);
 
     const { excludeAllergens, dietaryPreferences, foodLikings } = req.body;
     const filters = { excludeAllergens, dietaryPreferences, foodLikings };
@@ -144,7 +130,7 @@ router.post('/recipes/:childId/regenerate', authMiddleware, async (req, res) => 
 });
 
 // Get parenting tips
-router.get('/tips/:childId', authMiddleware, async (req, res) => {
+router.get('/tips/:childId', authMiddleware, geminiInit, async (req, res) => {
   try {
     const { focusArea } = req.query;
 
@@ -155,13 +141,6 @@ router.get('/tips/:childId', authMiddleware, async (req, res) => {
     if (!child) {
       return res.status(404).json({ error: 'Child not found' });
     }
-
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return res.status(400).json({ error: 'Gemini API key not configured' });
-    }
-
-    geminiService.initialize(apiKey);
 
     const tips = await geminiService.generateParentingTips(child, focusArea);
 

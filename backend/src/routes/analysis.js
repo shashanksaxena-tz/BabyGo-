@@ -5,6 +5,7 @@ import Analysis from '../models/Analysis.js';
 import Resource from '../models/Resource.js';
 import TimelineEntry from '../models/Timeline.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { geminiInit } from '../middleware/geminiInit.js';
 import geminiService from '../services/geminiService.js';
 import whoDataService from '../services/whoDataService.js';
 import { DOMAINS } from '../config/appConfig.js';
@@ -167,15 +168,11 @@ router.get('/growth-curves', async (req, res) => {
 });
 
 // POST /api/analysis/baby-sounds
-router.post('/baby-sounds', authMiddleware, upload.single('audio'), async (req, res) => {
+router.post('/baby-sounds', authMiddleware, upload.single('audio'), geminiInit, async (req, res) => {
   try {
     const { childId } = req.body;
     const child = await Child.findById(childId);
     if (!child) return res.status(404).json({ error: 'Child not found' });
-
-    const apiKey = req.user.geminiApiKey || process.env.GEMINI_API_KEY;
-    if (!apiKey) return res.status(400).json({ error: 'No API key configured' });
-    geminiService.initialize(apiKey);
 
     let audioData = null;
     if (req.file) {
@@ -191,12 +188,8 @@ router.post('/baby-sounds', authMiddleware, upload.single('audio'), async (req, 
 });
 
 // POST /api/analysis/transcribe
-router.post('/transcribe', authMiddleware, upload.single('audio'), async (req, res) => {
+router.post('/transcribe', authMiddleware, upload.single('audio'), geminiInit, async (req, res) => {
   try {
-    const apiKey = req.user.geminiApiKey || process.env.GEMINI_API_KEY;
-    if (!apiKey) return res.status(400).json({ error: 'No API key configured' });
-    geminiService.initialize(apiKey);
-
     if (!req.file) return res.status(400).json({ error: 'No audio file provided' });
 
     const audioData = { data: req.file.buffer.toString('base64'), mimeType: req.file.mimetype };
@@ -305,7 +298,7 @@ router.post('/save', authMiddleware, async (req, res) => {
 });
 
 // Create new analysis
-router.post('/', authMiddleware, upload.array('media', 10), async (req, res) => {
+router.post('/', authMiddleware, upload.array('media', 10), geminiInit, async (req, res) => {
   try {
     const { childId } = req.body;
 
@@ -315,14 +308,6 @@ router.post('/', authMiddleware, upload.array('media', 10), async (req, res) => 
     if (!child) {
       return res.status(404).json({ error: 'Child not found' });
     }
-
-    // Initialize Gemini with user's API key
-    const apiKey = req.user.geminiApiKey || process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return res.status(400).json({ error: 'Gemini API key not configured. Please add it in settings.' });
-    }
-
-    geminiService.initialize(apiKey);
 
     // Prepare media data
     const mediaData = (req.files || []).map(file => ({
