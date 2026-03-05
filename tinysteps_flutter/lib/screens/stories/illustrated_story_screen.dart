@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:audioplayers/audioplayers.dart';
 import '../../models/models.dart';
+import '../../services/api_service.dart';
 import '../../services/sarvam_service.dart';
 import '../../utils/app_theme.dart';
 import '../../widgets/language_picker.dart';
@@ -26,6 +27,7 @@ class IllustratedStoryScreen extends StatefulWidget {
 class _IllustratedStoryScreenState extends State<IllustratedStoryScreen>
     with TickerProviderStateMixin {
   late PageController _pageController;
+  late BedtimeStory _story;
   int _currentPage = 0;
   bool _showCover = true;
 
@@ -39,7 +41,37 @@ class _IllustratedStoryScreenState extends State<IllustratedStoryScreen>
   @override
   void initState() {
     super.initState();
+    _story = _story;
     _pageController = PageController();
+    _generateIllustrationsInBackground();
+  }
+
+  /// Generate illustrations for pages that have a prompt but no URL yet.
+  Future<void> _generateIllustrationsInBackground() async {
+    final apiService = ApiService();
+    for (int i = 0; i < _story.pages.length; i++) {
+      final page = _story.pages[i];
+      if (page.illustrationPrompt == null || page.illustrationUrl != null) continue;
+      try {
+        final result = await apiService.generateIllustration(
+          prompt: page.illustrationPrompt!,
+          childId: widget.child.id,
+        );
+        if (!mounted) return;
+        if (result['success'] == true || result['url'] != null) {
+          final url = result['url'] as String?;
+          if (url != null) {
+            setState(() {
+              final updatedPages = List<StoryPage>.from(_story.pages);
+              updatedPages[i] = updatedPages[i].copyWith(illustrationUrl: url);
+              _story = _story.copyWith(pages: updatedPages);
+            });
+          }
+        }
+      } catch (e) {
+        debugPrint('Failed to generate illustration for page $i: $e');
+      }
+    }
   }
 
   @override
@@ -57,7 +89,7 @@ class _IllustratedStoryScreenState extends State<IllustratedStoryScreen>
     setState(() => _isTranslating = true);
     try {
       final sarvam = SarvamService();
-      final originalText = widget.story.pages[_currentPage].text;
+      final originalText = _story.pages[_currentPage].text;
       final translated =
           await sarvam.translateText(originalText, _selectedLanguage);
       if (mounted) {
@@ -85,7 +117,7 @@ class _IllustratedStoryScreenState extends State<IllustratedStoryScreen>
       final textToSpeak = _selectedLanguage != 'en-IN' &&
               _translatedTexts.containsKey(_currentPage)
           ? _translatedTexts[_currentPage]!
-          : widget.story.pages[_currentPage].text;
+          : _story.pages[_currentPage].text;
 
       final audioChunks =
           await sarvam.textToSpeech(textToSpeak, _selectedLanguage);
@@ -136,7 +168,7 @@ class _IllustratedStoryScreenState extends State<IllustratedStoryScreen>
   // ---- HEADER ----
   Widget _buildHeader() {
     final themeColor = Color(
-      int.parse(widget.story.theme.colorHex.replaceFirst('#', '0xFF')),
+      int.parse(_story.theme.colorHex.replaceFirst('#', '0xFF')),
     );
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
@@ -164,7 +196,7 @@ class _IllustratedStoryScreenState extends State<IllustratedStoryScreen>
                 boxShadow: AppTheme.cardShadowV3,
               ),
               child: Text(
-                'Page ${_currentPage + 1} of ${widget.story.pages.length}',
+                'Page ${_currentPage + 1} of ${_story.pages.length}',
                 style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 13,
@@ -206,7 +238,7 @@ class _IllustratedStoryScreenState extends State<IllustratedStoryScreen>
   // ---- COVER ----
   Widget _buildBookCover() {
     final themeColor = Color(
-      int.parse(widget.story.theme.colorHex.replaceFirst('#', '0xFF')),
+      int.parse(_story.theme.colorHex.replaceFirst('#', '0xFF')),
     );
     return GestureDetector(
       onTap: () => setState(() => _showCover = false),
@@ -242,7 +274,7 @@ class _IllustratedStoryScreenState extends State<IllustratedStoryScreen>
                     shape: BoxShape.circle,
                   ),
                   child: Center(
-                    child: Text(widget.story.theme.emoji,
+                    child: Text(_story.theme.emoji,
                         style: const TextStyle(fontSize: 52)),
                   ),
                 )
@@ -250,7 +282,7 @@ class _IllustratedStoryScreenState extends State<IllustratedStoryScreen>
                     .scale(duration: 600.ms, curve: Curves.elasticOut),
                 const SizedBox(height: 28),
                 Text(
-                  widget.story.title,
+                  _story.title,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontFamily: 'Nunito',
@@ -306,7 +338,7 @@ class _IllustratedStoryScreenState extends State<IllustratedStoryScreen>
                     ),
                 const SizedBox(height: 20),
                 Text(
-                  widget.story.readingTimeDisplay,
+                  _story.readingTimeDisplay,
                   style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 13,
@@ -331,9 +363,9 @@ class _IllustratedStoryScreenState extends State<IllustratedStoryScreen>
           _translateCurrentPage();
         }
       },
-      itemCount: widget.story.pages.length,
+      itemCount: _story.pages.length,
       itemBuilder: (context, index) {
-        final page = widget.story.pages[index];
+        final page = _story.pages[index];
         return _buildPageCard(page, index);
       },
     );
@@ -341,7 +373,7 @@ class _IllustratedStoryScreenState extends State<IllustratedStoryScreen>
 
   Widget _buildPageCard(StoryPage page, int index) {
     final themeColor = Color(
-      int.parse(widget.story.theme.colorHex.replaceFirst('#', '0xFF')),
+      int.parse(_story.theme.colorHex.replaceFirst('#', '0xFF')),
     );
     final hasIllustration = page.illustrationUrl != null;
 
@@ -446,8 +478,22 @@ class _IllustratedStoryScreenState extends State<IllustratedStoryScreen>
         ),
       ),
       child: Center(
-        child: Text(widget.story.theme.emoji,
-            style: const TextStyle(fontSize: 56)),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(_story.theme.emoji,
+                style: const TextStyle(fontSize: 56)),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: themeColor.withOpacity(0.5),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -459,11 +505,11 @@ class _IllustratedStoryScreenState extends State<IllustratedStoryScreen>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: List.generate(
-          widget.story.pages.length,
+          _story.pages.length,
           (index) {
             final themeColor = Color(
               int.parse(
-                  widget.story.theme.colorHex.replaceFirst('#', '0xFF')),
+                  _story.theme.colorHex.replaceFirst('#', '0xFF')),
             );
             return AnimatedContainer(
               duration: const Duration(milliseconds: 300),
@@ -486,10 +532,10 @@ class _IllustratedStoryScreenState extends State<IllustratedStoryScreen>
   // ---- NAVIGATION ----
   Widget _buildNavigation() {
     final themeColor = Color(
-      int.parse(widget.story.theme.colorHex.replaceFirst('#', '0xFF')),
+      int.parse(_story.theme.colorHex.replaceFirst('#', '0xFF')),
     );
     final isFirstPage = _currentPage == 0;
-    final isLastPage = _currentPage == widget.story.pages.length - 1;
+    final isLastPage = _currentPage == _story.pages.length - 1;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
@@ -550,7 +596,7 @@ class _IllustratedStoryScreenState extends State<IllustratedStoryScreen>
   // ---- ENDING ----
   void _showEnding() {
     final themeColor = Color(
-      int.parse(widget.story.theme.colorHex.replaceFirst('#', '0xFF')),
+      int.parse(_story.theme.colorHex.replaceFirst('#', '0xFF')),
     );
     showDialog(
       context: context,
@@ -610,7 +656,7 @@ class _IllustratedStoryScreenState extends State<IllustratedStoryScreen>
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      widget.story.moral,
+                      _story.moral,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontFamily: 'Inter',

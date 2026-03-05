@@ -207,6 +207,43 @@ class StorageService {
   }
 
   /**
+   * Download an object from MinIO and return it as a Buffer.
+   * @param {string} bucket - Bucket name
+   * @param {string} objectName - Object key
+   * @returns {Promise<Buffer>}
+   */
+  async getObjectBuffer(bucket, objectName) {
+    this._assertInitialized();
+    const stream = await this.client.getObject(bucket, objectName);
+    const chunks = [];
+    for await (const chunk of stream) {
+      chunks.push(chunk);
+    }
+    return Buffer.concat(chunks);
+  }
+
+  /**
+   * Parse a MinIO public URL into its bucket and objectName components.
+   * Handles URLs like: http://localhost:9000/profile-photos/abc-123.jpg
+   * @param {string} url - Full MinIO URL
+   * @returns {{ bucket: string, objectName: string } | null}
+   */
+  parseMinioUrl(url) {
+    if (!url) return null;
+    try {
+      const parsed = new URL(url);
+      // Path is like /bucket-name/object-name.ext
+      const parts = parsed.pathname.replace(/^\//, '').split('/');
+      if (parts.length < 2) return null;
+      const bucket = parts[0];
+      const objectName = parts.slice(1).join('/');
+      return { bucket, objectName };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Ensure the service has been initialized before performing operations.
    * @throws {Error} If initialize() has not been called
    */

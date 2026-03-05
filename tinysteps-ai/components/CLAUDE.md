@@ -16,4 +16,11 @@
 | #12853 | 8:31 AM | 🔵 | Original web app Recommendations feature provides products, activities, and parenting tips with WHO citations | ~610 |
 | #12851 | 8:30 AM | 🔵 | Original web app GrowthCharts feature uses WHO percentile data with Recharts visualization | ~555 |
 | #12845 | 8:29 AM | 🔵 | Stories feature implementation discovered in original web app | ~590 |
+
+### Mar 5, 2026
+
+| ID | Time | T | Title | Read |
+|----|------|---|-------|------|
+| #13987 | 4:30 PM | 🟣 | React growth chart enhanced with historical measurements and dynamic range | ~419 |
+| #13985 | 4:29 PM | 🔴 | React app percentile parsing fixed to match API format | ~397 |
 </claude-mem-context>

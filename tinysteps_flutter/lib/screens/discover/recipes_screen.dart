@@ -77,6 +77,27 @@ class _RecipesScreenState extends State<RecipesScreen> {
     }
   }
 
+  Future<void> _toggleFavorite(int index) async {
+    final recipe = _recipes[index];
+    final childId = _child?.id;
+    if (childId == null) return;
+
+    // Optimistic update
+    setState(() {
+      _recipes[index] = recipe.copyWith(isFavorited: !recipe.isFavorited);
+    });
+
+    try {
+      final apiService = ApiService();
+      await apiService.toggleRecipeFavorite(recipe.id, childId);
+    } catch (_) {
+      // Revert on failure
+      setState(() {
+        _recipes[index] = recipe;
+      });
+    }
+  }
+
   List<Recipe> get _filteredRecipes {
     if (_selectedCategory == 'all') return _recipes;
     return _recipes.where((r) {
@@ -325,14 +346,31 @@ class _RecipesScreenState extends State<RecipesScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    recipe.name,
-                    style: const TextStyle(
-                      fontFamily: 'Nunito',
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.textPrimary,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          recipe.name,
+                          style: const TextStyle(
+                            fontFamily: 'Nunito',
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          final globalIndex = _recipes.indexOf(recipe);
+                          if (globalIndex >= 0) _toggleFavorite(globalIndex);
+                        },
+                        child: Icon(
+                          recipe.isFavorited ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                          size: 24,
+                          color: recipe.isFavorited ? Colors.red : AppTheme.textTertiary,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   Row(
@@ -470,6 +508,18 @@ class _RecipesScreenState extends State<RecipesScreen> {
                 ],
               ),
             ),
+            GestureDetector(
+              onTap: () {
+                final globalIndex = _recipes.indexOf(recipe);
+                if (globalIndex >= 0) _toggleFavorite(globalIndex);
+              },
+              child: Icon(
+                recipe.isFavorited ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                size: 20,
+                color: recipe.isFavorited ? Colors.red : AppTheme.textTertiary,
+              ),
+            ),
+            const SizedBox(width: 8),
             const Icon(Icons.chevron_right_rounded,
                 size: 20, color: AppTheme.textTertiary),
           ],

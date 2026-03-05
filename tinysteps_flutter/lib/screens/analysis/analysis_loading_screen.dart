@@ -124,7 +124,7 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen>
           PageRouteBuilder(
             pageBuilder: (_, __, ___) => AnalysisResultsScreen(
               child: widget.child,
-              result: result!,
+              result: result,
             ),
             transitionsBuilder: (_, animation, __, child) {
               return FadeTransition(opacity: animation, child: child);

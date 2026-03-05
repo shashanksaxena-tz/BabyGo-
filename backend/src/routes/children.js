@@ -5,6 +5,7 @@ import Child from '../models/Child.js';
 import Timeline from '../models/Timeline.js';
 import { authMiddleware } from '../middleware/auth.js';
 import whoDataService from '../services/whoDataService.js';
+import Milestone from '../models/Milestone.js';
 
 const router = express.Router();
 
@@ -193,9 +194,18 @@ router.post('/:childId/milestones/:milestoneId', authMiddleware, [
       return res.status(404).json({ error: 'Child not found' });
     }
 
-    // Check if milestone already achieved
+    // Resolve milestone: try DB first (uuid or legacyId), then fallback to whoDataService
+    let resolvedMilestone = await Milestone.findOne({ $or: [{ uuid: milestoneId }, { legacyId: milestoneId }] }).lean();
+    if (!resolvedMilestone) {
+      const whoMilestone = whoDataService.getAllMilestones().find(m => m.id === milestoneId);
+      if (whoMilestone) resolvedMilestone = { uuid: milestoneId, legacyId: whoMilestone.id, title: whoMilestone.title, description: whoMilestone.description, domain: whoMilestone.domain };
+    }
+    // Use canonical ID (prefer uuid from DB)
+    const canonicalId = resolvedMilestone?.uuid || milestoneId;
+
+    // Check if milestone already achieved (match either uuid or legacyId)
     const existingIndex = child.achievedMilestones.findIndex(
-      m => m.milestoneId === milestoneId
+      m => m.milestoneId === milestoneId || m.milestoneId === canonicalId || m.milestoneId === resolvedMilestone?.legacyId
     );
 
     if (existingIndex >= 0) {
@@ -222,18 +232,17 @@ router.post('/:childId/milestones/:milestoneId', authMiddleware, [
 
       // Create timeline entry for the achievement
       try {
-        const milestoneData = whoDataService.getAllMilestones().find(m => m.id === milestoneId);
         const timelineEntry = new Timeline({
           childId: String(childId),
           userId: String(req.user._id),
           type: 'milestone',
-          title: milestoneData ? `${milestoneData.title} achieved!` : 'Milestone achieved!',
-          description: milestoneData
-            ? `${child.name} has achieved the "${milestoneData.title}" milestone: ${milestoneData.description}`
+          title: resolvedMilestone ? `${resolvedMilestone.title} achieved!` : 'Milestone achieved!',
+          description: resolvedMilestone
+            ? `${child.name} has achieved the "${resolvedMilestone.title}" milestone: ${resolvedMilestone.description}`
             : `A new milestone has been achieved by ${child.name}`,
           data: {
-            milestoneId,
-            domain: milestoneData?.domain,
+            milestoneId: canonicalId,
+            domain: resolvedMilestone?.domain,
             achievedDate: achievedDate || new Date(),
             confirmedBy: confirmedBy || 'parent',
           },
@@ -272,10 +281,16 @@ router.delete('/:childId/milestones/:milestoneId', authMiddleware, async (req, r
       return res.status(404).json({ error: 'Child not found' });
     }
 
+    // Resolve to find all matching IDs
+    const dbMilestone = await Milestone.findOne({ $or: [{ uuid: milestoneId }, { legacyId: milestoneId }] }).lean();
+    const matchIds = new Set([milestoneId]);
+    if (dbMilestone?.uuid) matchIds.add(dbMilestone.uuid);
+    if (dbMilestone?.legacyId) matchIds.add(dbMilestone.legacyId);
+
     // Remove from achieved milestones
     const initialLength = child.achievedMilestones.length;
     child.achievedMilestones = child.achievedMilestones.filter(
-      m => m.milestoneId !== milestoneId
+      m => !matchIds.has(m.milestoneId)
     );
 
     if (child.achievedMilestones.length === initialLength) {
@@ -309,9 +324,15 @@ router.post('/:childId/milestones/:milestoneId/watch', authMiddleware, async (re
       return res.status(404).json({ error: 'Child not found' });
     }
 
+    // Resolve to find all matching IDs
+    const dbMilestone = await Milestone.findOne({ $or: [{ uuid: milestoneId }, { legacyId: milestoneId }] }).lean();
+    const matchIds = new Set([milestoneId]);
+    if (dbMilestone?.uuid) matchIds.add(dbMilestone.uuid);
+    if (dbMilestone?.legacyId) matchIds.add(dbMilestone.legacyId);
+
     // Check if already watching or already achieved
-    const isWatching = child.watchedMilestones.some(m => m.milestoneId === milestoneId);
-    const isAchieved = child.achievedMilestones.some(m => m.milestoneId === milestoneId);
+    const isWatching = child.watchedMilestones.some(m => matchIds.has(m.milestoneId));
+    const isAchieved = child.achievedMilestones.some(m => matchIds.has(m.milestoneId));
 
     if (isAchieved) {
       return res.status(400).json({ error: 'Milestone already achieved' });
@@ -353,9 +374,15 @@ router.delete('/:childId/milestones/:milestoneId/watch', authMiddleware, async (
       return res.status(404).json({ error: 'Child not found' });
     }
 
+    // Resolve to find all matching IDs
+    const dbMilestone = await Milestone.findOne({ $or: [{ uuid: milestoneId }, { legacyId: milestoneId }] }).lean();
+    const matchIds = new Set([milestoneId]);
+    if (dbMilestone?.uuid) matchIds.add(dbMilestone.uuid);
+    if (dbMilestone?.legacyId) matchIds.add(dbMilestone.legacyId);
+
     const initialLength = child.watchedMilestones.length;
     child.watchedMilestones = child.watchedMilestones.filter(
-      m => m.milestoneId !== milestoneId
+      m => !matchIds.has(m.milestoneId)
     );
 
     if (child.watchedMilestones.length === initialLength) {

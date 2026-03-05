@@ -170,7 +170,7 @@ export interface TimelineEntry {
   id: string;
   childId: string;
   timestamp: string;
-  type: 'analysis' | 'milestone' | 'measurement' | 'photo' | 'note';
+  type: 'analysis' | 'milestone' | 'measurement' | 'photo' | 'note' | 'story' | 'recipe_save' | 'voice_recording';
   title: string;
   description: string;
   mediaUrl?: string;

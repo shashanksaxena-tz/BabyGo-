@@ -31,6 +31,7 @@ interface Recipe {
     steps: string[];
     tips?: string[];
     allergens: string[];
+    isFavorited?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -71,7 +72,7 @@ const DIETARY_PREFERENCES = [
  */
 function mapRecipe(raw: any, index: number): Recipe {
     return {
-        id: raw.id || raw._id || `recipe-${index}`,
+        id: raw._id || raw.id || `recipe-${index}`,
         name: raw.name || 'Untitled Recipe',
         emoji: raw.emoji || '',
         category: raw.category || raw.mealType || 'other',
@@ -89,6 +90,7 @@ function mapRecipe(raw: any, index: number): Recipe {
         steps: raw.steps || raw.instructions || [],
         tips: raw.tips || [],
         allergens: raw.allergens || [],
+        isFavorited: raw.isFavorited || false,
     };
 }
 
@@ -116,7 +118,6 @@ export default function Recipes() {
     const [error, setError] = useState<string | null>(null);
     const [selectedCategory, setSelectedCategory] = useState('all');
     const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
-    const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
     // Filter state
     const [excludeAllergens, setExcludeAllergens] = useState<string[]>([]);
@@ -197,13 +198,23 @@ export default function Recipes() {
         );
     };
 
-    const toggleFavorite = (recipeId: string) => {
-        setFavorites(prev => {
-            const next = new Set(prev);
-            if (next.has(recipeId)) next.delete(recipeId);
-            else next.add(recipeId);
-            return next;
-        });
+    const favorites = new Set(recipes.filter(r => r.isFavorited).map(r => r.id));
+
+    const toggleFavorite = async (recipeId: string) => {
+        if (!child?._id) return;
+        // Optimistic update
+        setRecipes(prev => prev.map(r =>
+            r.id === recipeId ? { ...r, isFavorited: !r.isFavorited } : r
+        ));
+        try {
+            await api.post(`/recommendations/recipes/${recipeId}/favorite`, { childId: child._id });
+        } catch (err) {
+            // Revert on failure
+            setRecipes(prev => prev.map(r =>
+                r.id === recipeId ? { ...r, isFavorited: !r.isFavorited } : r
+            ));
+            console.error('Failed to toggle favorite:', err);
+        }
     };
 
     // ------------------------------------------------------------------

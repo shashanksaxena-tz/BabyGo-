@@ -17,10 +17,9 @@ class _TimelineScreenState extends State<TimelineScreen>
     with SingleTickerProviderStateMixin {
   ChildProfile? _child;
   List<AnalysisResult> _analyses = [];
-  List<GrowthMeasurement> _measurements = [];
   List<GrowthPercentile> _percentiles = [];
+  List<Map<String, dynamic>> _timelineEntries = [];
   bool _isLoading = true;
-  int _selectedTab = 0;
 
   late TabController _tabController;
   final ApiService _apiService = ApiService();
@@ -29,9 +28,6 @@ class _TimelineScreenState extends State<TimelineScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(() {
-      setState(() => _selectedTab = _tabController.index);
-    });
     _loadData();
   }
 
@@ -47,7 +43,6 @@ class _TimelineScreenState extends State<TimelineScreen>
 
     if (child != null) {
       final analyses = await storage.getAnalyses(child.id);
-      final measurements = await storage.getMeasurements(child.id);
 
       // Fetch growth percentiles from backend
       List<GrowthPercentile> percentiles = [];
@@ -81,6 +76,19 @@ class _TimelineScreenState extends State<TimelineScreen>
         debugPrint('Failed to fetch growth percentiles: $e');
       }
 
+      // Fetch timeline entries from backend
+      List<Map<String, dynamic>> timelineEntries = [];
+      try {
+        final timelineResponse = await _apiService.getTimeline(child.id);
+        if (timelineResponse['success'] == true) {
+          timelineEntries = List<Map<String, dynamic>>.from(
+            timelineResponse['entries'] ?? timelineResponse['data']?['entries'] ?? []
+          );
+        }
+      } catch (e) {
+        debugPrint('Failed to fetch timeline: $e');
+      }
+
       // Provide defaults if API call failed
       if (percentiles.isEmpty) {
         final defaultSource = WHOSource(
@@ -100,8 +108,8 @@ class _TimelineScreenState extends State<TimelineScreen>
       setState(() {
         _child = child;
         _analyses = analyses;
-        _measurements = measurements;
         _percentiles = percentiles;
+        _timelineEntries = timelineEntries;
         _isLoading = false;
       });
     } else {
@@ -544,7 +552,7 @@ class _TimelineScreenState extends State<TimelineScreen>
   }
 
   Widget _buildHistory() {
-    if (_analyses.isEmpty) {
+    if (_timelineEntries.isEmpty && _analyses.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -564,7 +572,7 @@ class _TimelineScreenState extends State<TimelineScreen>
             ),
             const SizedBox(height: 16),
             const Text(
-              'No analysis history yet',
+              'No history yet',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -573,7 +581,7 @@ class _TimelineScreenState extends State<TimelineScreen>
             ),
             const SizedBox(height: 8),
             const Text(
-              'Run an analysis to start tracking',
+              'Events will appear here as you use the app',
               style: TextStyle(
                 fontSize: 14,
                 color: AppTheme.neutral500,
@@ -586,20 +594,26 @@ class _TimelineScreenState extends State<TimelineScreen>
 
     return ListView.builder(
       padding: const EdgeInsets.all(20),
-      itemCount: _analyses.length,
+      itemCount: _timelineEntries.length,
       itemBuilder: (context, index) {
-        final analysis = _analyses[index];
+        final entry = _timelineEntries[index];
         return StaggeredListAnimation(
           index: index,
-          child: _buildHistoryItem(analysis),
+          child: _buildTimelineEntry(entry),
         );
       },
     );
   }
 
-  Widget _buildHistoryItem(AnalysisResult analysis) {
-    final date = analysis.timestamp;
+  Widget _buildTimelineEntry(Map<String, dynamic> entry) {
+    final type = entry['type'] as String? ?? 'note';
+    final title = entry['title'] as String? ?? '';
+    final description = entry['description'] as String? ?? '';
+    final dateStr = entry['date'] as String? ?? entry['createdAt'] as String? ?? '';
+    final date = DateTime.tryParse(dateStr) ?? DateTime.now();
     final formattedDate = '${date.day}/${date.month}/${date.year}';
+
+    final style = _getTimelineEntryStyle(type, entry['data']?['domain'] as String?);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -608,6 +622,9 @@ class _TimelineScreenState extends State<TimelineScreen>
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: AppTheme.softShadow,
+        border: type == 'milestone'
+            ? const Border(left: BorderSide(color: Color(0xFFFBBF24), width: 4))
+            : null,
       ),
       child: Row(
         children: [
@@ -615,17 +632,14 @@ class _TimelineScreenState extends State<TimelineScreen>
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: AppTheme.primaryGreen.withOpacity(0.1),
+              color: style['bgColor'] as Color,
               borderRadius: BorderRadius.circular(14),
             ),
             child: Center(
-              child: AnimatedCounter(
-                value: analysis.overallScore.round(),
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: AppTheme.primaryGreen,
-                ),
+              child: Icon(
+                style['icon'] as IconData,
+                size: 22,
+                color: style['iconColor'] as Color,
               ),
             ),
           ),
@@ -634,31 +648,140 @@ class _TimelineScreenState extends State<TimelineScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Development Analysis',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.neutral800,
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.neutral800,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: style['bgColor'] as Color,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        style['label'] as String,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: style['iconColor'] as Color,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
+                if (description.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      description,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.neutral500,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                const SizedBox(height: 4),
                 Text(
                   formattedDate,
                   style: const TextStyle(
-                    fontSize: 13,
-                    color: AppTheme.neutral500,
+                    fontSize: 12,
+                    color: AppTheme.neutral400,
                   ),
                 ),
               ],
             ),
           ),
-          const Icon(
-            Icons.chevron_right_rounded,
-            color: AppTheme.neutral400,
-          ),
         ],
       ),
     );
+  }
+
+  Map<String, dynamic> _getTimelineEntryStyle(String type, [String? domain]) {
+    switch (type) {
+      case 'analysis':
+        return {
+          'icon': Icons.analytics_rounded,
+          'bgColor': AppTheme.primaryGreen.withOpacity(0.1),
+          'iconColor': AppTheme.primaryGreen,
+          'label': 'Analysis',
+        };
+      case 'milestone':
+        final domainColors = {
+          'motor': AppTheme.secondaryBlue,
+          'language': const Color(0xFFEC4899),
+          'cognitive': AppTheme.secondaryPurple,
+          'social': AppTheme.primaryGreen,
+          'sensory': const Color(0xFF14B8A6),
+        };
+        final color = domainColors[domain] ?? const Color(0xFFF59E0B);
+        return {
+          'icon': Icons.emoji_events_rounded,
+          'bgColor': color.withOpacity(0.1),
+          'iconColor': color,
+          'label': domain ?? 'Milestone',
+        };
+      case 'measurement':
+        return {
+          'icon': Icons.monitor_weight_rounded,
+          'bgColor': AppTheme.secondaryBlue.withOpacity(0.1),
+          'iconColor': AppTheme.secondaryBlue,
+          'label': 'Growth',
+        };
+      case 'story':
+        return {
+          'icon': Icons.auto_stories_rounded,
+          'bgColor': const Color(0xFF6366F1).withOpacity(0.1),
+          'iconColor': const Color(0xFF6366F1),
+          'label': 'Story',
+        };
+      case 'recipe_save':
+        return {
+          'icon': Icons.bookmark_rounded,
+          'bgColor': const Color(0xFFF97316).withOpacity(0.1),
+          'iconColor': const Color(0xFFF97316),
+          'label': 'Recipe',
+        };
+      case 'voice_recording':
+        return {
+          'icon': Icons.mic_rounded,
+          'bgColor': const Color(0xFF06B6D4).withOpacity(0.1),
+          'iconColor': const Color(0xFF06B6D4),
+          'label': 'Voice',
+        };
+      case 'photo':
+        return {
+          'icon': Icons.photo_camera_rounded,
+          'bgColor': const Color(0xFFEC4899).withOpacity(0.1),
+          'iconColor': const Color(0xFFEC4899),
+          'label': 'Photo',
+        };
+      case 'note':
+        return {
+          'icon': Icons.sticky_note_2_rounded,
+          'bgColor': AppTheme.secondaryPurple.withOpacity(0.1),
+          'iconColor': AppTheme.secondaryPurple,
+          'label': 'Note',
+        };
+      default:
+        return {
+          'icon': Icons.circle_outlined,
+          'bgColor': AppTheme.neutral200,
+          'iconColor': AppTheme.neutral500,
+          'label': type,
+        };
+    }
   }
 
   void _addMeasurement() {

@@ -8,6 +8,7 @@ import { authMiddleware } from '../middleware/auth.js';
 import { geminiInit } from '../middleware/geminiInit.js';
 import geminiService from '../services/geminiService.js';
 import whoDataService from '../services/whoDataService.js';
+import Milestone from '../models/Milestone.js';
 import { DOMAINS } from '../config/appConfig.js';
 
 const router = express.Router();
@@ -82,13 +83,35 @@ router.get('/milestones/:ageMonths', async (req, res) => {
     }
 
     const { domain, status, childId } = req.query;
-
-    let milestones = whoDataService.getMilestonesForAge(ageMonths);
     const sources = whoDataService.getSources();
 
-    // Filter by domain if provided
-    if (domain && domain !== 'all') {
-      milestones = milestones.filter(m => m.domain === domain);
+    // Try DB first, fall back to hardcoded whoDataService
+    const dbCount = await Milestone.countDocuments();
+    let milestones;
+
+    if (dbCount > 0) {
+      // Query from DB: current age bracket (±3 months) PLUS the next bracket ahead (+12 months) for upcoming milestones
+      const query = { isActive: true, ageRangeStartMonths: { $lte: ageMonths + 12 }, ageRangeEndMonths: { $gte: ageMonths - 3 } };
+      if (domain && domain !== 'all') query.domain = domain;
+      const dbMilestones = await Milestone.find(query).lean();
+      milestones = dbMilestones.map(m => ({
+        id: m.uuid || m.legacyId,
+        legacyId: m.legacyId,
+        title: m.title,
+        description: m.description,
+        domain: m.domain,
+        subDomain: m.subDomain,
+        minMonths: m.ageRangeStartMonths,
+        maxMonths: m.ageRangeEndMonths,
+        typicalMonths: m.typicalMonths,
+        source: m.source,
+      }));
+    } else {
+      // Fallback to hardcoded arrays
+      milestones = whoDataService.getMilestonesForAge(ageMonths);
+      if (domain && domain !== 'all') {
+        milestones = milestones.filter(m => m.domain === domain);
+      }
     }
 
     // Get achieved milestones if childId provided
@@ -100,20 +123,22 @@ router.get('/milestones/:ageMonths', async (req, res) => {
           achievedIds = new Set(child.achievedMilestones.map(m => m.milestoneId));
         }
       } catch (childErr) {
-        // Child lookup failed - proceed without achieved data
         console.warn('Failed to look up child for milestone status:', childErr.message);
       }
     }
 
-    // Categorize milestones
-    const current = milestones.filter(m => !achievedIds.has(m.id) && ageMonths >= m.minMonths && ageMonths <= m.maxMonths);
-    const upcoming = milestones.filter(m => !achievedIds.has(m.id) && m.minMonths > ageMonths);
-    const achieved = milestones.filter(m => achievedIds.has(m.id));
+    // Categorize milestones using typicalMonths for accurate current/upcoming split.
+    // A milestone is "current" if the child has reached or passed its typical age,
+    // and "upcoming" if the typical age is still ahead—even within the same age bracket.
+    const isAchieved = m => achievedIds.has(m.id) || achievedIds.has(m.legacyId);
+    const current = milestones.filter(m => !isAchieved(m) && ageMonths >= m.minMonths && ageMonths <= m.maxMonths && (m.typicalMonths || m.minMonths) <= ageMonths);
+    const upcoming = milestones.filter(m => !isAchieved(m) && ((m.typicalMonths || m.minMonths) > ageMonths || m.minMonths > ageMonths));
+    const achieved = milestones.filter(isAchieved);
 
-    // Calculate progress based on current-age milestones
-    const currentAgeMilestones = milestones.filter(m => ageMonths >= m.minMonths && ageMonths <= m.maxMonths);
+    // Calculate progress based on current-age milestones (those with typicalMonths <= child's age)
+    const currentAgeMilestones = milestones.filter(m => ageMonths >= m.minMonths && (m.typicalMonths || m.minMonths) <= ageMonths);
     const progress = currentAgeMilestones.length > 0
-      ? Math.round((currentAgeMilestones.filter(m => achievedIds.has(m.id)).length / currentAgeMilestones.length) * 100)
+      ? Math.round((currentAgeMilestones.filter(isAchieved).length / currentAgeMilestones.length) * 100)
       : 0;
 
     // Filter by status tab if provided

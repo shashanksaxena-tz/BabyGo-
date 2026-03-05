@@ -250,7 +250,7 @@ const DevelopmentInsightsView: React.FC<DevelopmentInsightsViewProps> = ({
 
           {/* Legend */}
           <div className="flex flex-wrap gap-4 mt-4">
-            {Object.entries(domainConfig).map(([key, config]) => (
+            {Object.entries(domainConfig).map(([key, config]: [string, any]) => (
               <div key={key} className="flex items-center gap-1.5">
                 <div
                   className="w-3 h-3 rounded-full"
@@ -265,7 +265,7 @@ const DevelopmentInsightsView: React.FC<DevelopmentInsightsViewProps> = ({
         {/* Domain Detail Cards */}
         <div className="space-y-3">
           <h3 className="font-bold text-gray-800 text-lg">Domain Details</h3>
-          {Object.keys(domainConfig).map((domain) => {
+          {(Object.keys(domainConfig) as Array<'motor' | 'cognitive' | 'language' | 'social'>).map((domain) => {
             const config = domainConfig[domain];
             const score = getLatestScore(domain);
             const trend = getTrend(domain);

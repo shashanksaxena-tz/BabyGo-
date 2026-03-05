@@ -373,8 +373,8 @@ const whoDataService = {
         medians = gender === 'female' ? GIRLS_WEIGHT_MEDIAN : BOYS_WEIGHT_MEDIAN;
     }
 
-    // Limit to 0-24 months (25 data points)
-    const maxMonths = Math.min(medians.length, 25);
+    // Use all available data points (0-36 months)
+    const maxMonths = medians.length;
     const ageMonths = Array.from({ length: maxMonths }, (_, i) => i);
 
     // Approximate WHO percentiles from median values:

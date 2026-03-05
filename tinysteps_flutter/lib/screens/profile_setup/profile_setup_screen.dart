@@ -4,7 +4,6 @@ import 'package:uuid/uuid.dart';
 import '../../models/models.dart';
 import '../../services/storage_service.dart';
 import '../../utils/app_theme.dart';
-import '../../animations/custom_animations.dart';
 import '../home/home_screen.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
@@ -21,7 +20,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
   final int _totalSteps = 5;
 
   late AnimationController _progressController;
-  late Animation<double> _progressAnimation;
+  Animation<double>? _progressAnimation;
 
   // Form data
   final _nameController = TextEditingController();
@@ -231,7 +230,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
                           ),
                           child: FractionallySizedBox(
                             alignment: Alignment.centerLeft,
-                            widthFactor: _progressAnimation.value,
+                            widthFactor: _progressAnimation?.value ?? 0,
                             child: Container(
                               decoration: BoxDecoration(
                                 gradient: AppTheme.primaryGradient,

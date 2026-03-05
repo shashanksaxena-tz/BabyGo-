@@ -28,7 +28,6 @@ class WHOEvidenceScreen extends StatefulWidget {
 
 class _WHOEvidenceScreenState extends State<WHOEvidenceScreen> {
   bool _isLoading = true;
-  String? _errorMessage;
 
   List<Map<String, dynamic>> _sources = [];
   List<Map<String, dynamic>> _methodology = [];
@@ -43,7 +42,6 @@ class _WHOEvidenceScreenState extends State<WHOEvidenceScreen> {
   Future<void> _loadData() async {
     setState(() {
       _isLoading = true;
-      _errorMessage = null;
     });
 
     try {

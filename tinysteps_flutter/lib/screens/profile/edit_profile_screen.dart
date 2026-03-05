@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -40,7 +39,6 @@ class _EditProfileScreenState extends State<EditProfileScreen>
 
   // Form state
   File? _selectedPhoto;
-  String? _photoBase64;
   late DateTime _dateOfBirth;
   late Gender _gender;
   late WHORegion _region;
@@ -1044,12 +1042,10 @@ class _EditProfileScreenState extends State<EditProfileScreen>
     );
 
     if (pickedFile != null) {
-      final bytes = await pickedFile.readAsBytes();
       setState(() {
         if (!kIsWeb) {
           _selectedPhoto = File(pickedFile.path);
         }
-        _photoBase64 = base64Encode(bytes);
       });
       _markChanged();
     }
@@ -1058,7 +1054,6 @@ class _EditProfileScreenState extends State<EditProfileScreen>
   void _removePhoto() {
     setState(() {
       _selectedPhoto = null;
-      _photoBase64 = null;
     });
     _markChanged();
   }

@@ -534,7 +534,7 @@ Respond in JSON format:
   async generateIllustration(prompt, childPhotoBase64 = null, childPhotoMime = 'image/jpeg') {
     if (!this.model) throw new Error('Gemini service not initialized');
 
-    const styledPrompt = `Create a children's storybook illustration in a warm, friendly, watercolor-pastel style.
+    const styledPrompt = `Create a children's storybook illustration in a warm, friendly, watercolor-pastel style. Use a wide landscape orientation (16:9 aspect ratio).
 The scene: ${prompt}
 Style: Soft colors, gentle lighting, child-friendly, no scary elements. Suitable for a bedtime storybook. Round shapes, warm tones.`;
 
@@ -546,7 +546,7 @@ Style: Soft colors, gentle lighting, child-friendly, no scary elements. Suitable
     }
 
     try {
-      const imageModel = this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash-preview-image-generation' });
+      const imageModel = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash-image' });
       const result = await imageModel.generateContent({
         contents: [{ role: 'user', parts }],
         generationConfig: { responseModalities: ['image', 'text'] },
@@ -853,6 +853,14 @@ Valid priorities: high, medium, low
       .join('\n');
   }
 
+  _sanitizeStructuredTips(tips) {
+    const validCategories = ['sleep', 'feeding', 'behavior', 'safety', 'development', 'health', 'bonding', 'motor', 'language', 'cognitive', 'social'];
+    return tips.map(tip => ({
+      ...tip,
+      category: validCategories.includes(tip.category) ? tip.category : 'development',
+    }));
+  }
+
   _buildAnalysisResult(data, child, milestones, growthPercentiles, sources) {
     const buildAssessment = (domain, domainData) => {
       if (!domainData) {
@@ -901,7 +909,7 @@ Valid priorities: high, medium, low
       personalizedTips: data.personalizedTips || [],
       sources: sources.slice(0, 5),
       childAgeAtAnalysis: child.ageInMonths,
-      ...(data.structuredTips ? { structuredTips: data.structuredTips } : {}),
+      ...(data.structuredTips ? { structuredTips: this._sanitizeStructuredTips(data.structuredTips) } : {}),
       ...(data.activityProfile ? { activityProfile: data.activityProfile } : {}),
       ...(data.warnings ? { warnings: data.warnings } : {}),
     };

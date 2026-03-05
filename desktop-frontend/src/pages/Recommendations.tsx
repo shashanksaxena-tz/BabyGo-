@@ -40,6 +40,8 @@ interface ParentingTip {
     emoji: string;
     category: string;
     content: string;
+    description: string;
+    actionSteps?: string[];
     source?: string | { title: string; url: string; organization: string; year?: number; type: string };
 }
 
@@ -503,8 +505,21 @@ export default function Recommendations() {
                                                             </div>
                                                         </div>
                                                         <p className={`text-gray-600 text-sm mt-3 leading-relaxed ${isExpanded ? '' : 'line-clamp-2'}`}>
-                                                            {tip.content}
+                                                            {tip.description || tip.content}
                                                         </p>
+                                                        {isExpanded && tip.actionSteps && tip.actionSteps.length > 0 && (
+                                                            <div className="mt-3 bg-amber-50 rounded-xl p-3">
+                                                                <p className="text-xs font-semibold text-amber-700 mb-2">Try this:</p>
+                                                                <ul className="space-y-1.5">
+                                                                    {tip.actionSteps.map((step, i) => (
+                                                                        <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                                                                            <span className="text-amber-500 mt-0.5">•</span>
+                                                                            <span>{step}</span>
+                                                                        </li>
+                                                                    ))}
+                                                                </ul>
+                                                            </div>
+                                                        )}
                                                         {isExpanded && tip.source && (
                                                             <div className="flex items-center gap-1.5 mt-3 text-xs text-gray-400">
                                                                 <Award className="w-3 h-3" />

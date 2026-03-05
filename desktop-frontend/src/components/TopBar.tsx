@@ -21,7 +21,7 @@ export default function TopBar({ title, subtitle }: { title?: string, subtitle?:
     };
 
     return (
-        <header className="h-20 lg:h-24 px-8 w-full flex items-center justify-between border-b border-gray-200 bg-white/50 backdrop-blur-md sticky top-0 z-10 shrink-0">
+        <header className="h-20 lg:h-24 px-8 w-full flex items-center justify-between border-b border-gray-200 bg-white/50 backdrop-blur-md shrink-0">
             <div className="flex flex-col justify-center">
                 {title ? (
                     <h1 className="text-xl lg:text-2xl font-bold font-heading text-gray-900">{title}</h1>

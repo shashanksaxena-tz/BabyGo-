@@ -16,6 +16,9 @@ import {
   Brain,
   Heart,
   Sparkles,
+  BookOpen,
+  Bookmark,
+  Mic,
 } from 'lucide-react';
 import { ChildProfile, TimelineEntry, AnalysisResult } from '../types';
 import { getTimeline, getAnalyses, fetchTimeline, fetchAnalyses } from '../services/storageService';
@@ -135,6 +138,9 @@ const TimelineView: React.FC<TimelineViewProps> = ({ child, onBack, onNavigate }
         }
       case 'measurement': return { icon: Scale, color: 'bg-blue-100 text-blue-600', emoji: '📏' };
       case 'photo': return { icon: Camera, color: 'bg-purple-100 text-purple-600', emoji: '📸' };
+      case 'story': return { icon: BookOpen, color: 'bg-indigo-100 text-indigo-600', emoji: '📖' };
+      case 'recipe_save': return { icon: Bookmark, color: 'bg-orange-100 text-orange-600', emoji: '🍳' };
+      case 'voice_recording': return { icon: Mic, color: 'bg-cyan-100 text-cyan-600', emoji: '🎙️' };
       default: return { icon: CheckCircle, color: 'bg-gray-100 text-gray-600', emoji: '✓' };
     }
   };
@@ -245,7 +251,16 @@ const TimelineView: React.FC<TimelineViewProps> = ({ child, onBack, onNavigate }
 
         {/* Filter Tabs */}
         <div className="flex gap-2 overflow-x-auto pb-2">
-          {['all', 'analysis', 'milestone', 'measurement'].map(f => (
+          {['all', 'analysis', 'milestone', 'measurement', 'story', 'recipe_save', 'voice_recording'].map(f => {
+            const filterLabel = (key: string) => {
+              const labels: Record<string, string> = {
+                all: 'All', analysis: 'Analysis', milestone: 'Milestone',
+                measurement: 'Measurement', story: 'Story', recipe_save: 'Recipe',
+                voice_recording: 'Voice'
+              };
+              return labels[key] || key;
+            };
+            return (
             <button
               key={f}
               onClick={() => setFilter(f)}
@@ -255,9 +270,10 @@ const TimelineView: React.FC<TimelineViewProps> = ({ child, onBack, onNavigate }
                   : 'bg-white text-gray-600 hover:bg-gray-100'
               }`}
             >
-              {f.charAt(0).toUpperCase() + f.slice(1)}
+              {filterLabel(f)}
             </button>
-          ))}
+            );
+          })}
         </div>
 
         {/* Timeline */}

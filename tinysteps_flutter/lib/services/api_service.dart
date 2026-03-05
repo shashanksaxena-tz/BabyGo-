@@ -317,6 +317,23 @@ class ApiService {
     });
   }
 
+  /// Generate a custom story
+  Future<Map<String, dynamic>> generateCustomStory({
+    required String childId,
+    String customPrompt = '',
+    List<String> characters = const [],
+    String setting = '',
+    String action = '',
+  }) async {
+    return _request('POST', '/stories/custom', body: {
+      'childId': childId,
+      'customPrompt': customPrompt,
+      'characters': characters,
+      'setting': setting,
+      'action': action,
+    });
+  }
+
   /// Get a specific story
   Future<Map<String, dynamic>> getStory(String childId, String storyId) async {
     return _request('GET', '/stories/$childId/$storyId');
@@ -416,6 +433,11 @@ class ApiService {
       '/recommendations/recipes/$childId',
       queryParams: {'count': count.toString()},
     );
+  }
+
+  /// Toggle recipe favorite
+  Future<Map<String, dynamic>> toggleRecipeFavorite(String recipeId, String childId) async {
+    return _request('POST', '/recommendations/recipes/$recipeId/favorite', body: {'childId': childId});
   }
 
   /// Get parenting tips
@@ -717,10 +739,12 @@ class ApiService {
   Future<Map<String, dynamic>> generateIllustration({
     required String prompt,
     String? childPhotoBase64,
+    String? childId,
   }) async {
     return _request('POST', '/stories/illustration', body: {
       'prompt': prompt,
       if (childPhotoBase64 != null) 'childPhotoBase64': childPhotoBase64,
+      if (childId != null) 'childId': childId,
     });
   }
 

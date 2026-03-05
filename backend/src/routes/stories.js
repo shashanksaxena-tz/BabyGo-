@@ -2,6 +2,7 @@ import express from 'express';
 import { body, validationResult } from 'express-validator';
 import Child from '../models/Child.js';
 import Story from '../models/Story.js';
+import Timeline from '../models/Timeline.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { geminiInit } from '../middleware/geminiInit.js';
 import geminiService from '../services/geminiService.js';
@@ -21,6 +22,26 @@ const STORY_THEMES = [
   { id: 'friendship', name: 'Friendship', emoji: '🤝', description: 'Being a good friend', colorHex: '#EC4899' },
 ];
 
+/**
+ * Fetch the child's profile photo from MinIO and return as base64.
+ * Returns null if no photo URL or fetch fails.
+ */
+async function fetchChildPhotoBase64(child) {
+  if (!child.profilePhotoUrl || !storageService.initialized) return null;
+  try {
+    const parsed = storageService.parseMinioUrl(child.profilePhotoUrl);
+    if (!parsed) return null;
+    const buffer = await storageService.getObjectBuffer(parsed.bucket, parsed.objectName);
+    const ext = parsed.objectName.split('.').pop()?.toLowerCase();
+    const mimeMap = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' };
+    const mimeType = mimeMap[ext] || 'image/jpeg';
+    return { base64: buffer.toString('base64'), mimeType };
+  } catch (err) {
+    console.warn('Failed to fetch child profile photo:', err.message);
+    return null;
+  }
+}
+
 // Get available themes
 router.get('/themes', (_req, res) => {
   res.json({ themes: STORY_THEMES });
@@ -29,10 +50,24 @@ router.get('/themes', (_req, res) => {
 // POST /api/stories/illustration
 router.post('/illustration', authMiddleware, geminiInit, async (req, res) => {
   try {
-    const { prompt, childPhotoBase64, childPhotoMime } = req.body;
+    const { prompt, childPhotoBase64, childPhotoMime, childId } = req.body;
     if (!prompt) return res.status(400).json({ error: 'Illustration prompt required' });
 
-    const imageResult = await geminiService.generateIllustration(prompt, childPhotoBase64, childPhotoMime);
+    // Auto-fetch child photo if childId provided but no photo base64
+    let photoBase64 = childPhotoBase64;
+    let photoMime = childPhotoMime;
+    if (!photoBase64 && childId) {
+      const child = await Child.findOne({ _id: childId });
+      if (child) {
+        const fetched = await fetchChildPhotoBase64(child);
+        if (fetched) {
+          photoBase64 = fetched.base64;
+          photoMime = fetched.mimeType;
+        }
+      }
+    }
+
+    const imageResult = await geminiService.generateIllustration(prompt, photoBase64, photoMime);
 
     if (!imageResult) {
       return res.status(500).json({ error: 'Failed to generate illustration' });
@@ -99,8 +134,19 @@ router.post('/', authMiddleware, [
       return res.status(400).json({ error: 'Invalid theme' });
     }
 
+    // Auto-fetch child profile photo if none provided by frontend
+    let photoBase64 = childPhotoBase64 || null;
+    let photoMime = childPhotoMime || 'image/jpeg';
+    if (!photoBase64) {
+      const fetched = await fetchChildPhotoBase64(child);
+      if (fetched) {
+        photoBase64 = fetched.base64;
+        photoMime = fetched.mimeType;
+      }
+    }
+
     // Generate story
-    const storyData = await geminiService.generateBedtimeStory(child, theme, childPhotoBase64 || null, childPhotoMime || 'image/jpeg');
+    const storyData = await geminiService.generateBedtimeStory(child, theme, photoBase64, photoMime);
 
     // Save story
     const story = new Story({
@@ -119,6 +165,20 @@ router.post('/', authMiddleware, [
     });
 
     await story.save();
+
+    // Create timeline entry
+    try {
+      await new Timeline({
+        childId: String(child._id),
+        userId: String(req.user._id),
+        type: 'story',
+        title: `New story: ${storyData.title}`,
+        description: `A ${theme.name.toLowerCase()}-themed bedtime story was created for ${child.name}`,
+        data: { storyId: String(story._id), theme: theme.id },
+      }).save();
+    } catch (timelineErr) {
+      console.warn('Failed to create story timeline entry:', timelineErr.message);
+    }
 
     res.status(201).json({
       message: 'Story generated',
@@ -161,13 +221,20 @@ router.post('/custom', authMiddleware, geminiInit, async (req, res) => {
       }
     }
 
-    // Describe child's story avatar if provided
+    // Describe child's story avatar if provided, or fall back to profile photo
     let childAvatarDescription = '';
-    if (childAvatarImage?.base64) {
+    let avatarSource = childAvatarImage;
+    if (!avatarSource?.base64) {
+      const fetched = await fetchChildPhotoBase64(child);
+      if (fetched) {
+        avatarSource = { base64: fetched.base64, mimeType: fetched.mimeType };
+      }
+    }
+    if (avatarSource?.base64) {
       try {
         childAvatarDescription = await geminiService.describeImage(
-          childAvatarImage.base64,
-          childAvatarImage.mimeType || 'image/jpeg'
+          avatarSource.base64,
+          avatarSource.mimeType || 'image/jpeg'
         );
       } catch { /* non-fatal */ }
     }
@@ -194,6 +261,20 @@ router.post('/custom', authMiddleware, geminiInit, async (req, res) => {
     });
 
     await story.save();
+
+    // Create timeline entry for custom story
+    try {
+      await new Timeline({
+        childId: String(child._id),
+        userId: String(req.user._id),
+        type: 'story',
+        title: `New custom story: ${storyData.title}`,
+        description: `A custom bedtime story was created for ${child.name}`,
+        data: { storyId: String(story._id), theme: 'custom', isCustom: true },
+      }).save();
+    } catch (timelineErr) {
+      console.warn('Failed to create story timeline entry:', timelineErr.message);
+    }
 
     res.status(201).json({ message: 'Custom story generated', story });
   } catch (error) {
@@ -248,28 +329,36 @@ router.get('/:childId/:id', authMiddleware, async (req, res) => {
           if (apiKey) {
             geminiService.initialize(apiKey);
 
+            let successCount = 0;
             for (const page of pagesNeedingIllustration) {
               try {
-                const imageBuffer = await geminiService.generateIllustration(page.illustrationPrompt);
-                if (imageBuffer) {
+                const imageResult = await geminiService.generateIllustration(page.illustrationPrompt);
+                if (imageResult) {
+                  const buffer = Buffer.from(imageResult.data, 'base64');
                   const { url } = await storageService.uploadBuffer(
                     BUCKETS.STORIES,
-                    imageBuffer,
-                    'image/png',
+                    buffer,
+                    imageResult.mimeType || 'image/png',
                     `story-${story._id}-page-${page.pageNumber}.png`
                   );
                   page.illustrationUrl = url;
+                  successCount++;
                 }
               } catch (illustrationErr) {
                 // Individual illustration failure is non-blocking, skip this page
                 console.warn(`Failed to generate illustration for page ${page.pageNumber}:`, illustrationErr.message);
               }
             }
+
+            // Only mark as done if all illustrations succeeded
+            if (successCount === pagesNeedingIllustration.length) {
+              story.illustrationsGenerated = true;
+            }
           }
+        } else if (pagesNeedingIllustration.length === 0) {
+          story.illustrationsGenerated = true;
         }
 
-        // Mark as generated so we don't retry on every read
-        story.illustrationsGenerated = true;
         await story.save();
       } catch (persistErr) {
         // Illustration persistence is non-blocking

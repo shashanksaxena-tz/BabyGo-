@@ -47,6 +47,7 @@ class _MilestonesScreenState extends State<MilestonesScreen> {
 
   // Milestone tracking state
   Map<String, AchievedMilestone> _achievedMilestones = {};
+  Set<String> _watchedMilestones = {};
   List<Milestone> _allMilestones = [];
 
   // Date picker state
@@ -109,6 +110,12 @@ class _MilestonesScreenState extends State<MilestonesScreen> {
               minMonths: m['minMonths'] ?? 0,
               maxMonths: m['maxMonths'] ?? 0,
               typicalMonths: m['typicalMonths'] ?? 0,
+              source: WHOSource(
+                title: m['source']?['title'] ?? 'WHO Child Development Standards',
+                url: m['source']?['url'] ?? 'https://www.who.int/tools/child-growth-standards',
+                description: m['source']?['description'] ?? '',
+                type: m['source']?['type'] ?? 'standard',
+              ),
             );
           }).toList();
         });
@@ -126,6 +133,7 @@ class _MilestonesScreenState extends State<MilestonesScreen> {
       if (response['success'] == true && response['data'] != null) {
         final data = response['data'];
         final achievedList = data['achievedMilestones'] as List? ?? [];
+        final watchedList = data['watchedMilestones'] as List? ?? [];
 
         setState(() {
           _achievedMilestones = {};
@@ -133,6 +141,10 @@ class _MilestonesScreenState extends State<MilestonesScreen> {
             final achieved = AchievedMilestone.fromJson(m);
             _achievedMilestones[achieved.milestoneId] = achieved;
           }
+          _watchedMilestones = watchedList
+              .map((m) => (m['milestoneId'] ?? '').toString())
+              .where((id) => id.isNotEmpty)
+              .toSet();
         });
       } else {
         debugPrint('Backend unavailable, starting with empty state');
@@ -208,6 +220,38 @@ class _MilestonesScreenState extends State<MilestonesScreen> {
       removeFromState();
     } finally {
       setState(() => _isSyncing = false);
+    }
+  }
+
+  Future<void> _toggleWatch(String milestoneId) async {
+    if (_child == null) return;
+    final isWatching = _watchedMilestones.contains(milestoneId);
+
+    // Optimistic update
+    setState(() {
+      if (isWatching) {
+        _watchedMilestones.remove(milestoneId);
+      } else {
+        _watchedMilestones.add(milestoneId);
+      }
+    });
+
+    try {
+      if (isWatching) {
+        await _apiService.unwatchMilestone(_child!.id, milestoneId);
+      } else {
+        await _apiService.watchMilestone(_child!.id, milestoneId);
+      }
+    } catch (e) {
+      // Revert on failure
+      setState(() {
+        if (isWatching) {
+          _watchedMilestones.add(milestoneId);
+        } else {
+          _watchedMilestones.remove(milestoneId);
+        }
+      });
+      debugPrint('Failed to toggle watch: $e');
     }
   }
 
@@ -884,6 +928,23 @@ class _MilestonesScreenState extends State<MilestonesScreen> {
                 ],
               ),
             ),
+            // Watch toggle (only for non-achieved milestones)
+            if (!isAchieved)
+              GestureDetector(
+                onTap: () => _toggleWatch(milestone.id),
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: Icon(
+                    _watchedMilestones.contains(milestone.id)
+                        ? Icons.visibility
+                        : Icons.visibility_off_outlined,
+                    size: 20,
+                    color: _watchedMilestones.contains(milestone.id)
+                        ? domainColor
+                        : AppTheme.textTertiary,
+                  ),
+                ),
+              ),
           ],
         ),
       ),

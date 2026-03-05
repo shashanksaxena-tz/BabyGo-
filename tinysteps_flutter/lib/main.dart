@@ -119,7 +119,6 @@ class MainAppShell extends StatefulWidget {
 class _MainAppShellState extends State<MainAppShell> {
   int _currentIndex = 0;
   String? _currentChildId;
-  bool _isLoading = true;
 
   @override
   void initState() {
@@ -134,7 +133,6 @@ class _MainAppShellState extends State<MainAppShell> {
     if (mounted) {
       setState(() {
         _currentChildId = childId;
-        _isLoading = false;
       });
     }
   }

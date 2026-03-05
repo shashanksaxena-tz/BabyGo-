@@ -1,5 +1,4 @@
 import 'package:equatable/equatable.dart';
-import 'child_profile.dart';
 
 enum DevelopmentDomain {
   motor,

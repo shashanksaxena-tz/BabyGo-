@@ -3,7 +3,7 @@ import TopBar from '../components/TopBar';
 import {
     Sparkles, Moon, Heart, ChevronLeft, ChevronRight, Loader2, RefreshCw,
     Star, Play, Pause, Square, X, BookOpen, Wand2, Trash2, Download,
-    Plus, MapPin, Zap, User
+    Plus, MapPin, Zap, User, Camera, Upload
 } from 'lucide-react';
 import { useChild } from '../contexts/ChildContext';
 import api from '../api';
@@ -19,6 +19,7 @@ interface StoryPage {
 
 interface Story {
     _id: string;
+    childId: string;
     title: string;
     theme: { id: string; name: string; emoji: string; colorHex: string } | string;
     pages: StoryPage[];
@@ -159,6 +160,8 @@ export default function Stories() {
     const [customAction, setCustomAction] = useState('');
     const [customMoral, setCustomMoral] = useState('');
     const [customDetails, setCustomDetails] = useState('');
+    const [characterImages, setCharacterImages] = useState<{ name: string; base64: string; mimeType: string }[]>([]);
+    const [childAvatarImage, setChildAvatarImage] = useState<{ base64: string; mimeType: string } | null>(null);
 
     const child = activeChild;
 
@@ -229,6 +232,8 @@ export default function Stories() {
             setStories(prev => [newStory, ...prev]);
             setSelectedTheme(null);
             openStory(newStory);
+            // Generate illustrations in the background
+            generateIllustrationsForStory(newStory);
         } catch (error: any) {
             console.error('Failed to generate story:', error);
             alert(error.response?.data?.error || 'Failed to generate story. Please try again.');
@@ -252,12 +257,16 @@ export default function Stories() {
                     customMoral ? `Moral lesson: ${customMoral}` : '',
                     customDetails.trim(),
                 ].filter(Boolean).join('. '),
+                ...(characterImages.length > 0 && { characterImages }),
+                ...(childAvatarImage && { childAvatarImage }),
             });
             const newStory = response.data.story;
             setStories(prev => [newStory, ...prev]);
             setShowCustomBuilder(false);
             resetCustomBuilder();
             openStory(newStory);
+            // Generate illustrations in the background
+            generateIllustrationsForStory(newStory);
         } catch (error: any) {
             console.error('Failed to generate custom story:', error);
             alert(error.response?.data?.error || 'Failed to generate custom story. Please try again.');
@@ -272,6 +281,70 @@ export default function Stories() {
         setCustomAction('');
         setCustomMoral('');
         setCustomDetails('');
+        setCharacterImages([]);
+        setChildAvatarImage(null);
+    };
+
+    const fileToBase64 = (file: File): Promise<{ base64: string; mimeType: string }> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const result = reader.result as string;
+                const base64 = result.split(',')[1];
+                resolve({ base64, mimeType: file.type || 'image/jpeg' });
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    };
+
+    const handleChildAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const data = await fileToBase64(file);
+        setChildAvatarImage(data);
+    };
+
+    const handleCharacterImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files) return;
+        const newImages = await Promise.all(
+            Array.from(files).map(async (file) => {
+                const data = await fileToBase64(file);
+                return { name: file.name.replace(/\.[^.]+$/, ''), ...data };
+            })
+        );
+        setCharacterImages(prev => [...prev, ...newImages]);
+    };
+
+    // ─── Background illustration generation ─────────────────────────────
+
+    const generateIllustrationsForStory = async (story: Story) => {
+        for (let i = 0; i < story.pages.length; i++) {
+            const page = story.pages[i];
+            if (!page.illustrationPrompt || page.illustrationUrl) continue;
+            try {
+                const res = await api.post('/stories/illustration', {
+                    prompt: page.illustrationPrompt,
+                    childId: child?._id,
+                    ...(childAvatarImage && { childPhotoBase64: childAvatarImage.base64 }),
+                });
+                if (res.data?.url) {
+                    setReadingStory(prev => prev && prev._id === story._id ? {
+                        ...prev,
+                        pages: prev.pages.map((p, idx) =>
+                            idx === i ? { ...p, illustrationUrl: res.data.url } : p
+                        )
+                    } : prev);
+                    // Persist the illustration URL back to the backend
+                    api.patch(`/stories/${story.childId}/${story._id}/page/${page.pageNumber}/illustration`, {
+                        illustrationUrl: res.data.url,
+                    }).catch(err => console.error(`Failed to persist illustration URL for page ${i}:`, err));
+                }
+            } catch (err) {
+                console.error(`Failed to generate illustration for page ${i}:`, err);
+            }
+        }
     };
 
     // ─── Open story (fetch full version) ──────────────────────────────────
@@ -279,8 +352,16 @@ export default function Stories() {
     const openStory = async (story: Story) => {
         try {
             const response = await api.get(`/stories/${child!._id}/${story._id}`);
-            setReadingStory(response.data.story);
+            const fetchedStory = response.data.story;
+            setReadingStory(fetchedStory);
             setCurrentPage(0);
+            // Retry illustration generation for pages missing URLs
+            const hasMissingIllustrations = fetchedStory.pages?.some(
+                (p: StoryPage) => p.illustrationPrompt && !p.illustrationUrl
+            );
+            if (hasMissingIllustrations) {
+                generateIllustrationsForStory(fetchedStory);
+            }
         } catch (error) {
             console.error('Failed to open story:', error);
             setReadingStory(story);
@@ -579,6 +660,62 @@ export default function Stories() {
                                 onChange={(e) => setCustomDetails(e.target.value)}
                             />
                         </div>
+
+                        {/* Photo Uploads */}
+                        <div className="border-t border-gray-100 pt-6">
+                            <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                <Camera className="w-4 h-4 text-purple-500" />
+                                Photos (optional) — personalize illustrations
+                            </h3>
+
+                            {/* Child Avatar Photo */}
+                            <div className="mb-4">
+                                <label className="text-xs font-medium text-gray-500 mb-2 block">Child's Photo</label>
+                                <div className="flex items-center gap-3">
+                                    {childAvatarImage ? (
+                                        <div className="relative w-16 h-16 rounded-xl overflow-hidden border-2 border-purple-200">
+                                            <img src={`data:${childAvatarImage.mimeType};base64,${childAvatarImage.base64}`} className="w-full h-full object-cover" alt="Child avatar" />
+                                            <button
+                                                onClick={() => setChildAvatarImage(null)}
+                                                className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs"
+                                            >
+                                                <X className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <label className="w-16 h-16 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-purple-300 hover:bg-purple-50/50 transition">
+                                            <Upload className="w-4 h-4 text-gray-400" />
+                                            <input type="file" accept="image/*" className="hidden" onChange={handleChildAvatarUpload} />
+                                        </label>
+                                    )}
+                                    <p className="text-xs text-gray-400">Upload a photo so illustrations can match {child.name}'s appearance</p>
+                                </div>
+                            </div>
+
+                            {/* Character/Toy Photos */}
+                            <div>
+                                <label className="text-xs font-medium text-gray-500 mb-2 block">Character/Toy Photos</label>
+                                <div className="flex flex-wrap gap-3 items-center">
+                                    {characterImages.map((img, idx) => (
+                                        <div key={idx} className="relative w-16 h-16 rounded-xl overflow-hidden border-2 border-purple-200">
+                                            <img src={`data:${img.mimeType};base64,${img.base64}`} className="w-full h-full object-cover" alt={img.name} />
+                                            <button
+                                                onClick={() => setCharacterImages(prev => prev.filter((_, i) => i !== idx))}
+                                                className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs"
+                                            >
+                                                <X className="w-3 h-3" />
+                                            </button>
+                                            <span className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[9px] text-center py-0.5 truncate">{img.name}</span>
+                                        </div>
+                                    ))}
+                                    <label className="w-16 h-16 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-purple-300 hover:bg-purple-50/50 transition">
+                                        <Plus className="w-4 h-4 text-gray-400" />
+                                        <input type="file" accept="image/*" multiple className="hidden" onChange={handleCharacterImageUpload} />
+                                    </label>
+                                    <p className="text-xs text-gray-400 ml-1">Photos of toys or characters to include in the story</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Footer */}
@@ -721,11 +858,11 @@ export default function Stories() {
                                 <>
                                     {/* Illustration */}
                                     {page?.illustrationUrl ? (
-                                        <div className="w-full h-72 bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
+                                        <div className="w-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
                                             <img
                                                 src={page.illustrationUrl}
                                                 alt="Story illustration"
-                                                className="w-full h-full object-cover"
+                                                className="w-full max-h-[500px] object-contain"
                                                 onError={(e) => (e.target as HTMLImageElement).style.display = 'none'}
                                             />
                                         </div>
@@ -734,9 +871,12 @@ export default function Stories() {
                                             <div className="text-center">
                                                 <span className="text-7xl block mb-2">{getThemeEmoji(readingStory.theme)}</span>
                                                 {page?.illustrationPrompt && (
-                                                    <p className="text-sm text-purple-400 italic max-w-xs">
-                                                        {page.illustrationPrompt}
-                                                    </p>
+                                                    <div className="flex flex-col items-center gap-1">
+                                                        <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />
+                                                        <p className="text-sm text-purple-400 italic max-w-xs">
+                                                            Generating illustration...
+                                                        </p>
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>

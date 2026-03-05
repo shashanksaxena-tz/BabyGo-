@@ -20,7 +20,6 @@ class _CommunityHubScreenState extends State<CommunityHubScreen> {
   Map<String, dynamic>? _featuredPost;
   List<String> _trendingTopics = [];
   bool _isLoading = true;
-  String? _selectedCategory;
 
   @override
   void initState() {

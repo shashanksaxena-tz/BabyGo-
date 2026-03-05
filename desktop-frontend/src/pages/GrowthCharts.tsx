@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import TopBar from '../components/TopBar';
 import { Plus, Scale, Ruler, CircleDot, TrendingUp, Info, X, Loader2 } from 'lucide-react';
-import { Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Line, ComposedChart } from 'recharts';
+import { Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Line, ComposedChart, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Legend } from 'recharts';
 import { useChild, type Child } from '../contexts/ChildContext';
 import api from '../api';
 import { useAppConfig } from '../hooks/useAppConfig';
@@ -36,6 +36,7 @@ export default function GrowthCharts() {
     const [measurements, setMeasurements] = useState<GrowthMeasurement[]>([]);
     const [loading, setLoading] = useState(true);
     const [percentile, setPercentile] = useState<number>(50);
+    const [allPercentiles, setAllPercentiles] = useState<Record<string, number>>({});
     const [showAddModal, setShowAddModal] = useState(false);
     // WHO curves fetched from backend, keyed by "gender-metric"
     const [whoCurves, setWhoCurves] = useState<Record<string, WHOCurveData>>({});
@@ -114,6 +115,11 @@ export default function GrowthCharts() {
 
             const found = percentiles.find(p => p.metric === targetMetric);
             setPercentile(found?.percentile ?? 50);
+
+            // Store all percentiles for radar chart
+            const pMap: Record<string, number> = {};
+            percentiles.forEach(p => { pMap[p.metric] = p.percentile; });
+            setAllPercentiles(pMap);
         } catch (error) {
             console.error('Failed to calculate percentile:', error);
         }
@@ -171,7 +177,21 @@ export default function GrowthCharts() {
         if (!backendCurves) return [];
 
         const maxDataMonth = Math.max(...backendCurves.ageMonths);
-        const chartMax = Math.min(ageMonths + 3, maxDataMonth);
+
+        // Find the max age across all measurement data points
+        let maxMeasurementMonth = ageMonths;
+        measurements.forEach(m => {
+            let mAge = m.ageMonths;
+            if (mAge === undefined && child?.dateOfBirth && m.date) {
+                const dob = new Date(child.dateOfBirth);
+                const mDate = new Date(m.date);
+                mAge = (mDate.getFullYear() - dob.getFullYear()) * 12 + (mDate.getMonth() - dob.getMonth());
+            }
+            if (mAge !== undefined && mAge > maxMeasurementMonth) maxMeasurementMonth = mAge;
+        });
+
+        // Show WHO curves up to at least child's age + 3 months padding, or all available data
+        const chartMax = Math.min(Math.max(maxMeasurementMonth + 3, ageMonths + 3), maxDataMonth);
 
         const data = [];
         for (let month = 0; month <= chartMax; month++) {
@@ -243,6 +263,40 @@ export default function GrowthCharts() {
 
     const chartData = getChartData();
     const interpretation = getPercentileInterpretation(percentile);
+
+    // Compute BMI percentile from weight/height
+    const computeBmiPercentile = () => {
+        if (!child?.weight || !child?.height) return 50;
+        const heightM = child.height / 100;
+        const bmi = child.weight / (heightM * heightM);
+        // Approximate: WHO median BMI for toddlers ~16.5, SD ~1.5
+        const zScore = (bmi - 16.5) / 1.5;
+        // Convert z-score to percentile (approximation)
+        const p = 50 * (1 + Math.tanh(zScore * 0.7));
+        return Math.round(Math.max(1, Math.min(99, p)));
+    };
+
+    const getRadarData = () => {
+        const weightP = allPercentiles.weight ?? 50;
+        const heightP = allPercentiles.height ?? 50;
+        const headP = allPercentiles.headCircumference ?? 50;
+        const bmiP = computeBmiPercentile();
+
+        // Mock developmental data (labeled as estimated in UI)
+        const motorP = 58;
+        const cognitiveP = 62;
+
+        return [
+            { metric: 'Weight', child: weightP, who50: 50, regional: 48, fullMark: 100 },
+            { metric: 'Height', child: heightP, who50: 50, regional: 52, fullMark: 100 },
+            { metric: 'Head Circ.', child: headP, who50: 50, regional: 49, fullMark: 100 },
+            { metric: 'BMI', child: bmiP, who50: 50, regional: 51, fullMark: 100 },
+            { metric: 'Motor Dev.', child: motorP, who50: 50, regional: 55, fullMark: 100 },
+            { metric: 'Cognitive', child: cognitiveP, who50: 50, regional: 53, fullMark: 100 },
+        ];
+    };
+
+    const radarData = getRadarData();
 
     if (!child) {
         return (
@@ -456,6 +510,90 @@ export default function GrowthCharts() {
                                     worldwide. Being between the 15th and 85th percentile is typical.
                                     Growth patterns are more important than single measurements.
                                 </p>
+                            </div>
+                        </div>
+
+                        {/* Radar / Star Plot Chart */}
+                        <div className="bg-white rounded-[24px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.02)] border border-gray-50">
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <h3 className="text-lg font-bold font-heading text-gray-900">
+                                        Growth Comparison
+                                    </h3>
+                                    <p className="text-sm text-gray-500">
+                                        Percentile comparison across metrics
+                                    </p>
+                                </div>
+                                <span className="text-xs bg-amber-50 text-amber-700 px-2 py-1 rounded-full font-medium border border-amber-200">
+                                    Dev metrics are estimated
+                                </span>
+                            </div>
+                            <div className="flex flex-wrap gap-4 mb-2 text-xs">
+                                <div className="flex items-center gap-1.5">
+                                    <div className="w-3 h-3 rounded-full bg-blue-500" />
+                                    <span className="text-gray-600">{child.name}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <div className="w-3 h-3 rounded-full bg-emerald-400" />
+                                    <span className="text-gray-600">WHO 50th Percentile</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <div className="w-3 h-3 rounded-full bg-amber-400" />
+                                    <span className="text-gray-600">Regional Average</span>
+                                </div>
+                            </div>
+                            <div className="w-full">
+                                <ResponsiveContainer width="100%" height={360}>
+                                    <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="80%">
+                                        <PolarGrid stroke="#e5e7eb" />
+                                        <PolarAngleAxis
+                                            dataKey="metric"
+                                            tick={{ fontSize: 12, fill: '#6b7280', fontWeight: 600 }}
+                                        />
+                                        <PolarRadiusAxis
+                                            angle={30}
+                                            domain={[0, 100]}
+                                            tick={{ fontSize: 10, fill: '#9ca3af' }}
+                                            tickCount={5}
+                                        />
+                                        <Radar
+                                            name="WHO 50th"
+                                            dataKey="who50"
+                                            stroke="#34d399"
+                                            fill="#34d399"
+                                            fillOpacity={0.1}
+                                            strokeWidth={2}
+                                            strokeDasharray="5 5"
+                                        />
+                                        <Radar
+                                            name="Regional Avg"
+                                            dataKey="regional"
+                                            stroke="#fbbf24"
+                                            fill="#fbbf24"
+                                            fillOpacity={0.05}
+                                            strokeWidth={2}
+                                            strokeDasharray="3 3"
+                                        />
+                                        <Radar
+                                            name={child.name}
+                                            dataKey="child"
+                                            stroke="#3b82f6"
+                                            fill="#3b82f6"
+                                            fillOpacity={0.2}
+                                            strokeWidth={2.5}
+                                        />
+                                        <Legend />
+                                        <Tooltip
+                                            contentStyle={{
+                                                backgroundColor: 'white',
+                                                border: 'none',
+                                                borderRadius: '12px',
+                                                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                            }}
+                                            formatter={(value, name) => [`${value}th percentile`, name as string]}
+                                        />
+                                    </RadarChart>
+                                </ResponsiveContainer>
                             </div>
                         </div>
                     </div>

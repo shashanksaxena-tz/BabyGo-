@@ -23,13 +23,16 @@ import {
     Filter,
     ChevronDown,
     ChevronUp,
+    BookOpen,
+    Bookmark,
+    Mic,
 } from 'lucide-react';
 import { twMerge } from 'tailwind-merge';
 
 interface TimelineEntry {
     _id: string;
     childId: string;
-    type: 'analysis' | 'milestone' | 'measurement' | 'photo' | 'note';
+    type: 'analysis' | 'milestone' | 'measurement' | 'photo' | 'note' | 'story' | 'recipe_save' | 'voice_recording';
     title: string;
     description?: string;
     date: string;
@@ -38,7 +41,7 @@ interface TimelineEntry {
     createdAt?: string;
 }
 
-type EntryType = 'all' | 'analysis' | 'milestone' | 'measurement' | 'photo' | 'note';
+type EntryType = 'all' | 'analysis' | 'milestone' | 'measurement' | 'photo' | 'note' | 'story' | 'recipe_save' | 'voice_recording';
 
 const ENTRY_TYPES: { id: EntryType; label: string; icon: typeof Clock; color: string; bg: string }[] = [
     { id: 'all', label: 'All', icon: Filter, color: 'text-emerald-600', bg: 'bg-emerald-50' },
@@ -47,6 +50,9 @@ const ENTRY_TYPES: { id: EntryType; label: string; icon: typeof Clock; color: st
     { id: 'measurement', label: 'Measurement', icon: Scale, color: 'text-blue-600', bg: 'bg-blue-50' },
     { id: 'note', label: 'Note', icon: StickyNote, color: 'text-purple-600', bg: 'bg-purple-50' },
     { id: 'photo', label: 'Photo', icon: Image, color: 'text-pink-600', bg: 'bg-pink-50' },
+    { id: 'story', label: 'Story', icon: BookOpen, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+    { id: 'recipe_save', label: 'Recipe', icon: Bookmark, color: 'text-orange-600', bg: 'bg-orange-50' },
+    { id: 'voice_recording', label: 'Voice', icon: Mic, color: 'text-cyan-600', bg: 'bg-cyan-50' },
 ];
 
 function getEntryStyle(type: string, domain?: string) {
@@ -69,6 +75,12 @@ function getEntryStyle(type: string, domain?: string) {
             return { icon: Image, color: 'text-pink-600', bg: 'bg-pink-100', border: 'border-pink-200' };
         case 'note':
             return { icon: StickyNote, color: 'text-purple-600', bg: 'bg-purple-100', border: 'border-purple-200' };
+        case 'story':
+            return { icon: BookOpen, color: 'text-indigo-600', bg: 'bg-indigo-100', border: 'border-indigo-200' };
+        case 'recipe_save':
+            return { icon: Bookmark, color: 'text-orange-600', bg: 'bg-orange-100', border: 'border-orange-200' };
+        case 'voice_recording':
+            return { icon: Mic, color: 'text-cyan-600', bg: 'bg-cyan-100', border: 'border-cyan-200' };
         default:
             return { icon: Clock, color: 'text-gray-600', bg: 'bg-gray-100', border: 'border-gray-200' };
     }

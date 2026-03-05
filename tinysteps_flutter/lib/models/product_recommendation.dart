@@ -125,6 +125,7 @@ class Recipe {
   final bool isVegetarian;
   final bool isVegan;
   final String difficulty;
+  final bool isFavorited;
 
   const Recipe({
     required this.id,
@@ -142,7 +143,27 @@ class Recipe {
     this.isVegetarian = false,
     this.isVegan = false,
     this.difficulty = 'Easy',
+    this.isFavorited = false,
   });
+
+  Recipe copyWith({bool? isFavorited}) => Recipe(
+    id: id,
+    name: name,
+    description: description,
+    minAgeMonths: minAgeMonths,
+    maxAgeMonths: maxAgeMonths,
+    ingredients: ingredients,
+    instructions: instructions,
+    prepTime: prepTime,
+    cookTime: cookTime,
+    nutritionHighlights: nutritionHighlights,
+    imageUrl: imageUrl,
+    allergens: allergens,
+    isVegetarian: isVegetarian,
+    isVegan: isVegan,
+    difficulty: difficulty,
+    isFavorited: isFavorited ?? this.isFavorited,
+  );
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -160,23 +181,25 @@ class Recipe {
     'isVegetarian': isVegetarian,
     'isVegan': isVegan,
     'difficulty': difficulty,
+    'isFavorited': isFavorited,
   };
 
   factory Recipe.fromJson(Map<String, dynamic> json) => Recipe(
-    id: json['id'],
-    name: json['name'],
-    description: json['description'],
-    minAgeMonths: json['minAgeMonths'],
-    maxAgeMonths: json['maxAgeMonths'],
+    id: json['_id'] ?? json['id'] ?? '',
+    name: json['name'] ?? '',
+    description: json['description'] ?? '',
+    minAgeMonths: json['minAgeMonths'] ?? json['ageRangeStartMonths'] ?? 0,
+    maxAgeMonths: json['maxAgeMonths'] ?? json['ageRangeEndMonths'] ?? 60,
     ingredients: List<String>.from(json['ingredients'] ?? []),
-    instructions: List<String>.from(json['instructions'] ?? []),
-    prepTime: json['prepTime'],
-    cookTime: json['cookTime'],
+    instructions: List<String>.from(json['instructions'] ?? json['steps'] ?? []),
+    prepTime: json['prepTime']?.toString() ?? '',
+    cookTime: json['cookTime']?.toString() ?? '',
     nutritionHighlights: List<String>.from(json['nutritionHighlights'] ?? []),
     imageUrl: json['imageUrl'],
     allergens: List<String>.from(json['allergens'] ?? []),
     isVegetarian: json['isVegetarian'] ?? false,
     isVegan: json['isVegan'] ?? false,
     difficulty: json['difficulty'] ?? 'Easy',
+    isFavorited: json['isFavorited'] ?? false,
   );
 }

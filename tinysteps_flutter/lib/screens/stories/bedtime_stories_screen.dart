@@ -7,6 +7,7 @@ import '../../utils/app_theme.dart';
 import '../../widgets/language_picker.dart';
 import '../../animations/custom_animations.dart';
 import 'illustrated_story_screen.dart';
+import 'custom_story_screen.dart';
 
 class BedtimeStoriesScreen extends StatefulWidget {
   const BedtimeStoriesScreen({super.key});
@@ -520,7 +521,11 @@ class _BedtimeStoriesScreenState extends State<BedtimeStoriesScreen> {
       width: double.infinity,
       height: 52,
       child: ElevatedButton(
-        onPressed: _isGenerating ? null : () => _showThemeSelector(),
+        onPressed: _isGenerating ? null : () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const CustomStoryScreen()),
+          );
+        },
         style: ElevatedButton.styleFrom(
           backgroundColor: AppTheme.primaryGreen,
           foregroundColor: Colors.white,
@@ -561,20 +566,6 @@ class _BedtimeStoriesScreenState extends State<BedtimeStoriesScreen> {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-      ),
-    );
-  }
-
-  void _showThemeSelector() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _ThemeSelectorSheet(
-        onThemeSelected: (theme) {
-          Navigator.pop(context);
-          _generateStoryFromTheme(theme.id);
-        },
       ),
     );
   }
@@ -681,109 +672,6 @@ class _ThemeCircleState extends State<_ThemeCircle>
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-// ---- THEME SELECTOR BOTTOM SHEET (full list) ----
-class _ThemeSelectorSheet extends StatelessWidget {
-  final Function(StoryTheme) onThemeSelected;
-
-  const _ThemeSelectorSheet({required this.onThemeSelected});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: 12),
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppTheme.neutral300,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'Choose a Theme',
-            style: TextStyle(
-              fontFamily: 'Nunito',
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Pick a theme for your bedtime story',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 14,
-              color: AppTheme.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            height: 200,
-            child: GridView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 4,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-              ),
-              itemCount: StoryTheme.themes.length,
-              itemBuilder: (context, index) {
-                final theme = StoryTheme.themes[index];
-                final color = Color(
-                  int.parse(theme.colorHex.replaceFirst('#', '0xFF')),
-                );
-
-                return GestureDetector(
-                  onTap: () => onThemeSelected(theme),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: color.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: color.withOpacity(0.3),
-                        width: 2,
-                      ),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          theme.emoji,
-                          style: const TextStyle(fontSize: 24),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          theme.name,
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: color,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 24),
-        ],
       ),
     );
   }

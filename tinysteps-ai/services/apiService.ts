@@ -291,6 +291,13 @@ class ApiService {
     return this.request(`/recommendations/recipes/${childId}`);
   }
 
+  async toggleRecipeFavorite(recipeId: string, childId: string) {
+    return this.request(`/recommendations/recipes/${recipeId}/favorite`, {
+      method: 'POST',
+      body: JSON.stringify({ childId }),
+    });
+  }
+
   async regenerateRecipes(childId: string, filters?: { excludeAllergens?: string[]; dietaryPreferences?: string[]; foodLikings?: string }) {
     return this.request(`/recommendations/recipes/${childId}/regenerate`, {
       method: 'POST',

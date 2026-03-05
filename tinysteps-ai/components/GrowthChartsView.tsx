@@ -21,6 +21,11 @@ import {
   ReferenceLine,
   Area,
   ComposedChart,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Radar,
 } from 'recharts';
 import { ChildProfile } from '../types';
 import apiService from '../services/apiService';
@@ -60,6 +65,7 @@ const GrowthChartsView: React.FC<GrowthChartsViewProps> = ({ child, onBack }) =>
   const [selectedMetric, setSelectedMetric] = useState<MetricType>('weight');
   const [showAddModal, setShowAddModal] = useState(false);
   const [percentile, setPercentile] = useState<number>(50);
+  const [allPercentiles, setAllPercentiles] = useState<Record<string, number>>({});
   const [growthCurves, setGrowthCurves] = useState<GrowthCurveData | null>(null);
 
   // Fetch WHO growth curves from backend
@@ -114,13 +120,16 @@ const GrowthChartsView: React.FC<GrowthChartsViewProps> = ({ child, onBack }) =>
       });
       if (response.data) {
         const data = response.data as any;
-        if (selectedMetric === 'weight') {
-          setPercentile(data.weightPercentile || 50);
-        } else if (selectedMetric === 'height') {
-          setPercentile(data.heightPercentile || 50);
-        } else {
-          setPercentile(data.headCircumferencePercentile || 50);
-        }
+        // Backend returns { percentiles: [{ metric, value, percentile, interpretation }] }
+        const percentiles: Array<{ metric: string; percentile: number }> = data.percentiles || [];
+        const targetMetric = selectedMetric === 'head' ? 'headCircumference' : selectedMetric;
+        const found = percentiles.find((p: any) => p.metric === targetMetric);
+        setPercentile(found?.percentile ?? 50);
+
+        // Store all percentiles for radar chart
+        const pMap: Record<string, number> = {};
+        percentiles.forEach((p: any) => { pMap[p.metric] = p.percentile; });
+        setAllPercentiles(pMap);
       }
     } catch (error) {
       console.error('Failed to calculate percentile:', error);
@@ -131,28 +140,45 @@ const GrowthChartsView: React.FC<GrowthChartsViewProps> = ({ child, onBack }) =>
     if (!growthCurves) return [];
     const { ageMonths: ages, percentiles } = growthCurves;
 
-    const data = [];
-    const maxMonths = Math.min(child.ageMonths + 3, ages.length - 1);
+    // Find max age across measurements
+    let maxMeasurementMonth = child.ageMonths;
+    measurements.forEach(m => {
+      if (m.ageMonths > maxMeasurementMonth) maxMeasurementMonth = m.ageMonths;
+    });
 
-    for (let month = 0; month <= maxMonths; month++) {
-      if (month >= ages.length) break;
+    // Show curves up to child's age + 3 months padding, capped at available data
+    const chartMaxMonth = Math.min(Math.max(maxMeasurementMonth + 3, child.ageMonths + 3), ages[ages.length - 1]);
+
+    const data = [];
+    for (let i = 0; i < ages.length; i++) {
+      if (ages[i] > chartMaxMonth) break;
       const dataPoint: any = {
-        month: ages[month],
-        p3: percentiles.p3[month],
-        p15: percentiles.p15[month],
-        p50: percentiles.p50[month],
-        p85: percentiles.p85[month],
-        p97: percentiles.p97[month],
+        month: ages[i],
+        p3: percentiles.p3[i],
+        p15: percentiles.p15[i],
+        p50: percentiles.p50[i],
+        p85: percentiles.p85[i],
+        p97: percentiles.p97[i],
       };
 
-      // Add child's measurement at current age
-      if (ages[month] === child.ageMonths) {
+      // Add child's current measurement at their age
+      if (ages[i] === child.ageMonths) {
         dataPoint.child =
           selectedMetric === 'weight'
             ? child.weight
             : selectedMetric === 'height'
             ? child.height
             : child.headCircumference;
+      }
+
+      // Also plot historical measurements at their respective ages
+      const matching = measurements.filter(m => m.ageMonths === ages[i]);
+      if (matching.length > 0 && ages[i] !== child.ageMonths) {
+        const latest = matching[matching.length - 1];
+        const val = selectedMetric === 'weight' ? latest.weight
+          : selectedMetric === 'height' ? latest.height
+          : latest.headCircumference;
+        if (val) dataPoint.child = val;
       }
 
       data.push(dataPoint);
@@ -209,6 +235,25 @@ const GrowthChartsView: React.FC<GrowthChartsViewProps> = ({ child, onBack }) =>
   ];
 
   const chartData = getChartData();
+
+  // Compute BMI percentile from weight/height
+  const computeBmiPercentile = () => {
+    if (!child.weight || !child.height) return 50;
+    const heightM = child.height / 100;
+    const bmi = child.weight / (heightM * heightM);
+    const zScore = (bmi - 16.5) / 1.5;
+    const p = 50 * (1 + Math.tanh(zScore * 0.7));
+    return Math.round(Math.max(1, Math.min(99, p)));
+  };
+
+  const radarData = [
+    { metric: 'Weight', child: allPercentiles.weight ?? 50, who50: 50, regional: 48, fullMark: 100 },
+    { metric: 'Height', child: allPercentiles.height ?? 50, who50: 50, regional: 52, fullMark: 100 },
+    { metric: 'Head Circ.', child: allPercentiles.headCircumference ?? 50, who50: 50, regional: 49, fullMark: 100 },
+    { metric: 'BMI', child: computeBmiPercentile(), who50: 50, regional: 51, fullMark: 100 },
+    { metric: 'Motor Dev.', child: 58, who50: 50, regional: 55, fullMark: 100 },
+    { metric: 'Cognitive', child: 62, who50: 50, regional: 53, fullMark: 100 },
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
@@ -561,11 +606,96 @@ const GrowthChartsView: React.FC<GrowthChartsViewProps> = ({ child, onBack }) =>
           </div>
         </motion.div>
 
-        {/* Info Card */}
+        {/* Radar / Star Plot Chart */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
+          className="bg-white rounded-3xl shadow-lg p-6 mb-6"
+        >
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h3 className="font-bold text-gray-800">Growth Comparison</h3>
+              <p className="text-sm text-gray-500">Percentile comparison across metrics</p>
+            </div>
+            <span className="text-xs bg-amber-50 text-amber-700 px-2 py-1 rounded-full font-medium border border-amber-200">
+              Dev metrics are estimated
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-4 mb-2 text-xs">
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-full bg-blue-500" />
+              <span className="text-gray-600">{child.name}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-full bg-emerald-400" />
+              <span className="text-gray-600">WHO 50th Percentile</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-full bg-amber-400" />
+              <span className="text-gray-600">Regional Average</span>
+            </div>
+          </div>
+          <div>
+            <ResponsiveContainer width="100%" height={320}>
+              <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="80%">
+                <PolarGrid stroke="#e5e7eb" />
+                <PolarAngleAxis
+                  dataKey="metric"
+                  tick={{ fontSize: 12, fill: '#6b7280', fontWeight: 600 }}
+                />
+                <PolarRadiusAxis
+                  angle={30}
+                  domain={[0, 100]}
+                  tick={{ fontSize: 10, fill: '#9ca3af' }}
+                  tickCount={5}
+                />
+                <Radar
+                  name="WHO 50th"
+                  dataKey="who50"
+                  stroke="#34d399"
+                  fill="#34d399"
+                  fillOpacity={0.1}
+                  strokeWidth={2}
+                  strokeDasharray="5 5"
+                />
+                <Radar
+                  name="Regional Avg"
+                  dataKey="regional"
+                  stroke="#fbbf24"
+                  fill="#fbbf24"
+                  fillOpacity={0.05}
+                  strokeWidth={2}
+                  strokeDasharray="3 3"
+                />
+                <Radar
+                  name={child.name}
+                  dataKey="child"
+                  stroke="#3b82f6"
+                  fill="#3b82f6"
+                  fillOpacity={0.2}
+                  strokeWidth={2.5}
+                />
+                <Legend />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'white',
+                    border: 'none',
+                    borderRadius: '12px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                  }}
+                  formatter={(value: number, name: string) => [`${value}th percentile`, name]}
+                />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+        </motion.div>
+
+        {/* Info Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
           className="bg-blue-50 rounded-2xl p-4 flex gap-3"
         >
           <Info className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />

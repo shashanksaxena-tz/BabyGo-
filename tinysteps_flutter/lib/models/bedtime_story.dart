@@ -115,6 +115,14 @@ class StoryPage {
     illustrationUrl: json['illustrationUrl'],
     readingTimeSeconds: json['readingTimeSeconds'] ?? 30,
   );
+
+  StoryPage copyWith({String? illustrationUrl}) => StoryPage(
+    pageNumber: pageNumber,
+    text: text,
+    illustrationPrompt: illustrationPrompt,
+    illustrationUrl: illustrationUrl ?? this.illustrationUrl,
+    readingTimeSeconds: readingTimeSeconds,
+  );
 }
 
 class BedtimeStory extends Equatable {
@@ -189,13 +197,14 @@ class BedtimeStory extends Equatable {
   BedtimeStory copyWith({
     bool? isFavorite,
     int? timesRead,
+    List<StoryPage>? pages,
   }) {
     return BedtimeStory(
       id: id,
       childId: childId,
       title: title,
       theme: theme,
-      pages: pages,
+      pages: pages ?? this.pages,
       moral: moral,
       ageMonths: ageMonths,
       createdAt: createdAt,

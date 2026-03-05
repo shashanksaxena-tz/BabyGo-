@@ -12,7 +12,7 @@ const timelineEntrySchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['analysis', 'milestone', 'measurement', 'photo', 'note'],
+    enum: ['analysis', 'milestone', 'measurement', 'photo', 'note', 'story', 'recipe_save', 'voice_recording'],
     required: true,
   },
   date: {

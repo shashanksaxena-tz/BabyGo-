@@ -26,7 +26,6 @@ class _HealthHubScreenState extends State<HealthHubScreen> {
   // Data from API
   String _childName = '';
   List<String> _flaggedDomains = [];
-  Map<String, dynamic> _domainScores = {};
   List<Map<String, dynamic>> _recommendedDoctors = [];
   List<Map<String, dynamic>> _otherDoctors = [];
 
@@ -82,9 +81,6 @@ class _HealthHubScreenState extends State<HealthHubScreen> {
           setState(() {
             _childName = data['childName']?.toString() ?? _child?.displayName ?? '';
             _flaggedDomains = List<String>.from(data['flaggedDomains'] ?? []);
-            _domainScores = data['domainScores'] is Map<String, dynamic>
-                ? data['domainScores'] as Map<String, dynamic>
-                : {};
             _recommendedDoctors = _parseList(data['recommended']);
             _otherDoctors = _parseList(data['others']);
             _isLoading = false;

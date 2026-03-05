@@ -91,7 +91,7 @@ const analysisSchema = new mongoose.Schema({
   activities: [String],
   // Structured tips (merged from Web's richer format)
   structuredTips: [{
-    category: { type: String, enum: ['sleep', 'feeding', 'behavior', 'safety', 'development', 'health', 'bonding'] },
+    category: { type: String, enum: ['sleep', 'feeding', 'behavior', 'safety', 'development', 'health', 'bonding', 'motor', 'language', 'cognitive', 'social'] },
     title: String,
     description: String,
     priority: { type: String, enum: ['high', 'medium', 'low'] },

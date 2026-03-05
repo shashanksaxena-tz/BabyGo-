@@ -35,6 +35,7 @@ interface Recipe {
   steps: string[];
   tips: string[];
   allergens: string[];
+  isFavorited?: boolean;
 }
 
 interface TranslatedRecipe {
@@ -81,7 +82,6 @@ const RecipesView: React.FC<RecipesViewProps> = ({ child, onBack }) => {
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
-  const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
   const [excludeAllergens, setExcludeAllergens] = useState<string[]>([]);
   const [dietaryPrefs, setDietaryPrefs] = useState<string[]>([]);
@@ -150,12 +150,32 @@ const RecipesView: React.FC<RecipesViewProps> = ({ child, onBack }) => {
     apiService.updateUserLanguage(lang).catch(() => {}); // persist, non-blocking
   };
 
+  const normalizeRecipe = (raw: any): Recipe => ({
+    id: raw._id || raw.id,
+    name: raw.name || '',
+    emoji: raw.emoji || '🍽️',
+    category: raw.category || raw.mealType || 'other',
+    description: raw.description || '',
+    prepTime: typeof raw.prepTime === 'number' ? raw.prepTime : parseInt(raw.prepTime) || 0,
+    servings: raw.servings || '',
+    calories: raw.calories ?? raw.nutrition?.calories ?? 0,
+    protein: raw.protein ?? (typeof raw.nutrition?.protein === 'string' ? parseFloat(raw.nutrition.protein) : raw.nutrition?.protein) ?? 0,
+    fiber: raw.fiber ?? (typeof raw.nutrition?.fiber === 'string' ? parseFloat(raw.nutrition.fiber) : raw.nutrition?.fiber) ?? 0,
+    iron: raw.iron || raw.nutrition?.iron || '',
+    ingredients: raw.ingredients || [],
+    steps: raw.steps || raw.instructions || [],
+    tips: raw.tips || [],
+    allergens: raw.allergens || [],
+    isFavorited: raw.isFavorited || false,
+  });
+
   const loadRecipes = async () => {
     setLoading(true);
     try {
       const result = await apiService.getRecipes(child.id);
       const data = (result as any).data;
-      setRecipes(data?.recipes || []);
+      const rawRecipes = data?.recipes || [];
+      setRecipes(rawRecipes.map(normalizeRecipe));
     } catch (error) {
       console.error('Failed to load recipes:', error);
     } finally {
@@ -169,7 +189,8 @@ const RecipesView: React.FC<RecipesViewProps> = ({ child, onBack }) => {
     try {
       const result = await apiService.regenerateRecipes(child.id, filters);
       const data = (result as any).data;
-      setRecipes(data?.recipes || []);
+      const rawRecipes = data?.recipes || [];
+      setRecipes(rawRecipes.map(normalizeRecipe));
     } catch (error) {
       console.error('Failed to regenerate recipes:', error);
     } finally {
@@ -179,16 +200,22 @@ const RecipesView: React.FC<RecipesViewProps> = ({ child, onBack }) => {
 
   const activeFilterCount = excludeAllergens.length + dietaryPrefs.length + (likings ? 1 : 0);
 
-  const toggleFavorite = (recipeId: string) => {
-    setFavorites((prev) => {
-      const next = new Set(prev);
-      if (next.has(recipeId)) {
-        next.delete(recipeId);
-      } else {
-        next.add(recipeId);
-      }
-      return next;
-    });
+  const favorites = new Set(recipes.filter(r => r.isFavorited).map(r => r.id));
+
+  const toggleFavorite = async (recipeId: string) => {
+    // Optimistic update
+    setRecipes(prev => prev.map(r =>
+      r.id === recipeId ? { ...r, isFavorited: !r.isFavorited } : r
+    ));
+    try {
+      await apiService.toggleRecipeFavorite(recipeId, child.id);
+    } catch (err) {
+      // Revert on failure
+      setRecipes(prev => prev.map(r =>
+        r.id === recipeId ? { ...r, isFavorited: !r.isFavorited } : r
+      ));
+      console.error('Failed to toggle favorite:', err);
+    }
   };
 
   const getCategoryColor = (category: string) => {
