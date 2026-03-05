@@ -17,6 +17,7 @@ import {
     ClipboardList,
 } from 'lucide-react';
 import { useChild } from '../contexts/ChildContext';
+import { useAppConfig } from '../hooks/useAppConfig';
 import api from '../api';
 
 // --- Types ---
@@ -185,22 +186,34 @@ function getStatusBadge(status: string) {
     return styles[status] || 'bg-gray-100 text-gray-700';
 }
 
-function getScoreColor(score: number) {
-    if (score >= 80) return 'text-emerald-600';
-    if (score >= 60) return 'text-blue-600';
-    if (score >= 40) return 'text-amber-600';
-    return 'text-red-600';
+const DEFAULT_SCORE_THRESHOLDS: Record<string, { min: number; color: string }> = {
+    excellent: { min: 80, color: 'text-emerald-600' },
+    good: { min: 60, color: 'text-blue-600' },
+    fair: { min: 40, color: 'text-amber-600' },
+    poor: { min: 0, color: 'text-red-600' },
+};
+
+const DEFAULT_STATUS_LABELS: Record<string, string> = {
+    'on-track': 'On Track',
+    'on-track-monitoring': 'On Track (Monitoring)',
+    'monitor': 'Monitor',
+    'discuss': 'Discuss',
+    'ahead': 'Ahead',
+};
+
+function getScoreColor(score: number, scoreThresholds?: Record<string, { min: number; color: string }> | null) {
+    const thresholds = scoreThresholds || DEFAULT_SCORE_THRESHOLDS;
+    const sorted = Object.values(thresholds).sort((a, b) => b.min - a.min);
+    for (const t of sorted) {
+        if (score >= t.min) return t.color;
+    }
+    return sorted[sorted.length - 1]?.color || 'text-gray-600';
 }
 
-function getStatusLabel(status: string) {
-    switch (status) {
-        case 'on-track': return 'On Track';
-        case 'on-track-monitoring': return 'On Track (Monitoring)';
-        case 'monitor': return 'Monitor';
-        case 'discuss': return 'Discuss';
-        case 'ahead': return 'Ahead';
-        default: return status.charAt(0).toUpperCase() + status.slice(1);
-    }
+function getStatusLabel(status: string, statuses?: Record<string, { label: string }> | null) {
+    if (statuses?.[status]) return statuses[status].label;
+    if (DEFAULT_STATUS_LABELS[status]) return DEFAULT_STATUS_LABELS[status];
+    return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
 // --- Components ---
@@ -222,6 +235,8 @@ function ReportListView({
     onSelectReport: (id: string) => void;
     onRetry: () => void;
 }) {
+    const { config } = useAppConfig();
+
     if (loading) {
         return (
             <div className="flex items-center justify-center py-24">
@@ -320,7 +335,7 @@ function ReportListView({
                                     <FileText className="w-5 h-5 text-emerald-600" />
                                 </div>
                                 {report.overallScore != null && (
-                                    <span className={`text-2xl font-bold ${getScoreColor(report.overallScore)}`}>
+                                    <span className={`text-2xl font-bold ${getScoreColor(report.overallScore, config?.scoreThresholds)}`}>
                                         {report.overallScore}
                                     </span>
                                 )}
@@ -338,7 +353,7 @@ function ReportListView({
 
                             {report.overallStatus && (
                                 <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${getStatusBadge(report.overallStatus)} mb-3`}>
-                                    {getStatusLabel(report.overallStatus)}
+                                    {getStatusLabel(report.overallStatus, config?.statuses)}
                                 </span>
                             )}
 
@@ -375,6 +390,7 @@ function ReportDetailView({
     childId: string;
     onBack: () => void;
 }) {
+    const { config } = useAppConfig();
     const [report, setReport] = useState<ReportDetail | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -525,7 +541,7 @@ function ReportDetailView({
                         })}
                     </span>
                     <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold bg-white/20 text-white`}>
-                        {getStatusLabel(report.overallStatus)}
+                        {getStatusLabel(report.overallStatus, config?.statuses)}
                     </span>
                 </div>
             </div>
@@ -584,11 +600,11 @@ function ReportDetailView({
                                 <div className="flex items-center justify-between mb-3">
                                     <h4 className="font-bold text-gray-800">{domain.label}</h4>
                                     <div className="flex items-center gap-2">
-                                        <span className={`text-lg font-bold ${getScoreColor(domain.score)}`}>
+                                        <span className={`text-lg font-bold ${getScoreColor(domain.score, config?.scoreThresholds)}`}>
                                             {domain.score}
                                         </span>
                                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(domain.status)}`}>
-                                            {getStatusLabel(domain.status)}
+                                            {getStatusLabel(domain.status, config?.statuses)}
                                         </span>
                                     </div>
                                 </div>

@@ -41,57 +41,18 @@ interface GrowthChartsViewProps {
 
 type MetricType = 'weight' | 'height' | 'head';
 
-// WHO Growth Standards Data (simplified for demo)
-const WHO_PERCENTILES = {
-  weight: {
-    boys: {
-      p3: [2.5, 3.4, 4.3, 5.0, 5.6, 6.1, 6.5, 6.9, 7.2, 7.5, 7.7, 7.9, 8.1],
-      p15: [2.9, 3.9, 4.9, 5.7, 6.3, 6.8, 7.3, 7.7, 8.0, 8.3, 8.6, 8.8, 9.0],
-      p50: [3.3, 4.5, 5.6, 6.4, 7.0, 7.5, 7.9, 8.3, 8.6, 8.9, 9.2, 9.4, 9.6],
-      p85: [3.9, 5.1, 6.3, 7.2, 7.8, 8.4, 8.8, 9.2, 9.6, 9.9, 10.2, 10.5, 10.7],
-      p97: [4.4, 5.8, 7.1, 8.0, 8.7, 9.3, 9.8, 10.3, 10.7, 11.0, 11.4, 11.7, 11.9],
-    },
-    girls: {
-      p3: [2.4, 3.2, 4.0, 4.6, 5.1, 5.5, 5.9, 6.2, 6.5, 6.7, 6.9, 7.1, 7.3],
-      p15: [2.8, 3.6, 4.5, 5.2, 5.8, 6.2, 6.6, 6.9, 7.2, 7.5, 7.7, 7.9, 8.1],
-      p50: [3.2, 4.2, 5.1, 5.8, 6.4, 6.9, 7.3, 7.6, 7.9, 8.2, 8.5, 8.7, 8.9],
-      p85: [3.7, 4.8, 5.8, 6.6, 7.3, 7.8, 8.2, 8.6, 8.9, 9.2, 9.5, 9.8, 10.0],
-      p97: [4.2, 5.5, 6.6, 7.5, 8.2, 8.8, 9.3, 9.7, 10.1, 10.4, 10.7, 11.0, 11.3],
-    },
-  },
-  height: {
-    boys: {
-      p3: [46.3, 51.1, 54.7, 57.6, 60.0, 62.0, 63.8, 65.4, 66.9, 68.2, 69.5, 70.7, 71.8],
-      p15: [48.0, 53.0, 56.7, 59.7, 62.2, 64.3, 66.1, 67.8, 69.3, 70.7, 72.0, 73.2, 74.3],
-      p50: [49.9, 54.7, 58.4, 61.4, 63.9, 65.9, 67.6, 69.2, 70.6, 72.0, 73.3, 74.5, 75.7],
-      p85: [51.8, 56.5, 60.2, 63.2, 65.7, 67.6, 69.2, 70.7, 72.1, 73.4, 74.6, 75.8, 77.0],
-      p97: [53.4, 58.1, 61.7, 64.6, 67.0, 68.9, 70.4, 71.9, 73.2, 74.5, 75.7, 76.9, 78.1],
-    },
-    girls: {
-      p3: [45.6, 50.0, 53.2, 55.8, 57.9, 59.8, 61.5, 63.0, 64.4, 65.7, 66.9, 68.1, 69.2],
-      p15: [47.2, 51.7, 55.1, 57.8, 60.0, 61.9, 63.6, 65.2, 66.6, 67.9, 69.2, 70.4, 71.5],
-      p50: [49.1, 53.7, 57.1, 59.8, 62.1, 64.0, 65.7, 67.3, 68.7, 70.1, 71.5, 72.8, 74.0],
-      p85: [51.1, 55.8, 59.2, 61.9, 64.3, 66.2, 67.9, 69.5, 70.9, 72.3, 73.7, 75.1, 76.4],
-      p97: [52.7, 57.4, 60.9, 63.6, 66.0, 67.9, 69.6, 71.2, 72.7, 74.1, 75.5, 76.9, 78.3],
-    },
-  },
-  head: {
-    boys: {
-      p3: [32.1, 35.1, 36.9, 38.3, 39.4, 40.3, 41.0, 41.7, 42.2, 42.7, 43.1, 43.5, 43.8],
-      p15: [33.2, 36.1, 38.0, 39.3, 40.4, 41.2, 41.9, 42.5, 43.1, 43.5, 43.9, 44.3, 44.6],
-      p50: [34.5, 37.3, 39.1, 40.5, 41.6, 42.6, 43.3, 44.0, 44.5, 45.0, 45.4, 45.8, 46.1],
-      p85: [35.8, 38.5, 40.3, 41.7, 42.8, 43.9, 44.7, 45.4, 46.0, 46.5, 46.9, 47.3, 47.6],
-      p97: [36.9, 39.5, 41.3, 42.7, 43.8, 44.9, 45.8, 46.5, 47.1, 47.6, 48.1, 48.5, 48.8],
-    },
-    girls: {
-      p3: [31.7, 34.3, 36.0, 37.2, 38.2, 39.0, 39.7, 40.3, 40.8, 41.2, 41.6, 41.9, 42.2],
-      p15: [32.7, 35.3, 37.0, 38.2, 39.2, 40.0, 40.7, 41.3, 41.8, 42.2, 42.6, 42.9, 43.2],
-      p50: [33.9, 36.5, 38.3, 39.5, 40.6, 41.5, 42.2, 42.8, 43.4, 43.8, 44.2, 44.6, 44.9],
-      p85: [35.1, 37.8, 39.5, 40.8, 41.9, 42.9, 43.7, 44.4, 44.9, 45.4, 45.9, 46.3, 46.6],
-      p97: [36.1, 38.8, 40.5, 41.9, 43.0, 44.1, 44.9, 45.6, 46.2, 46.7, 47.2, 47.6, 48.0],
-    },
-  },
-};
+interface GrowthCurveData {
+  ageMonths: number[];
+  percentiles: {
+    p3: number[];
+    p15: number[];
+    p50: number[];
+    p85: number[];
+    p97: number[];
+  };
+}
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 const GrowthChartsView: React.FC<GrowthChartsViewProps> = ({ child, onBack }) => {
   const [measurements, setMeasurements] = useState<GrowthMeasurement[]>([]);
@@ -99,6 +60,29 @@ const GrowthChartsView: React.FC<GrowthChartsViewProps> = ({ child, onBack }) =>
   const [selectedMetric, setSelectedMetric] = useState<MetricType>('weight');
   const [showAddModal, setShowAddModal] = useState(false);
   const [percentile, setPercentile] = useState<number>(50);
+  const [growthCurves, setGrowthCurves] = useState<GrowthCurveData | null>(null);
+
+  // Fetch WHO growth curves from backend
+  useEffect(() => {
+    const fetchGrowthCurves = async () => {
+      try {
+        const metricParam = selectedMetric === 'head' ? 'headCircumference' : selectedMetric;
+        const genderParam = child.gender === 'female' ? 'female' : 'male';
+        const token = localStorage.getItem('tinysteps_token');
+        const res = await fetch(
+          `${API_BASE_URL}/analysis/growth-curves?gender=${genderParam}&metric=${metricParam}`,
+          { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          setGrowthCurves(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch growth curves:', error);
+      }
+    };
+    fetchGrowthCurves();
+  }, [child.gender, selectedMetric]);
 
   useEffect(() => {
     loadMeasurements();
@@ -144,25 +128,25 @@ const GrowthChartsView: React.FC<GrowthChartsViewProps> = ({ child, onBack }) =>
   };
 
   const getChartData = () => {
-    const genderKey = child.gender === 'female' ? 'girls' : 'boys';
-    const metricData = WHO_PERCENTILES[selectedMetric]?.[genderKey];
-    if (!metricData) return [];
+    if (!growthCurves) return [];
+    const { ageMonths: ages, percentiles } = growthCurves;
 
     const data = [];
-    const maxMonths = Math.min(child.ageMonths + 3, 12);
+    const maxMonths = Math.min(child.ageMonths + 3, ages.length - 1);
 
     for (let month = 0; month <= maxMonths; month++) {
+      if (month >= ages.length) break;
       const dataPoint: any = {
-        month,
-        p3: metricData.p3[month],
-        p15: metricData.p15[month],
-        p50: metricData.p50[month],
-        p85: metricData.p85[month],
-        p97: metricData.p97[month],
+        month: ages[month],
+        p3: percentiles.p3[month],
+        p15: percentiles.p15[month],
+        p50: percentiles.p50[month],
+        p85: percentiles.p85[month],
+        p97: percentiles.p97[month],
       };
 
       // Add child's measurement at current age
-      if (month === child.ageMonths) {
+      if (ages[month] === child.ageMonths) {
         dataPoint.child =
           selectedMetric === 'weight'
             ? child.weight

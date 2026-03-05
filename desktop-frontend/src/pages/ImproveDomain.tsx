@@ -20,6 +20,7 @@ import {
     AlertCircle,
 } from 'lucide-react';
 import { useChild } from '../contexts/ChildContext';
+import { useAppConfig } from '../hooks/useAppConfig';
 import { toast } from 'react-toastify';
 import api from '../api';
 
@@ -159,18 +160,21 @@ function mapResource(r: any): Resource {
     };
 }
 
-function getStatusLabel(status: string): string {
-    switch (status) {
-        case 'on_track': return 'On Track';
-        case 'on_track_with_monitoring': return 'On Track (Monitoring)';
-        case 'emerging': return 'Emerging';
-        case 'needs_support': return 'Needs Support';
-        case 'ahead': return 'Ahead';
-        case 'on-track': return 'On Track';
-        case 'monitor': return 'Monitor';
-        case 'discuss': return 'Discuss';
-        default: return status?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || '';
-    }
+const DEFAULT_STATUS_LABELS: Record<string, string> = {
+    'on_track': 'On Track',
+    'on_track_with_monitoring': 'On Track (Monitoring)',
+    'emerging': 'Emerging',
+    'needs_support': 'Needs Support',
+    'ahead': 'Ahead',
+    'on-track': 'On Track',
+    'monitor': 'Monitor',
+    'discuss': 'Discuss',
+};
+
+function getStatusLabel(status: string, statuses?: Record<string, { label: string }> | null): string {
+    if (statuses?.[status]) return statuses[status].label;
+    if (DEFAULT_STATUS_LABELS[status]) return DEFAULT_STATUS_LABELS[status];
+    return status?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || '';
 }
 
 function getStatusBadgeColors(status: string): string {
@@ -198,6 +202,7 @@ export default function ImproveDomain() {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const { activeChild } = useChild();
+    const { config: appConfig } = useAppConfig();
     const child = activeChild;
 
     const domainParam = (searchParams.get('domain') || 'motor') as DomainKey;
@@ -453,7 +458,7 @@ export default function ImproveDomain() {
                             {domainStatus && (
                                 <div className="flex items-center gap-2 mt-4">
                                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusBadgeColors(domainStatus)}`}>
-                                        {getStatusLabel(domainStatus)}
+                                        {getStatusLabel(domainStatus, appConfig?.statuses)}
                                     </span>
                                 </div>
                             )}
