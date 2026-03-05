@@ -12,6 +12,7 @@ import {
   RefreshCw,
   ExternalLink,
 } from 'lucide-react';
+import { getStatusLabel } from '../utils/statusHelpers';
 import apiService from '../services/apiService';
 
 interface Resource {
@@ -170,16 +171,6 @@ const ImproveDomainView: React.FC<ImproveDomainViewProps> = ({
       console.error('Failed to regenerate resources:', err);
     } finally {
       setRefreshing(false);
-    }
-  };
-
-  const getStatusLabel = (s: string) => {
-    switch (s) {
-      case 'ahead': return 'Ahead';
-      case 'on-track': return 'On Track';
-      case 'monitor': return 'Monitor';
-      case 'discuss': return 'Discuss';
-      default: return s;
     }
   };
 

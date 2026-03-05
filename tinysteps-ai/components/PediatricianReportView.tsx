@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { statusBadgeClassesPediatrician } from '../utils/statusHelpers';
 import {
   ArrowLeft,
   FileText,
@@ -131,15 +132,7 @@ const PediatricianReportView: React.FC<PediatricianReportViewProps> = ({
     onNavigate('GENERATED_REPORT', { childId });
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'ahead': return 'text-emerald-600 bg-emerald-50';
-      case 'on-track': return 'text-blue-600 bg-blue-50';
-      case 'monitor': return 'text-amber-600 bg-amber-50';
-      case 'discuss': return 'text-red-600 bg-red-50';
-      default: return 'text-gray-600 bg-gray-50';
-    }
-  };
+  const getStatusColor = statusBadgeClassesPediatrician;
 
   const formatAge = (months: number) => {
     if (months < 12) return `${months} months`;

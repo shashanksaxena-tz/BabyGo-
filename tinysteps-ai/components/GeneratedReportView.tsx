@@ -15,6 +15,7 @@ import {
   Mail,
 } from 'lucide-react';
 import { ChildProfile } from '../types';
+import { statusBadgeClasses, getScoreColor, getStatusLabel } from '../utils/statusHelpers';
 import apiService from '../services/apiService';
 
 interface GeneratedReportViewProps {
@@ -263,22 +264,7 @@ const GeneratedReportView: React.FC<GeneratedReportViewProps> = ({
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const styles: Record<string, string> = {
-      ahead: 'bg-emerald-100 text-emerald-700',
-      'on-track': 'bg-blue-100 text-blue-700',
-      monitor: 'bg-amber-100 text-amber-700',
-      discuss: 'bg-red-100 text-red-700',
-    };
-    return styles[status] || 'bg-gray-100 text-gray-700';
-  };
-
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return 'text-emerald-600';
-    if (score >= 60) return 'text-blue-600';
-    if (score >= 40) return 'text-amber-600';
-    return 'text-red-600';
-  };
+  const getStatusBadge = statusBadgeClasses;
 
   if (loading) {
     return (
@@ -422,7 +408,7 @@ const GeneratedReportView: React.FC<GeneratedReportViewProps> = ({
             </div>
             <div className="flex-1">
               <span className={`inline-block px-3 py-1.5 rounded-full text-sm font-semibold ${getStatusBadge(report.overallStatus)}`}>
-                {report.overallStatus === 'on-track' ? 'On Track' : report.overallStatus.charAt(0).toUpperCase() + report.overallStatus.slice(1)}
+                {getStatusLabel(report.overallStatus)}
               </span>
               <p className="text-sm text-gray-600 mt-2">
                 {report.overallSummary || 'Development is being tracked across motor, cognitive, language, and social-emotional domains.'}
