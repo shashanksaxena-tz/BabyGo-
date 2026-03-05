@@ -36,7 +36,6 @@ export default function GrowthCharts() {
     const [measurements, setMeasurements] = useState<GrowthMeasurement[]>([]);
     const [loading, setLoading] = useState(true);
     const [percentile, setPercentile] = useState<number>(50);
-    const [percentileInterpretation, setPercentileInterpretation] = useState<{ text: string; advice: string; status: string } | null>(null);
     const [showAddModal, setShowAddModal] = useState(false);
     // WHO curves fetched from backend, keyed by "gender-metric"
     const [whoCurves, setWhoCurves] = useState<Record<string, WHOCurveData>>({});

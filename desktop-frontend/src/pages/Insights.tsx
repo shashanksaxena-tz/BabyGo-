@@ -68,13 +68,6 @@ const DOMAIN_ICON_MAP: Record<string, React.ReactNode> = {
     social: <Heart className="w-6 h-6 text-emerald-500" />,
 };
 
-const ASSESSMENT_KEY_MAP: Record<string, keyof Pick<AnalysisData, 'motorAssessment' | 'cognitiveAssessment' | 'languageAssessment' | 'socialAssessment'>> = {
-    motorAssessment: 'motorAssessment',
-    cognitiveAssessment: 'cognitiveAssessment',
-    languageAssessment: 'languageAssessment',
-    socialAssessment: 'socialAssessment',
-};
-
 const DOMAINS: DomainKey[] = ['motor', 'cognitive', 'language', 'social'];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -365,7 +358,7 @@ export default function Insights() {
 
     const DomainDetailModal = () => {
         if (!selectedDomain || !latest) return null;
-        const config = DOMAIN_CONFIG[selectedDomain];
+        const domainCfg = DOMAIN_CONFIG[selectedDomain];
         const assessment = getAssessment(latest, selectedDomain);
         if (!assessment) return null;
 
@@ -373,15 +366,15 @@ export default function Insights() {
             <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setSelectedDomain(null)}>
                 <div className="bg-white rounded-[24px] shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                     {/* Header */}
-                    <div className={`p-6 pb-4 border-b ${config.borderClass} flex items-center justify-between`}>
+                    <div className={`p-6 pb-4 border-b ${domainCfg.borderClass} flex items-center justify-between`}>
                         <div className="flex items-center gap-3">
-                            <div className={`w-12 h-12 rounded-2xl ${config.iconBg} flex items-center justify-center`}>
-                                <span className="text-2xl">{config.emoji}</span>
+                            <div className={`w-12 h-12 rounded-2xl ${domainCfg.iconBg} flex items-center justify-center`}>
+                                <span className="text-2xl">{domainCfg.emoji}</span>
                             </div>
                             <div>
-                                <h3 className="text-xl font-bold text-gray-900">{config.label}</h3>
+                                <h3 className="text-xl font-bold text-gray-900">{domainCfg.label}</h3>
                                 <div className="flex items-center gap-2 mt-1">
-                                    <span className={`text-lg font-bold ${config.textClass}`}>{assessment.score}/100</span>
+                                    <span className={`text-lg font-bold ${domainCfg.textClass}`}>{assessment.score}/100</span>
                                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusBadgeClasses(assessment.status, config?.statuses)}`}>
                                         {formatStatus(assessment.status, config?.statuses)}
                                     </span>
@@ -454,7 +447,7 @@ export default function Insights() {
                                 </h4>
                                 <div className="grid gap-2">
                                     {assessment.activities.map((act, i) => (
-                                        <div key={i} className={`${config.bgClass} rounded-xl px-4 py-3 text-sm text-gray-800`}>
+                                        <div key={i} className={`${domainCfg.bgClass} rounded-xl px-4 py-3 text-sm text-gray-800`}>
                                             {act}
                                         </div>
                                     ))}
@@ -666,7 +659,7 @@ export default function Insights() {
                             <h3 className="text-xl font-bold font-heading text-gray-900 mb-4">Domain Details</h3>
                             <div className="grid lg:grid-cols-2 gap-4">
                                 {DOMAINS.map(domain => {
-                                    const config = DOMAIN_CONFIG[domain];
+                                    const dc = DOMAIN_CONFIG[domain];
                                     const score = getLatestScore(domain);
                                     const status = getLatestStatus(domain);
                                     const trend = getTrend(domain);
@@ -679,16 +672,16 @@ export default function Insights() {
                                             className="bg-white rounded-[20px] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.04)] border border-gray-50 hover:shadow-lg hover:border-gray-100 transition-all text-left group w-full"
                                         >
                                             <div className="flex items-center gap-4">
-                                                <div className={`w-14 h-14 rounded-2xl ${config.iconBg} flex items-center justify-center flex-shrink-0`}>
-                                                    <span className="text-2xl">{config.emoji}</span>
+                                                <div className={`w-14 h-14 rounded-2xl ${dc.iconBg} flex items-center justify-center flex-shrink-0`}>
+                                                    <span className="text-2xl">{dc.emoji}</span>
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-2 flex-wrap">
-                                                        <h4 className="font-bold text-gray-900 group-hover:text-emerald-600 transition">{config.label}</h4>
+                                                        <h4 className="font-bold text-gray-900 group-hover:text-emerald-600 transition">{dc.label}</h4>
                                                         <TrendBadge trend={trend} />
                                                     </div>
                                                     <div className="flex items-center gap-2 mt-1">
-                                                        <span className={`text-xl font-bold ${config.textClass}`}>{score}</span>
+                                                        <span className={`text-xl font-bold ${dc.textClass}`}>{score}</span>
                                                         <span className="text-xs text-gray-400 font-medium">/100</span>
                                                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${statusBadgeClasses(status, config?.statuses)}`}>
                                                             {formatStatus(status, config?.statuses)}

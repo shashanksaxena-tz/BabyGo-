@@ -81,7 +81,7 @@ function getStatusLabelFromConfig(status: string, statuses?: Record<string, any>
 }
 
 // Color mapping from hex config to tailwind classes (used for status badges)
-function hexToStatusClasses(color?: string, bgColor?: string) {
+function hexToStatusClasses(color?: string, _bgColor?: string) {
     // Map known config colors to tailwind classes
     const colorMap: Record<string, { bg: string; text: string; border: string }> = {
         '#10b981': { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200' },
@@ -168,7 +168,7 @@ function DomainCard({
     scoreThresholds,
 }: {
     domain: DomainAssessment;
-    config: typeof FALLBACK_DOMAIN_CONFIG[number];
+    config: { key: string; name: string; color: string; lightBg: string; textColor: string; icon: React.ComponentType<any> };
     isExpanded: boolean;
     onToggle: () => void;
     onImprove: () => void;
@@ -343,11 +343,6 @@ export default function AnalysisResult() {
         : FALLBACK_DOMAIN_CONFIG;
 
     const getStatusLabel = (status: string) => getStatusLabelFromConfig(status, config?.statuses);
-    const getScoreColor = (score: number) => getScoreColorFromConfig(score, config?.scoreThresholds);
-    const getStatusColors = (status: string) => {
-        const statusCfg = config?.statuses?.[status];
-        return statusCfg ? hexToStatusClasses(statusCfg.color) : hexToStatusClasses();
-    };
     const getOverallStatusColors = (status: string) => {
         const statusCfg = config?.statuses?.[status];
         return statusCfg ? hexToOverallStatusClasses(statusCfg.color) : hexToOverallStatusClasses();
