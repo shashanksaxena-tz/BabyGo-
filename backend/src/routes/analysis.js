@@ -238,8 +238,6 @@ router.post('/save', authMiddleware, async (req, res) => {
       childAgeAtAnalysis: analysisData.childAgeMonths || child.ageInMonths || 0,
     });
 
-    await analysis.save();
-
     // Add timeline entry
     const timelineEntry = new TimelineEntry({
       childId: child._id.toString(),
@@ -250,7 +248,7 @@ router.post('/save', authMiddleware, async (req, res) => {
       description: analysisData.headline || 'Development analysis completed',
       data: { analysisId: analysis._id.toString(), score: analysisData.overallScore },
     });
-    await timelineEntry.save();
+    await Promise.all([analysis.save(), timelineEntry.save()]);
 
     // Auto-generate resources (non-blocking, same as existing POST route)
     try {
@@ -336,8 +334,6 @@ router.post('/', authMiddleware, upload.array('media', 10), geminiInit, async (r
       ...analysisResult,
     });
 
-    await analysis.save();
-
     // Add timeline entry
     const timelineEntry = new TimelineEntry({
       childId: String(child._id),
@@ -348,7 +344,7 @@ router.post('/', authMiddleware, upload.array('media', 10), geminiInit, async (r
       description: analysisResult.summary,
       data: { analysisId: String(analysis._id), score: analysisResult.overallScore },
     });
-    await timelineEntry.save();
+    await Promise.all([analysis.save(), timelineEntry.save()]);
 
     // Auto-generate resources based on the new analysis (non-blocking)
     try {
