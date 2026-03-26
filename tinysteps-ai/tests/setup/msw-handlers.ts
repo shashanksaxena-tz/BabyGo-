@@ -113,4 +113,23 @@ export const handlers = [
       ],
     });
   }),
+
+  // Growth percentiles
+  http.post(`${API_BASE}/analysis/growth-percentiles`, () => {
+    return HttpResponse.json({
+      weightPercentile: 55,
+      heightPercentile: 60,
+      headCircumferencePercentile: null,
+    });
+  }),
+
+  // Timeline
+  http.get(`${API_BASE}/timeline/:childId`, () => {
+    return HttpResponse.json([]);
+  }),
+
+  // Analyses list
+  http.get(`${API_BASE}/analysis/:childId`, () => {
+    return HttpResponse.json([]);
+  }),
 ];
