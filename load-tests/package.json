@@ -1,0 +1,15 @@
+{
+  "name": "tinysteps-load-tests",
+  "version": "1.0.0",
+  "description": "k6 load tests for TinySteps AI backend",
+  "scripts": {
+    "test:config": "k6 run config-endpoint.js",
+    "test:auth": "k6 run auth-flow.js",
+    "test:mixed": "k6 run mixed-workload.js",
+    "test:all": "k6 run config-endpoint.js && k6 run auth-flow.js && k6 run mixed-workload.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "notes": "k6 scripts use k6's built-in module system, not Node.js. Run with: k6 run <script.js>"
+}
