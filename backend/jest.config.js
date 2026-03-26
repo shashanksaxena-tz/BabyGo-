@@ -12,6 +12,8 @@ export default {
       testEnvironment: 'node',
       transform: {},
       testTimeout: 60000,
+      globalSetup: '<rootDir>/tests/setup/globalSetup.js',
+      globalTeardown: '<rootDir>/tests/setup/globalTeardown.js',
     },
   ],
 };
