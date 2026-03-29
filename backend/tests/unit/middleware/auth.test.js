@@ -7,7 +7,7 @@
 import jwt from 'jsonwebtoken';
 import { jest } from '@jest/globals';
 
-const JWT_SECRET = 'tinysteps-dev-secret-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET || 'tinysteps-dev-secret-change-in-production';
 
 // ---------------------------------------------------------------------------
 // Setup mock for User model

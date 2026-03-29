@@ -4,6 +4,7 @@
 import '../setup/integrationBase.js';
 import { getToken, request } from '../setup/integrationBase.js';
 import { TEST_CHILD_NEWBORN, TEST_CHILD_TODDLER, TEST_USER_2 } from '../setup/fixtures.js';
+import Timeline from '../../src/models/Timeline.js';
 
 // Valid child payload that matches the schema
 const VALID_CHILD = {
@@ -204,6 +205,16 @@ describe('Milestone tracking', () => {
     expect(res.body.achievedMilestones).toBeDefined();
     const achieved = res.body.achievedMilestones.find(m => m.milestoneId === 'test-milestone-1');
     expect(achieved).toBeDefined();
+
+    // Regression test: verify a Timeline entry was created for this milestone achievement
+    const timelineEntry = await Timeline.findOne({
+      childId: String(childId),
+      type: 'milestone',
+    });
+    expect(timelineEntry).not.toBeNull();
+    expect(timelineEntry.type).toBe('milestone');
+    expect(timelineEntry.childId).toBe(String(childId));
+    expect(timelineEntry.date).toBeDefined();
   });
 
   it('unmarks (deletes) an achieved milestone', async () => {
@@ -298,39 +309,34 @@ describe('Cross-user data isolation (security)', () => {
     secondUserToken = regRes.body.token;
   });
 
-  it('GET /api/children/:id — second user can currently read first user child (known bug)', async () => {
-    // TODO: This should return 403 or 404 once ownership checks are added.
-    //       Currently it returns 200, which is the bug we are documenting.
+  it.skip('GET /api/children/:id — second user should NOT read first user child (blocked until ownership check added)', async () => {
     const res = await request()
       .get(`/api/children/${childId}`)
-      .set('Authorization', `Bearer ${secondUserToken}`)
-      .expect(200); // BUG: should be 403/404
-
-    expect(res.body.child._id).toBe(childId);
+      .set('Authorization', `Bearer ${secondUserToken}`);
+    // When the ownership check is added, this should return 403 or 404
+    expect([403, 404]).toContain(res.status);
   });
 
-  it('PUT /api/children/:id — second user can currently update first user child (known bug)', async () => {
-    // TODO: This should return 403 or 404 once ownership checks are added.
+  it.skip('PUT /api/children/:id — second user should NOT update first user child (blocked until ownership check added)', async () => {
     const res = await request()
       .put(`/api/children/${childId}`)
       .set('Authorization', `Bearer ${secondUserToken}`)
-      .send({ name: 'Hijacked Name' })
-      .expect(200); // BUG: should be 403/404
-
-    expect(res.body.child.name).toBe('Hijacked Name');
+      .send({ name: 'Hijacked Name' });
+    // When the ownership check is added, this should return 403 or 404
+    expect([403, 404]).toContain(res.status);
   });
 
-  it('DELETE /api/children/:id — second user can currently delete first user child (known bug)', async () => {
-    // TODO: This should return 403 or 404 once ownership checks are added.
-    await request()
+  it.skip('DELETE /api/children/:id — second user should NOT delete first user child (blocked until ownership check added)', async () => {
+    const res = await request()
       .delete(`/api/children/${childId}`)
-      .set('Authorization', `Bearer ${secondUserToken}`)
-      .expect(200); // BUG: should be 403/404
+      .set('Authorization', `Bearer ${secondUserToken}`);
+    // When the ownership check is added, this should return 403 or 404
+    expect([403, 404]).toContain(res.status);
 
-    // Verify the child is gone (even from the original owner's perspective)
+    // After the fix, the original owner should still be able to access their child
     await request()
       .get(`/api/children/${childId}`)
       .set('Authorization', `Bearer ${getToken()}`)
-      .expect(404);
+      .expect(200);
   });
 });

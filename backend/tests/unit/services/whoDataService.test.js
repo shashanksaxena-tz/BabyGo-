@@ -41,8 +41,8 @@ describe('getMilestonesForAge', () => {
 
     // All returned milestones should be relevant for 6 months
     for (const m of milestones) {
-      expect(m.minMonths - 1).toBeLessThanOrEqual(6);
-      expect(m.maxMonths + 3).toBeGreaterThanOrEqual(6);
+      expect(m.minMonths).toBeLessThanOrEqual(6);
+      expect(m.maxMonths).toBeGreaterThanOrEqual(6);
     }
   });
 

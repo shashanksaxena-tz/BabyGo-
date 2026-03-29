@@ -29,8 +29,9 @@ export const TEST_CHILD_NEWBORN = {
     return d.toISOString().split('T')[0];
   })(),
   gender: 'male',
-  birthWeight: 3200,
-  birthHeight: 50,
+  weight: 3.2,
+  height: 50,
+  region: 'euro',
 };
 
 /** A toddler child (~18 months old as of test date). */
@@ -42,8 +43,9 @@ export const TEST_CHILD_TODDLER = {
     return d.toISOString().split('T')[0];
   })(),
   gender: 'female',
-  birthWeight: 3000,
-  birthHeight: 49,
+  weight: 10.5,
+  height: 80,
+  region: 'euro',
 };
 
 // ---------------------------------------------------------------------------

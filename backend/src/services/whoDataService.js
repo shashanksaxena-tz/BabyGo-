@@ -263,7 +263,7 @@ const whoDataService = {
 
   getMilestonesForAge(ageMonths) {
     const allMilestones = this.getAllMilestones();
-    return allMilestones.filter(m => ageMonths >= m.minMonths - 1 && ageMonths <= m.maxMonths + 3);
+    return allMilestones.filter(m => ageMonths >= m.minMonths && ageMonths <= m.maxMonths);
   },
 
   getMilestonesByDomain(domain, ageMonths) {
