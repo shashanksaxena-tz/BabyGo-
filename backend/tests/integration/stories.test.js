@@ -3,6 +3,8 @@
  * Mocks geminiService to avoid real AI calls.
  */
 
+import { jest } from '@jest/globals';
+
 // ESM mock must happen before any imports
 const mockGenerateBedtimeStory = jest.fn();
 const mockIsInitialized = jest.fn(() => true);

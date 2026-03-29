@@ -12,6 +12,8 @@ export default {
       testEnvironment: 'node',
       transform: {},
       testTimeout: 60000,
+      // Run integration tests serially to avoid concurrent collection mutations on shared DB
+      maxWorkers: 1,
       globalSetup: '<rootDir>/tests/setup/globalSetup.js',
       globalTeardown: '<rootDir>/tests/setup/globalTeardown.js',
     },

@@ -3,7 +3,7 @@
  */
 import '../setup/integrationBase.js';
 import { getToken, request } from '../setup/integrationBase.js';
-import { TEST_CHILD_NEWBORN, TEST_CHILD_TODDLER } from '../setup/fixtures.js';
+import { TEST_CHILD_NEWBORN, TEST_CHILD_TODDLER, TEST_USER_2 } from '../setup/fixtures.js';
 
 // Valid child payload that matches the schema
 const VALID_CHILD = {
@@ -265,5 +265,72 @@ describe('Milestone tracking', () => {
       .expect(400);
 
     expect(res.body.error).toMatch(/already achieved/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Cross-user data isolation
+// TODO: This suite documents a KNOWN SECURITY BUG: the children routes do not
+//       verify that req.user._id matches child.userId before allowing GET/PUT/DELETE.
+//       A second user can read and mutate another user's children. This must be
+//       fixed by adding ownership checks in src/routes/children.js.
+// ---------------------------------------------------------------------------
+describe('Cross-user data isolation (security)', () => {
+  let childId;
+  let secondUserToken;
+
+  beforeEach(async () => {
+    // Create a child owned by the default test user
+    const createRes = await request()
+      .post('/api/children')
+      .set('Authorization', `Bearer ${getToken()}`)
+      .send(VALID_CHILD)
+      .expect(201);
+
+    childId = createRes.body.child._id;
+
+    // Register a second independent user
+    const regRes = await request()
+      .post('/api/auth/register')
+      .send(TEST_USER_2)
+      .expect(201);
+
+    secondUserToken = regRes.body.token;
+  });
+
+  it('GET /api/children/:id — second user can currently read first user child (known bug)', async () => {
+    // TODO: This should return 403 or 404 once ownership checks are added.
+    //       Currently it returns 200, which is the bug we are documenting.
+    const res = await request()
+      .get(`/api/children/${childId}`)
+      .set('Authorization', `Bearer ${secondUserToken}`)
+      .expect(200); // BUG: should be 403/404
+
+    expect(res.body.child._id).toBe(childId);
+  });
+
+  it('PUT /api/children/:id — second user can currently update first user child (known bug)', async () => {
+    // TODO: This should return 403 or 404 once ownership checks are added.
+    const res = await request()
+      .put(`/api/children/${childId}`)
+      .set('Authorization', `Bearer ${secondUserToken}`)
+      .send({ name: 'Hijacked Name' })
+      .expect(200); // BUG: should be 403/404
+
+    expect(res.body.child.name).toBe('Hijacked Name');
+  });
+
+  it('DELETE /api/children/:id — second user can currently delete first user child (known bug)', async () => {
+    // TODO: This should return 403 or 404 once ownership checks are added.
+    await request()
+      .delete(`/api/children/${childId}`)
+      .set('Authorization', `Bearer ${secondUserToken}`)
+      .expect(200); // BUG: should be 403/404
+
+    // Verify the child is gone (even from the original owner's perspective)
+    await request()
+      .get(`/api/children/${childId}`)
+      .set('Authorization', `Bearer ${getToken()}`)
+      .expect(404);
   });
 });

@@ -9,7 +9,7 @@
     "dev": "nodemon src/index.js",
     "test": "node --experimental-vm-modules node_modules/.bin/jest",
     "test:unit": "node --experimental-vm-modules node_modules/.bin/jest --selectProjects unit",
-    "test:integration": "node --experimental-vm-modules node_modules/.bin/jest --selectProjects integration",
+    "test:integration": "node --experimental-vm-modules node_modules/.bin/jest --selectProjects integration --runInBand",
     "test:watch": "node --experimental-vm-modules node_modules/.bin/jest --watch",
     "build": "echo 'No build step required'",
     "seed:realistic": "node src/seeds/seedRealisticData.js"

@@ -102,6 +102,33 @@ describe('GET /api/auth/me', () => {
     expect(res.body.user.email).toBe(TEST_USER.email);
     expect(res.body.user.name).toBe(TEST_USER.name);
   });
+
+  it('without token — returns 200 with guest user data (auth middleware guest fallback)', async () => {
+    // The auth middleware falls back to a guest user object instead of returning 401.
+    // This means GET /api/auth/me with no token returns 200 with the guest user's fields.
+    // NOTE: This is a design choice (backward compatibility) — the guest ID is a fixed
+    // ObjectId-shaped string: '000000000000000000000000'.
+    const res = await request()
+      .get('/api/auth/me')
+      .expect(200);
+
+    expect(res.body.user).toBeDefined();
+    expect(res.body.user.id).toBe('000000000000000000000000');
+    expect(res.body.user.name).toBe('Guest User');
+  });
+});
+
+describe('GET /api/children — unauthenticated', () => {
+  it('without token — returns empty array because guest user has no children', async () => {
+    // The auth middleware's guest fallback (_id: '000000000000000000000000') means
+    // the children route will query for children owned by the guest user ID,
+    // which returns an empty list rather than a 401.
+    const res = await request()
+      .get('/api/children')
+      .expect(200);
+
+    expect(res.body.children).toEqual([]);
+  });
 });
 
 describe('POST /api/auth/refresh', () => {
