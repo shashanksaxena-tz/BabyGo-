@@ -49,7 +49,9 @@ export const handlers = [
         social: { key: 'social', label: 'Social & Emotional', emoji: '❤️', color: '#f59e0b', assessmentKey: 'socialAssessment', description: 'Relationships, emotions, and self-regulation' },
       },
       statuses: {
+        ahead: { label: 'Ahead', color: '#059669', bgColor: '#d1fae5', borderColor: '#a7f3d0', severity: 0 },
         on_track: { label: 'On Track', color: '#10b981', bgColor: '#d1fae5', borderColor: '#a7f3d0', severity: 1 },
+        on_track_with_monitoring: { label: 'On Track (Monitoring)', color: '#0ea5e9', bgColor: '#e0f2fe', borderColor: '#bae6fd', severity: 2 },
         emerging: { label: 'Emerging', color: '#f59e0b', bgColor: '#fef3c7', borderColor: '#fde68a', severity: 3 },
         needs_support: { label: 'Needs Support', color: '#ef4444', bgColor: '#fee2e2', borderColor: '#fecaca', severity: 4 },
       },
@@ -60,7 +62,9 @@ export const handlers = [
       },
       percentileThresholds: [
         { max: 3, label: 'Below typical range', advice: 'Consider consulting your pediatrician', status: 'concern' },
+        { max: 15, label: 'Lower end of typical', advice: 'Monitor growth trend over time', status: 'monitor' },
         { max: 85, label: 'Healthy range', advice: 'Growing well, keep it up!', status: 'healthy' },
+        { max: 97, label: 'Higher end of typical', advice: 'Monitor growth trend over time', status: 'monitor' },
         { max: 100, label: 'Above typical range', advice: 'Consider consulting your pediatrician', status: 'concern' },
       ],
       timeFilters: [
@@ -73,6 +77,15 @@ export const handlers = [
       supportedLanguages: [
         { code: 'en-IN', label: 'English' },
         { code: 'hi-IN', label: 'Hindi' },
+        { code: 'bn-IN', label: 'Bengali' },
+        { code: 'gu-IN', label: 'Gujarati' },
+        { code: 'kn-IN', label: 'Kannada' },
+        { code: 'ml-IN', label: 'Malayalam' },
+        { code: 'mr-IN', label: 'Marathi' },
+        { code: 'od-IN', label: 'Odia' },
+        { code: 'pa-IN', label: 'Punjabi' },
+        { code: 'ta-IN', label: 'Tamil' },
+        { code: 'te-IN', label: 'Telugu' },
       ],
       recipeCategories: [
         { id: 'breakfast', label: 'Breakfast', emoji: '🍜' },

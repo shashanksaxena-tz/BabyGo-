@@ -83,8 +83,6 @@ describe('Signup page', () => {
     });
 
     it('submits the form and navigates on success', async () => {
-        // MSW register handler returns 201 with user but no token — Login is called with undefined token
-        // Just verify the form is submittable and refreshChildren is called
         const user = userEvent.setup();
         render(<Signup />);
 

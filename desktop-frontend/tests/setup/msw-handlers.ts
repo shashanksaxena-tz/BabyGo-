@@ -52,55 +52,69 @@ export const handlers = [
                     label: 'Motor Skills',
                     emoji: '🏃',
                     color: '#3b82f6',
-                    assessmentKey: 'motorScore',
-                    description: 'Physical movement and coordination',
+                    assessmentKey: 'motorAssessment',
+                    description: 'Gross and fine motor development',
                 },
                 cognitive: {
                     key: 'cognitive',
                     label: 'Cognitive',
                     emoji: '🧠',
                     color: '#8b5cf6',
-                    assessmentKey: 'cognitiveScore',
-                    description: 'Thinking, learning, and problem solving',
+                    assessmentKey: 'cognitiveAssessment',
+                    description: 'Problem solving, memory, and learning',
                 },
                 language: {
                     key: 'language',
                     label: 'Language',
                     emoji: '💬',
                     color: '#ec4899',
-                    assessmentKey: 'languageScore',
-                    description: 'Communication and speech development',
+                    assessmentKey: 'languageAssessment',
+                    description: 'Speech, comprehension, and communication',
                 },
                 social: {
                     key: 'social',
                     label: 'Social & Emotional',
                     emoji: '❤️',
-                    color: '#10b981',
-                    assessmentKey: 'socialScore',
-                    description: 'Emotional regulation and social interactions',
+                    color: '#f59e0b',
+                    assessmentKey: 'socialAssessment',
+                    description: 'Relationships, emotions, and self-regulation',
                 },
             },
             statuses: {
+                ahead: {
+                    label: 'Ahead',
+                    color: '#059669',
+                    bgColor: '#d1fae5',
+                    borderColor: '#a7f3d0',
+                    severity: 0,
+                },
                 on_track: {
                     label: 'On Track',
                     color: '#10b981',
                     bgColor: '#d1fae5',
-                    borderColor: '#6ee7b7',
-                    severity: 0,
+                    borderColor: '#a7f3d0',
+                    severity: 1,
                 },
-                monitor: {
-                    label: 'Monitor',
+                on_track_with_monitoring: {
+                    label: 'On Track (Monitoring)',
+                    color: '#0ea5e9',
+                    bgColor: '#e0f2fe',
+                    borderColor: '#bae6fd',
+                    severity: 2,
+                },
+                emerging: {
+                    label: 'Emerging',
                     color: '#f59e0b',
                     bgColor: '#fef3c7',
-                    borderColor: '#fcd34d',
-                    severity: 1,
+                    borderColor: '#fde68a',
+                    severity: 3,
                 },
                 needs_support: {
                     label: 'Needs Support',
                     color: '#ef4444',
                     bgColor: '#fee2e2',
-                    borderColor: '#fca5a5',
-                    severity: 2,
+                    borderColor: '#fecaca',
+                    severity: 4,
                 },
             },
             scoreThresholds: {
@@ -116,14 +130,24 @@ export const handlers = [
                 { max: 100, label: 'Very High', advice: 'Consult a pediatrician', status: 'monitor' },
             ],
             timeFilters: [
-                { id: '1m', label: '1 Month', days: 30 },
-                { id: '3m', label: '3 Months', days: 90 },
-                { id: '6m', label: '6 Months', days: 180 },
-                { id: 'all', label: 'All Time', days: null },
+                { id: '1W', label: '1 Week', days: 7 },
+                { id: '1M', label: '1 Month', days: 30 },
+                { id: '3M', label: '3 Months', days: 90 },
+                { id: '6M', label: '6 Months', days: 180 },
+                { id: 'ALL', label: 'All Time', days: null },
             ],
             supportedLanguages: [
-                { code: 'en', label: 'English' },
-                { code: 'hi', label: 'Hindi' },
+                { code: 'en-IN', label: 'English' },
+                { code: 'hi-IN', label: 'Hindi' },
+                { code: 'bn-IN', label: 'Bengali' },
+                { code: 'gu-IN', label: 'Gujarati' },
+                { code: 'kn-IN', label: 'Kannada' },
+                { code: 'ml-IN', label: 'Malayalam' },
+                { code: 'mr-IN', label: 'Marathi' },
+                { code: 'od-IN', label: 'Odia' },
+                { code: 'pa-IN', label: 'Punjabi' },
+                { code: 'ta-IN', label: 'Tamil' },
+                { code: 'te-IN', label: 'Telugu' },
             ],
             recipeCategories: [
                 { id: 'puree', label: 'Purees', emoji: '🥣' },
@@ -188,5 +212,18 @@ export const handlers = [
                 },
             ],
         });
+    }),
+
+    // ─── Child-specific endpoints ──────────────────────────────────────────────
+    http.get(`${BASE_URL}/timeline/:childId`, () => {
+        return HttpResponse.json({ entries: [] });
+    }),
+
+    http.get(`${BASE_URL}/stories/:childId`, () => {
+        return HttpResponse.json({ stories: [] });
+    }),
+
+    http.get(`${BASE_URL}/analysis/:childId`, () => {
+        return HttpResponse.json({ analyses: [] });
     }),
 ];
