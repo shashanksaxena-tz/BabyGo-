@@ -1,5 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import api, { getAppConfig, getMilestones } from '../src/api';
+import { server } from './setup/setup';
+import { http, HttpResponse } from 'msw';
 
 describe('API client', () => {
     beforeEach(() => {
@@ -31,6 +33,28 @@ describe('API client', () => {
             expect(data.milestones).toBeDefined();
             expect(Array.isArray(data.milestones)).toBe(true);
             expect(data.ageMonths).toBe(6);
+        });
+    });
+
+    describe('error path — 401 response', () => {
+        it('clears localStorage token when /config returns 401', async () => {
+            // Seed a token so we can verify it gets cleared
+            localStorage.setItem('token', 'stale-token');
+            localStorage.setItem('refreshToken', 'stale-refresh');
+
+            // Override /config to return 401
+            server.use(
+                http.get('*/config', () =>
+                    HttpResponse.json({ error: 'Unauthorized' }, { status: 401 })
+                )
+            );
+
+            // jsdom does not navigate on window.location.href assignment — safe to call
+            await getAppConfig().catch(() => {});
+
+            // The 401 interceptor in api.ts removes both tokens from localStorage
+            expect(localStorage.getItem('token')).toBeNull();
+            expect(localStorage.getItem('refreshToken')).toBeNull();
         });
     });
 

@@ -9,7 +9,7 @@ export const handlers = [
             token: 'mock-jwt-token',
             refreshToken: 'mock-refresh-token',
             user: {
-                _id: 'user-1',
+                id: 'user-1',
                 name: 'Test User',
                 email: 'test@example.com',
             },
@@ -20,8 +20,10 @@ export const handlers = [
         return HttpResponse.json(
             {
                 message: 'User registered successfully',
+                token: 'mock-jwt-token',
+                refreshToken: 'mock-refresh-token',
                 user: {
-                    _id: 'user-1',
+                    id: 'user-1',
                     name: 'Test User',
                     email: 'test@example.com',
                 },
@@ -32,10 +34,12 @@ export const handlers = [
 
     http.get(`${BASE_URL}/auth/me`, () => {
         return HttpResponse.json({
-            _id: 'user-1',
-            name: 'Test User',
-            email: 'test@example.com',
-            preferredLanguage: 'en',
+            user: {
+                id: 'user-1',
+                name: 'Test User',
+                email: 'test@example.com',
+                preferences: { language: 'en' },
+            },
         });
     }),
 

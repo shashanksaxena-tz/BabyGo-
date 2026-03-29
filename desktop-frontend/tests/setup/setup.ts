@@ -25,5 +25,8 @@ Object.defineProperty(window, 'speechSynthesis', {
 export const server = setupServer(...handlers);
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'warn' }));
-afterEach(() => server.resetHandlers());
+afterEach(() => {
+  server.resetHandlers();
+  localStorage.clear();
+});
 afterAll(() => server.close());

@@ -37,9 +37,18 @@ describe('Stories page', () => {
         expect(document.body).toBeTruthy();
     });
 
-    it('shows some content', () => {
+    it('shows the "Bedtime Stories" top bar title', () => {
         render(<Stories />);
-        // The page renders something — check the document has content
-        expect(document.body.innerHTML).not.toBe('');
+        expect(screen.getByText('Bedtime Stories')).toBeInTheDocument();
     });
+
+    it('shows "Please select a child" message when no active child', () => {
+        render(<Stories />);
+        expect(screen.getByText(/please select a child/i)).toBeInTheDocument();
+    });
+
+    // TODO: test theme grid renders when a child is selected
+    // TODO: test "Generate" button triggers story generation
+    // TODO: test story list renders after stories are fetched
+    // TODO: test delete confirmation modal appears when trash icon clicked
 });

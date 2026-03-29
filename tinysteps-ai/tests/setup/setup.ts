@@ -28,9 +28,10 @@ beforeAll(() => {
   server.listen({ onUnhandledRequest: 'warn' });
 });
 
-// Reset handlers after each test (allows per-test overrides)
+// Reset handlers after each test (allows per-test overrides) and clear storage state
 afterEach(() => {
   server.resetHandlers();
+  localStorage.clear();
 });
 
 // Stop server after all tests

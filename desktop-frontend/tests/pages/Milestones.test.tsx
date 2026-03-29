@@ -29,7 +29,12 @@ describe('Milestones page', () => {
         expect(document.body).toBeTruthy();
     });
 
-    it('shows a message when no child is selected', () => {
+    it('shows "Please select a child to view milestones." when no child selected', () => {
+        render(<Milestones />);
+        expect(screen.getByText('Please select a child to view milestones.')).toBeInTheDocument();
+    });
+
+    it('shows a message matching /please select a child/i when no child selected', () => {
         render(<Milestones />);
         expect(screen.getByText(/please select a child/i)).toBeInTheDocument();
     });
@@ -39,4 +44,10 @@ describe('Milestones page', () => {
         // TopBar receives title="Milestones"
         expect(screen.getByText('Milestones')).toBeInTheDocument();
     });
+
+    // TODO: test domain filter tabs render when a child is selected
+    // TODO: test tab switching between "current", "upcoming", and "achieved"
+    // TODO: test clicking "Mark Achieved" opens the date picker modal
+    // TODO: test milestone card shows correct domain label and color
+    // TODO: test watch/unwatch milestone toggle
 });

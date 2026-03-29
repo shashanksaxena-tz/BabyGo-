@@ -30,34 +30,59 @@ export const handlers = [
   // Auth - me
   http.get(`${API_BASE}/auth/me`, () => {
     return HttpResponse.json({
-      _id: 'user-123',
-      name: 'Test Parent',
-      email: 'test@example.com',
+      user: {
+        id: 'user-123',
+        name: 'Test Parent',
+        email: 'test@example.com',
+        preferences: { language: 'en-IN' },
+      },
     });
   }),
 
-  // Config - domains and app config
+  // Config - domains and app config (matches real backend shape from appConfig.js)
   http.get(`${API_BASE}/config`, () => {
     return HttpResponse.json({
-      domains: [
-        { key: 'motor', label: 'Motor Skills', color: '#3b82f6' },
-        { key: 'cognitive', label: 'Cognitive', color: '#8b5cf6' },
-        { key: 'language', label: 'Language', color: '#ec4899' },
-        { key: 'social', label: 'Social', color: '#10b981' },
-      ],
-      statusLabels: {
-        'on-track': 'On Track',
-        'needs-attention': 'Needs Attention',
-        'advanced': 'Advanced',
+      domains: {
+        motor: { key: 'motor', label: 'Motor Skills', emoji: '🏃', color: '#3b82f6', assessmentKey: 'motorAssessment', description: 'Gross and fine motor development' },
+        cognitive: { key: 'cognitive', label: 'Cognitive', emoji: '🧠', color: '#8b5cf6', assessmentKey: 'cognitiveAssessment', description: 'Problem solving, memory, and learning' },
+        language: { key: 'language', label: 'Language', emoji: '💬', color: '#ec4899', assessmentKey: 'languageAssessment', description: 'Speech, comprehension, and communication' },
+        social: { key: 'social', label: 'Social & Emotional', emoji: '❤️', color: '#f59e0b', assessmentKey: 'socialAssessment', description: 'Relationships, emotions, and self-regulation' },
+      },
+      statuses: {
+        on_track: { label: 'On Track', color: '#10b981', bgColor: '#d1fae5', borderColor: '#a7f3d0', severity: 1 },
+        emerging: { label: 'Emerging', color: '#f59e0b', bgColor: '#fef3c7', borderColor: '#fde68a', severity: 3 },
+        needs_support: { label: 'Needs Support', color: '#ef4444', bgColor: '#fee2e2', borderColor: '#fecaca', severity: 4 },
       },
       scoreThresholds: {
-        advanced: 80,
-        onTrack: 50,
+        excellent: { min: 70, color: '#10b981', label: 'Excellent' },
+        moderate: { min: 50, color: '#f59e0b', label: 'Moderate' },
+        concern: { min: 0, color: '#ef4444', label: 'Needs Attention' },
       },
-      timeFilters: ['1m', '3m', '6m', '1y'],
-      languages: ['en', 'es', 'fr', 'de', 'zh'],
-      recipeCategories: ['puree', 'finger-food', 'meal'],
-      regionalCuisine: {},
+      percentileThresholds: [
+        { max: 3, label: 'Below typical range', advice: 'Consider consulting your pediatrician', status: 'concern' },
+        { max: 85, label: 'Healthy range', advice: 'Growing well, keep it up!', status: 'healthy' },
+        { max: 100, label: 'Above typical range', advice: 'Consider consulting your pediatrician', status: 'concern' },
+      ],
+      timeFilters: [
+        { id: '1W', label: '1 Week', days: 7 },
+        { id: '1M', label: '1 Month', days: 30 },
+        { id: '3M', label: '3 Months', days: 90 },
+        { id: '6M', label: '6 Months', days: 180 },
+        { id: 'ALL', label: 'All Time', days: null },
+      ],
+      supportedLanguages: [
+        { code: 'en-IN', label: 'English' },
+        { code: 'hi-IN', label: 'Hindi' },
+      ],
+      recipeCategories: [
+        { id: 'breakfast', label: 'Breakfast', emoji: '🍜' },
+        { id: 'puree', label: 'Purees', emoji: '🥑' },
+        { id: 'fingerFood', label: 'Finger Foods', emoji: '🫐' },
+      ],
+      regionCuisineMap: {
+        IN: { name: 'Indian', description: 'dal, khichdi, roti, rice dishes, mild spices' },
+        US: { name: 'American', description: 'varied, include familiar comfort foods' },
+      },
     });
   }),
 

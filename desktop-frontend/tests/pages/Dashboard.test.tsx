@@ -22,21 +22,22 @@ vi.mock('../../src/contexts/AuthContext', () => ({
     }),
 }));
 
-// Mock ChildContext — no active child case
-vi.mock('../../src/contexts/ChildContext', () => ({
-    useChild: () => ({
-        children: [],
-        activeChild: null,
-        loading: false,
-        setActiveChildId: vi.fn(),
-        refreshChildren: vi.fn().mockResolvedValue([]),
-    }),
+// Mock ChildContext — default: no active child
+const mockUseChild = vi.fn(() => ({
+    children: [],
+    activeChild: null,
+    loading: false,
+    setActiveChildId: vi.fn(),
+    refreshChildren: vi.fn().mockResolvedValue([]),
 }));
 
-describe('Dashboard page', () => {
+vi.mock('../../src/contexts/ChildContext', () => ({
+    useChild: () => mockUseChild(),
+}));
+
+describe('Dashboard page — no active child', () => {
     it('renders without crashing', () => {
         render(<Dashboard />);
-        // Should render the top bar or some content
         expect(document.body).toBeTruthy();
     });
 
@@ -53,20 +54,57 @@ describe('Dashboard page', () => {
 
 describe('Dashboard page — with active child', () => {
     it('renders dashboard content when a child is selected', () => {
-        // Re-mock with an active child for this describe block
-        vi.doMock('../../src/contexts/ChildContext', () => ({
-            useChild: () => ({
-                children: [{ _id: 'child-1', name: 'Leo', dateOfBirth: '2024-01-01', gender: 'male', weight: 7, height: 65, ageInMonths: 6 }],
-                activeChild: { _id: 'child-1', name: 'Leo', dateOfBirth: '2024-01-01', gender: 'male', weight: 7, height: 65, ageInMonths: 6 },
-                loading: false,
-                setActiveChildId: vi.fn(),
-                refreshChildren: vi.fn().mockResolvedValue([]),
-            }),
-        }));
+        const mockChild = {
+            _id: 'child-1',
+            name: 'Leo',
+            dateOfBirth: '2024-01-01',
+            gender: 'male',
+            weight: 7,
+            height: 65,
+            ageInMonths: 6,
+        };
 
-        // The base render still uses the module-level mock (no active child) because vi.doMock
-        // doesn't reset already-imported modules in this test. Just verify it renders.
+        vi.mocked(mockUseChild).mockReturnValueOnce({
+            children: [mockChild],
+            activeChild: mockChild,
+            loading: false,
+            setActiveChildId: vi.fn(),
+            refreshChildren: vi.fn().mockResolvedValue([]),
+        });
+
         render(<Dashboard />);
-        expect(document.body).toBeTruthy();
+
+        // With an active child, should not show "No Child Selected"
+        expect(screen.queryByText('No Child Selected')).not.toBeInTheDocument();
+        // Should show child's name in the subtitle (multiple elements may include Leo's name)
+        expect(screen.getAllByText(/leo/i).length).toBeGreaterThan(0);
+        // Should render domain score cards
+        expect(screen.getByText('Motor')).toBeInTheDocument();
+        expect(screen.getByText('Cognitive')).toBeInTheDocument();
+        expect(screen.getByText('Language')).toBeInTheDocument();
+        expect(screen.getByText('Social')).toBeInTheDocument();
+    });
+
+    it('shows "Overall Development Score" card when child is selected', () => {
+        const mockChild = {
+            _id: 'child-1',
+            name: 'Leo',
+            dateOfBirth: '2024-01-01',
+            gender: 'male',
+            weight: 7,
+            height: 65,
+            ageInMonths: 6,
+        };
+
+        vi.mocked(mockUseChild).mockReturnValueOnce({
+            children: [mockChild],
+            activeChild: mockChild,
+            loading: false,
+            setActiveChildId: vi.fn(),
+            refreshChildren: vi.fn().mockResolvedValue([]),
+        });
+
+        render(<Dashboard />);
+        expect(screen.getByText('Overall Development Score')).toBeInTheDocument();
     });
 });

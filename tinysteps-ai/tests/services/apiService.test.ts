@@ -17,10 +17,16 @@ describe('apiService', () => {
 
       expect(result.error).toBeUndefined();
       expect(result.data).toBeDefined();
+      // Real backend returns domains as an object keyed by domain name
       expect(result.data.domains).toBeDefined();
-      expect(Array.isArray(result.data.domains)).toBe(true);
-      expect(result.data.domains[0]).toHaveProperty('key');
-      expect(result.data.domains[0]).toHaveProperty('label');
+      expect(typeof result.data.domains).toBe('object');
+      expect(result.data.domains).not.toBeInstanceOf(Array);
+      expect(result.data.domains.motor).toHaveProperty('key', 'motor');
+      expect(result.data.domains.cognitive).toHaveProperty('label', 'Cognitive');
+      // Config should also include statuses, supportedLanguages, timeFilters
+      expect(result.data.statuses).toBeDefined();
+      expect(result.data.supportedLanguages).toBeDefined();
+      expect(result.data.timeFilters).toBeDefined();
     });
 
     it('returns an error when the server responds with an error status', async () => {
