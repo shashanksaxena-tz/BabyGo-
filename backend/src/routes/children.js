@@ -236,6 +236,7 @@ router.post('/:childId/milestones/:milestoneId', authMiddleware, [
           childId: String(childId),
           userId: String(req.user._id),
           type: 'milestone',
+          date: achievedDate ? new Date(achievedDate) : new Date(),
           title: resolvedMilestone ? `${resolvedMilestone.title} achieved!` : 'Milestone achieved!',
           description: resolvedMilestone
             ? `${child.name} has achieved the "${resolvedMilestone.title}" milestone: ${resolvedMilestone.description}`
