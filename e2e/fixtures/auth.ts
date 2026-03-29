@@ -16,9 +16,11 @@ export interface AuthFixtures {
  * tests run in parallel.
  */
 export const test = base.extend<AuthFixtures>({
-  authenticatedPage: async ({ page }, use, testInfo) => {
-    // Build a unique email for this test run so parallel tests don't collide
-    const uniqueSuffix = `${Date.now()}-${testInfo.workerIndex}`;
+  authenticatedPage: async ({ page, baseURL }, use, testInfo) => {
+    // Build a unique email for this test run so parallel tests don't collide.
+    // Uses both timestamp and random suffix to guard against millisecond-level
+    // collisions when many workers spin up simultaneously.
+    const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2)}-${testInfo.workerIndex}`;
     const email = `e2e-${uniqueSuffix}@tinysteps.test`;
     const password = 'E2eTestPass1!';
     const name = 'E2E Test User';
@@ -50,12 +52,18 @@ export const test = base.extend<AuthFixtures>({
     }
 
     // Navigate to the app's origin so we can write to its localStorage
-    await page.goto('/');
+    await page.goto(baseURL!);
 
     // Inject JWT token into localStorage (same key used by all frontends)
     await page.evaluate((t: string) => {
       localStorage.setItem('token', t);
     }, token);
+
+    // Reload so the app re-checks auth state with the injected token.
+    // Without this, the app has already rendered and checked auth state
+    // before we injected the token, so it would remain on the login page.
+    await page.reload();
+    await page.waitForURL(url => !url.pathname.includes('login'), { timeout: 10000 }).catch(() => {});
 
     // Provide the authenticated page to the test
     await use(page);

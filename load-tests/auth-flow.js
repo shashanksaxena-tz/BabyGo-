@@ -22,6 +22,10 @@ function randomString(length) {
 }
 
 export default function () {
+  // KNOWN LIMITATION: Each VU iteration registers a new user and never deletes it.
+  // Over time this creates "ghost" users in the database. Before running against
+  // a shared/staging environment, confirm the DB can be safely wiped afterwards,
+  // or add a teardown stage that calls DELETE /api/auth/account with the token.
   const uniqueId = randomString(10);
   const email = `testuser_${uniqueId}@loadtest.example.com`;
   const password = 'TestPass123!';

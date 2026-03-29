@@ -85,12 +85,29 @@ export default defineConfig({
     },
   ],
 
-  /* Start the full stack via docker-compose and wait for the backend health check */
-  webServer: {
-    command: 'docker-compose up -d',
-    url: 'http://localhost:3001/health',
-    reuseExistingServer: true,
-    timeout: 120_000,
-    cwd: '../',
-  },
+  /* Start the full stack via docker-compose and wait for all services to be ready.
+   * The first entry issues the docker compose command. The second and third entries
+   * use a no-op command so Playwright simply polls until the frontend URLs are
+   * reachable (reuseExistingServer:true means no process is actually spawned when
+   * the URL is already up). */
+  webServer: [
+    {
+      command: 'docker compose -f ../docker-compose.yml up',
+      url: 'http://localhost:3001/health',
+      reuseExistingServer: true,
+      timeout: 120_000,
+    },
+    {
+      command: 'true',
+      url: 'http://localhost:5173/',
+      reuseExistingServer: true,
+      timeout: 60_000,
+    },
+    {
+      command: 'true',
+      url: 'http://localhost:3005/',
+      reuseExistingServer: true,
+      timeout: 60_000,
+    },
+  ],
 });

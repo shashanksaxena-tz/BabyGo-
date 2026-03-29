@@ -38,8 +38,9 @@ test.describe('Authentication', () => {
     // Submit the form
     await page.getByRole('button', { name: /sign\s*up|register|create account/i }).click();
 
-    // After successful registration, should land on dashboard or redirect there
-    await expect(page).not.toHaveURL(/signup|register/i, { timeout: 10_000 });
+    // After successful registration, should land on dashboard or home —
+    // assert the positive destination rather than just "not signup".
+    await expect(page).toHaveURL(/dashboard|home|\/$/, { timeout: 10_000 });
   });
 
   test('login with valid credentials', async ({ page }) => {

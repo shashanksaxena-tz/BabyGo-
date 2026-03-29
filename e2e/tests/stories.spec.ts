@@ -20,21 +20,24 @@ test.describe('Stories', () => {
   test('stories page shows story list or empty state', async ({ authenticatedPage: page }) => {
     await page.goto('/stories');
 
-    // Either a list of stories is rendered, or an empty-state prompt is shown
-    const hasContent = await page
+    // Either a list of stories is rendered, or an empty-state prompt is shown.
+    // The heading/list/empty-state selector is the authoritative content check —
+    // we assert directly rather than relying on a vacuous body-length check.
+    const contentLocator = page
       .getByRole('list')
       .or(page.getByText(/no stories|generate|create/i))
-      .first()
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false);
+      .first();
 
-    // At minimum the page itself should have loaded meaningful DOM
-    const bodyText = await page.locator('body').innerText();
-    expect(bodyText.trim().length).toBeGreaterThan(0);
+    const hasContent = await contentLocator.isVisible({ timeout: 10_000 }).catch(() => false);
 
-    // Content check is advisory — just log if nothing found
     if (!hasContent) {
       console.warn('[stories] No story list or empty-state detected — page may need a child profile.');
     }
+
+    // Assert that a stories-specific heading is present — verifies the correct
+    // page rendered rather than just "something loaded".
+    await expect(
+      page.getByRole('heading', { name: /stories|bedtime|tale/i }).first()
+    ).toBeVisible({ timeout: 10_000 });
   });
 });

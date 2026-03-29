@@ -1,19 +1,19 @@
 import { test, expect } from '../fixtures/auth';
 
-const ROUTES = [
-  { path: '/',               label: 'dashboard'     },
-  { path: '/insights',       label: 'insights'      },
-  { path: '/stories',        label: 'stories'       },
-  { path: '/milestones',     label: 'milestones'    },
-  { path: '/growth-charts',  label: 'growth-charts' },
-  { path: '/recipes',        label: 'recipes'       },
-  { path: '/timeline',       label: 'timeline'      },
-  { path: '/profile',        label: 'profile'       },
+const ROUTES: Array<{ path: string; label: string; contentPattern: RegExp }> = [
+  { path: '/',              label: 'dashboard',     contentPattern: /dashboard|home|welcome|child|baby/i },
+  { path: '/insights',      label: 'insights',      contentPattern: /insight|analysis|development/i },
+  { path: '/stories',       label: 'stories',       contentPattern: /stories|bedtime|tale/i },
+  { path: '/milestones',    label: 'milestones',    contentPattern: /milestone|tracker|development/i },
+  { path: '/growth-charts', label: 'growth-charts', contentPattern: /growth|chart|weight|height/i },
+  { path: '/recipes',       label: 'recipes',       contentPattern: /recipe|food|meal|nutrition/i },
+  { path: '/timeline',      label: 'timeline',      contentPattern: /timeline|activity|moment/i },
+  { path: '/profile',       label: 'profile',       contentPattern: /profile|account|settings|name|email/i },
 ];
 
 test.describe('Navigation', () => {
-  for (const { path, label } of ROUTES) {
-    test(`${label} route loads without "Cannot GET" error`, async ({ authenticatedPage: page }) => {
+  for (const { path, label, contentPattern } of ROUTES) {
+    test(`${label} route renders route-specific content`, async ({ authenticatedPage: page }) => {
       await page.goto(path);
 
       // A raw Express "Cannot GET /path" response means the SPA didn't handle the route —
@@ -22,9 +22,13 @@ test.describe('Navigation', () => {
         // Swallow if element is simply absent — that's the happy path
       });
 
-      // The page body should have non-trivial content (i.e. the React app rendered)
-      const bodyText = await page.locator('body').innerText();
-      expect(bodyText.trim().length, `${label} page body appears empty`).toBeGreaterThan(10);
+      // Assert that the page renders content specific to this route, not just
+      // "something loaded". This catches cases where the router falls back to a
+      // generic shell without rendering the correct view.
+      await expect(
+        page.getByRole('heading').filter({ hasText: contentPattern }).first()
+          .or(page.getByText(contentPattern).first())
+      ).toBeVisible({ timeout: 10_000 });
     });
   }
 

@@ -33,6 +33,8 @@ export default function () {
     });
   } else if (roll < 0.70) {
     // Milestone read (30%)
+    // No auth token needed: GET /api/analysis/milestones/:age is a public endpoint
+    // (no authMiddleware applied in backend/src/routes/analysis.js line ~78).
     const age = pickAge();
     const res = http.get(`${BASE_URL}/api/analysis/milestones/${age}`);
     check(res, {

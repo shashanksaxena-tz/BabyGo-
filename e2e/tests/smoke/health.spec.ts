@@ -72,9 +72,12 @@ test.describe('Smoke Tests @smoke', () => {
     });
     expect(milestonesResponse.status()).toBe(200);
 
-    const body = await milestonesResponse.json() as unknown;
-    // Response should be an array or an object containing milestones
-    expect(body).not.toBeNull();
+    const body = await milestonesResponse.json() as { milestones: unknown[]; counts: Record<string, number> };
+    // Response must have a milestones array and a counts object
+    expect(Array.isArray(body.milestones)).toBe(true);
+    expect(body.milestones.length).toBeGreaterThan(0);
+    expect(typeof body.counts).toBe('object');
+    expect(typeof body.counts.total).toBe('number');
   });
 
   test('desktop frontend serves HTML', async ({ request }) => {
