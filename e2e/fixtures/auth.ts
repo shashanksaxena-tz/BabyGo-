@@ -63,7 +63,13 @@ export const test = base.extend<AuthFixtures>({
     // Without this, the app has already rendered and checked auth state
     // before we injected the token, so it would remain on the login page.
     await page.reload();
-    await page.waitForURL(url => !url.pathname.includes('login'), { timeout: 10000 }).catch(() => {});
+    try {
+      await page.waitForURL(url => !url.pathname.includes('login'), { timeout: 10000 });
+    } catch {
+      const currentUrl = page.url();
+      console.warn(`Auth fixture: still on login page after token injection. URL: ${currentUrl}`);
+      // Don't throw — some apps may not redirect, but log for debugging
+    }
 
     // Provide the authenticated page to the test
     await use(page);

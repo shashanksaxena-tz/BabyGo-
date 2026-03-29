@@ -55,12 +55,17 @@ test.describe('Accessibility (WCAG 2.1 AA) @a11y', () => {
       headers: { 'Content-Type': 'application/json' },
     });
 
-    if (registerResponse.ok()) {
-      const body = await registerResponse.json() as { token: string };
-      await page.goto('/');
-      await page.evaluate((t: string) => localStorage.setItem('token', t), body.token);
-      await page.reload();
-      await page.waitForURL(url => !url.pathname.includes('login'), { timeout: 10000 }).catch(() => {});
+    expect(registerResponse.ok()).toBeTruthy();
+    const body = await registerResponse.json() as { token: string };
+    await page.goto('/');
+    await page.evaluate((t: string) => localStorage.setItem('token', t), body.token);
+    await page.reload();
+    try {
+      await page.waitForURL(url => !url.pathname.includes('login'), { timeout: 10000 });
+    } catch {
+      const currentUrl = page.url();
+      console.warn(`[a11y] dashboard: still on login page after token injection. URL: ${currentUrl}`);
+      // Don't throw — some apps may not redirect, but log for debugging
     }
 
     const results = await new AxeBuilder({ page })
@@ -90,12 +95,17 @@ test.describe('Accessibility (WCAG 2.1 AA) @a11y', () => {
       headers: { 'Content-Type': 'application/json' },
     });
 
-    if (registerResponse.ok()) {
-      const body = await registerResponse.json() as { token: string };
-      await page.goto('/');
-      await page.evaluate((t: string) => localStorage.setItem('token', t), body.token);
-      await page.reload();
-      await page.waitForURL(url => !url.pathname.includes('login'), { timeout: 10000 }).catch(() => {});
+    expect(registerResponse.ok()).toBeTruthy();
+    const body2 = await registerResponse.json() as { token: string };
+    await page.goto('/');
+    await page.evaluate((t: string) => localStorage.setItem('token', t), body2.token);
+    await page.reload();
+    try {
+      await page.waitForURL(url => !url.pathname.includes('login'), { timeout: 10000 });
+    } catch {
+      const currentUrl = page.url();
+      console.warn(`[a11y] stories: still on login page after token injection. URL: ${currentUrl}`);
+      // Don't throw — some apps may not redirect, but log for debugging
     }
 
     await page.goto('/stories');

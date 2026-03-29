@@ -40,7 +40,7 @@ test.describe('Authentication', () => {
 
     // After successful registration, should land on dashboard or home —
     // assert the positive destination rather than just "not signup".
-    await expect(page).toHaveURL(/dashboard|home|\/$/, { timeout: 10_000 });
+    await expect(page).toHaveURL(/\/(dashboard|home)?$/, { timeout: 10_000 });
   });
 
   test('login with valid credentials', async ({ page }) => {

@@ -5,9 +5,8 @@ test.describe('Stories', () => {
     await page.goto('/stories');
 
     // Should not show a 404 / "Cannot GET" page
-    await expect(page.getByText(/cannot get/i)).not.toBeVisible({ timeout: 5_000 }).catch(() => {
-      // If the assertion itself throws (e.g. element not found), the page is fine
-    });
+    // not.toBeVisible() passes when the element is absent, so no catch needed
+    await expect(page.getByText(/cannot get/i)).not.toBeVisible({ timeout: 5_000 });
 
     // Page should contain some stories-related content
     const heading = page

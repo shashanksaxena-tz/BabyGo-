@@ -2,9 +2,9 @@ import { test, expect } from '../fixtures/auth';
 
 const ROUTES: Array<{ path: string; label: string; contentPattern: RegExp }> = [
   { path: '/',              label: 'dashboard',     contentPattern: /dashboard|home|welcome|child|baby/i },
-  { path: '/insights',      label: 'insights',      contentPattern: /insight|analysis|development/i },
+  { path: '/insights',      label: 'insights',      contentPattern: /insight|analysis/i },
   { path: '/stories',       label: 'stories',       contentPattern: /stories|bedtime|tale/i },
-  { path: '/milestones',    label: 'milestones',    contentPattern: /milestone|tracker|development/i },
+  { path: '/milestones',    label: 'milestones',    contentPattern: /milestone|tracker/i },
   { path: '/growth-charts', label: 'growth-charts', contentPattern: /growth|chart|weight|height/i },
   { path: '/recipes',       label: 'recipes',       contentPattern: /recipe|food|meal|nutrition/i },
   { path: '/timeline',      label: 'timeline',      contentPattern: /timeline|activity|moment/i },
@@ -18,9 +18,8 @@ test.describe('Navigation', () => {
 
       // A raw Express "Cannot GET /path" response means the SPA didn't handle the route —
       // this is the failure condition we're guarding against.
-      await expect(page.getByText(/cannot get/i)).not.toBeVisible({ timeout: 8_000 }).catch(() => {
-        // Swallow if element is simply absent — that's the happy path
-      });
+      // not.toBeVisible() passes when the element is absent, so no catch needed
+      await expect(page.getByText(/cannot get/i)).not.toBeVisible({ timeout: 8_000 });
 
       // Assert that the page renders content specific to this route, not just
       // "something loaded". This catches cases where the router falls back to a
