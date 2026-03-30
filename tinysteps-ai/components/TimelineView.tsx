@@ -151,6 +151,16 @@ const TimelineView: React.FC<TimelineViewProps> = ({ child, onBack, onNavigate }
     return milestoneCache.get(entry.data.milestoneId) || null;
   };
 
+  const getMilestoneAgeRange = (milestone: any): { min: number | null; max: number | null } => {
+    const min = milestone?.expectedAgeMonths?.min ?? milestone?.minMonths ?? milestone?.ageRangeStartMonths;
+    const max = milestone?.expectedAgeMonths?.max ?? milestone?.maxMonths ?? milestone?.ageRangeEndMonths;
+
+    return {
+      min: typeof min === 'number' ? min : null,
+      max: typeof max === 'number' ? max : null,
+    };
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -281,6 +291,7 @@ const TimelineView: React.FC<TimelineViewProps> = ({ child, onBack, onNavigate }
           {filteredTimeline.length > 0 ? (
             filteredTimeline.map((entry, index) => {
               const milestoneDetails = getMilestoneDetails(entry);
+              const ageRange = milestoneDetails ? getMilestoneAgeRange(milestoneDetails) : null;
               const domain = entry.data?.domain || milestoneDetails?.domain;
               const { icon: Icon, color, emoji } = getEntryIcon(entry.type, domain);
               const isMilestone = entry.type === 'milestone';
@@ -338,9 +349,11 @@ const TimelineView: React.FC<TimelineViewProps> = ({ child, onBack, onNavigate }
                               }`}>
                                 {domain}
                               </span>
-                              <span className="text-xs text-gray-500">
-                                Expected: {milestoneDetails.expectedAgeMonths.min}-{milestoneDetails.expectedAgeMonths.max} months
-                              </span>
+                              {ageRange?.min != null && ageRange?.max != null && (
+                                <span className="text-xs text-gray-500">
+                                  Expected: {ageRange.min}-{ageRange.max} months
+                                </span>
+                              )}
                             </div>
                             {entry.data?.confirmedBy && (
                               <p className="text-xs text-gray-500">

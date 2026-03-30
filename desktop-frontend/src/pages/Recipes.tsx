@@ -6,7 +6,8 @@ import {
     UtensilsCrossed
 } from 'lucide-react';
 import { useChild } from '../contexts/ChildContext';
-import api from '../api';
+import api, { translateText, updateUserLanguage } from '../api';
+import LanguagePicker from '../components/LanguagePicker';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -32,6 +33,13 @@ interface Recipe {
     tips?: string[];
     allergens: string[];
     isFavorited?: boolean;
+}
+
+interface TranslatedRecipe {
+    name: string;
+    description: string;
+    ingredients: string[];
+    steps: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -124,6 +132,9 @@ export default function Recipes() {
     const [dietaryPrefs, setDietaryPrefs] = useState<string[]>([]);
     const [likings, setLikings] = useState('');
     const [generating, setGenerating] = useState(false);
+    const [selectedLanguage, setSelectedLanguage] = useState('en-IN');
+    const [translatedRecipes, setTranslatedRecipes] = useState<TranslatedRecipe[] | null>(null);
+    const [isTranslating, setIsTranslating] = useState(false);
 
     // Derived
     const activeFilterCount = excludeAllergens.length + dietaryPrefs.length + (likings ? 1 : 0);
@@ -161,6 +172,60 @@ export default function Recipes() {
     useEffect(() => {
         fetchRecipes();
     }, [fetchRecipes]);
+
+    useEffect(() => {
+        if (recipes.length === 0 || selectedLanguage === 'en-IN') {
+            setTranslatedRecipes(null);
+            setIsTranslating(false);
+            return;
+        }
+
+        let cancelled = false;
+
+        const translateRecipes = async () => {
+            setIsTranslating(true);
+            setTranslatedRecipes(null);
+
+            const translated = await Promise.all(
+                recipes.map(async (recipe) => {
+                    const [name, description, ingredients, steps] = await Promise.all([
+                        translateText(recipe.name, selectedLanguage),
+                        translateText(recipe.description, selectedLanguage),
+                        translateText(recipe.ingredients.join('\n'), selectedLanguage),
+                        translateText(recipe.steps.join('\n'), selectedLanguage),
+                    ]);
+
+                    return {
+                        name: name || recipe.name,
+                        description: description || recipe.description,
+                        ingredients: ingredients ? ingredients.split('\n').filter(Boolean) : recipe.ingredients,
+                        steps: steps ? steps.split('\n').filter(Boolean) : recipe.steps,
+                    };
+                })
+            );
+
+            if (!cancelled) {
+                setTranslatedRecipes(translated);
+                setIsTranslating(false);
+            }
+        };
+
+        translateRecipes().catch((err) => {
+            if (!cancelled) {
+                console.error('Failed to translate recipes:', err);
+                setIsTranslating(false);
+            }
+        });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [recipes, selectedLanguage]);
+
+    const handleLanguageChange = (language: string) => {
+        setSelectedLanguage(language);
+        updateUserLanguage(language).catch(() => { });
+    };
 
     const handleRegenerate = async (filters?: {
         excludeAllergens?: string[];
@@ -245,6 +310,9 @@ export default function Recipes() {
                 <div className="xl:w-3/4 flex flex-col gap-6">
 
                     {/* Category Tabs */}
+                    <div className="flex items-center justify-end">
+                        <LanguagePicker value={selectedLanguage} onChange={handleLanguageChange} />
+                    </div>
                     <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide">
                         {CATEGORIES.map(cat => (
                             <button
@@ -260,6 +328,13 @@ export default function Recipes() {
                             </button>
                         ))}
                     </div>
+
+                    {!loading && isTranslating && (
+                        <div className="flex items-center gap-2 text-sm text-gray-500 bg-emerald-50 px-4 py-2 rounded-xl">
+                            <RefreshCw className="w-4 h-4 animate-spin text-emerald-500" />
+                            Translating recipes...
+                        </div>
+                    )}
 
                     {/* Active Filter Pills */}
                     {activeFilterCount > 0 && (
@@ -326,6 +401,10 @@ export default function Recipes() {
                         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {filteredRecipes.map((recipe, index) => {
                                 const colors = getCategoryColor(recipe.category);
+                                const recipeIndex = recipes.indexOf(recipe);
+                                const translated = translatedRecipes && recipeIndex >= 0 ? translatedRecipes[recipeIndex] : null;
+                                const recipeName = translated?.name || recipe.name;
+                                const recipeDescription = translated?.description || recipe.description;
                                 return (
                                     <div
                                         key={recipe.id || index}
@@ -340,7 +419,7 @@ export default function Recipes() {
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <h4 className="font-bold text-white text-base leading-tight truncate">
-                                                        {recipe.name}
+                                                        {recipeName}
                                                     </h4>
                                                     <div className="flex items-center gap-3 mt-1">
                                                         <span className="text-white/80 text-xs px-2 py-0.5 bg-white/20 rounded-full">
@@ -399,7 +478,7 @@ export default function Recipes() {
                                             ) : null}
 
                                             <p className="text-gray-500 text-sm line-clamp-2 leading-relaxed mb-3">
-                                                {recipe.description}
+                                                {recipeDescription}
                                             </p>
 
                                             {/* Difficulty & Cook Time */}
@@ -694,114 +773,126 @@ export default function Recipes() {
 
                         {/* Modal Body */}
                         <div className="p-6 overflow-y-auto max-h-[calc(85vh-120px)] space-y-6">
-                            <p className="text-gray-600 leading-relaxed">{selectedRecipe.description}</p>
+                            {(() => {
+                                const recipeIndex = recipes.findIndex(r => r.id === selectedRecipe.id);
+                                const translated = translatedRecipes && recipeIndex >= 0 ? translatedRecipes[recipeIndex] : null;
+                                const displayDescription = translated?.description || selectedRecipe.description;
+                                const displayIngredients = translated?.ingredients || selectedRecipe.ingredients;
+                                const displaySteps = translated?.steps || selectedRecipe.steps;
 
-                            {/* Nutrition Grid - show numeric values if available */}
-                            {(selectedRecipe.calories != null || selectedRecipe.protein != null || selectedRecipe.fiber != null || selectedRecipe.iron) && (
-                                <div>
-                                    <h3 className="font-bold text-gray-800 mb-3">Nutrition</h3>
-                                    <div className="grid grid-cols-4 gap-3">
-                                        {selectedRecipe.calories != null && (
-                                            <div className="bg-pink-50 rounded-xl p-3 text-center">
-                                                <Flame className="w-5 h-5 text-pink-500 mx-auto mb-1" />
-                                                <p className="text-pink-600 font-bold">{selectedRecipe.calories}</p>
-                                                <p className="text-pink-400 text-xs">Calories</p>
+                                return (
+                                    <>
+                                        <p className="text-gray-600 leading-relaxed">{displayDescription}</p>
+
+                                        {/* Nutrition Grid - show numeric values if available */}
+                                        {(selectedRecipe.calories != null || selectedRecipe.protein != null || selectedRecipe.fiber != null || selectedRecipe.iron) && (
+                                            <div>
+                                                <h3 className="font-bold text-gray-800 mb-3">Nutrition</h3>
+                                                <div className="grid grid-cols-4 gap-3">
+                                                    {selectedRecipe.calories != null && (
+                                                        <div className="bg-pink-50 rounded-xl p-3 text-center">
+                                                            <Flame className="w-5 h-5 text-pink-500 mx-auto mb-1" />
+                                                            <p className="text-pink-600 font-bold">{selectedRecipe.calories}</p>
+                                                            <p className="text-pink-400 text-xs">Calories</p>
+                                                        </div>
+                                                    )}
+                                                    {selectedRecipe.protein != null && (
+                                                        <div className="bg-blue-50 rounded-xl p-3 text-center">
+                                                            <p className="text-blue-600 font-bold text-lg">{selectedRecipe.protein}g</p>
+                                                            <p className="text-blue-400 text-xs">Protein</p>
+                                                        </div>
+                                                    )}
+                                                    {selectedRecipe.fiber != null && (
+                                                        <div className="bg-green-50 rounded-xl p-3 text-center">
+                                                            <Leaf className="w-5 h-5 text-green-500 mx-auto mb-1" />
+                                                            <p className="text-green-600 font-bold">{selectedRecipe.fiber}g</p>
+                                                            <p className="text-green-400 text-xs">Fiber</p>
+                                                        </div>
+                                                    )}
+                                                    {selectedRecipe.iron && (
+                                                        <div className="bg-amber-50 rounded-xl p-3 text-center">
+                                                            <p className="text-amber-600 font-bold text-lg capitalize">{selectedRecipe.iron}</p>
+                                                            <p className="text-amber-400 text-xs">Iron</p>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                         )}
-                                        {selectedRecipe.protein != null && (
-                                            <div className="bg-blue-50 rounded-xl p-3 text-center">
-                                                <p className="text-blue-600 font-bold text-lg">{selectedRecipe.protein}g</p>
-                                                <p className="text-blue-400 text-xs">Protein</p>
+
+                                        {/* Nutrition Highlights - show when numeric nutrition is not available */}
+                                        {selectedRecipe.nutritionHighlights && selectedRecipe.nutritionHighlights.length > 0 &&
+                                         selectedRecipe.calories == null && selectedRecipe.protein == null && selectedRecipe.fiber == null && (
+                                            <div>
+                                                <h3 className="font-bold text-gray-800 mb-3">Nutrition Highlights</h3>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {selectedRecipe.nutritionHighlights.map((highlight, i) => (
+                                                        <span key={i} className="text-sm px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-xl font-medium border border-emerald-100">
+                                                            {highlight}
+                                                        </span>
+                                                    ))}
+                                                </div>
                                             </div>
                                         )}
-                                        {selectedRecipe.fiber != null && (
-                                            <div className="bg-green-50 rounded-xl p-3 text-center">
-                                                <Leaf className="w-5 h-5 text-green-500 mx-auto mb-1" />
-                                                <p className="text-green-600 font-bold">{selectedRecipe.fiber}g</p>
-                                                <p className="text-green-400 text-xs">Fiber</p>
+
+                                        {/* Allergens */}
+                                        {selectedRecipe.allergens && selectedRecipe.allergens.length > 0 && (
+                                            <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <AlertTriangle className="w-4 h-4 text-amber-500" />
+                                                    <h4 className="font-bold text-amber-800 text-sm">Allergens</h4>
+                                                </div>
+                                                <p className="text-amber-700 text-sm">{selectedRecipe.allergens.join(', ')}</p>
                                             </div>
                                         )}
-                                        {selectedRecipe.iron && (
-                                            <div className="bg-amber-50 rounded-xl p-3 text-center">
-                                                <p className="text-amber-600 font-bold text-lg capitalize">{selectedRecipe.iron}</p>
-                                                <p className="text-amber-400 text-xs">Iron</p>
+
+                                        {/* Ingredients */}
+                                        <div>
+                                            <h3 className="font-bold text-gray-800 mb-3">Ingredients</h3>
+                                            <ul className="space-y-2">
+                                                {displayIngredients.map((ing, i) => (
+                                                    <li key={i} className="flex items-start gap-2.5 text-gray-600 text-sm">
+                                                        <div className="w-2 h-2 bg-emerald-400 rounded-full mt-1.5 flex-shrink-0" />
+                                                        {ing}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+
+                                        {/* Instructions */}
+                                        <div>
+                                            <h3 className="font-bold text-gray-800 mb-3">Instructions</h3>
+                                            <ol className="space-y-3">
+                                                {displaySteps.map((step, i) => (
+                                                    <li key={i} className="flex gap-3">
+                                                        <span className="w-7 h-7 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 font-bold text-sm flex-shrink-0">
+                                                            {i + 1}
+                                                        </span>
+                                                        <p className="text-gray-600 text-sm pt-0.5">{step}</p>
+                                                    </li>
+                                                ))}
+                                            </ol>
+                                        </div>
+
+                                        {/* Tips */}
+                                        {selectedRecipe.tips && selectedRecipe.tips.length > 0 && (
+                                            <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <Sparkles className="w-5 h-5 text-emerald-500" />
+                                                    <h3 className="font-bold text-emerald-700">Tips</h3>
+                                                </div>
+                                                <ul className="space-y-1">
+                                                    {selectedRecipe.tips.map((tip, i) => (
+                                                        <li key={i} className="text-emerald-700 text-sm flex items-start gap-2">
+                                                            <span className="text-emerald-400 mt-0.5">-</span>
+                                                            {tip}
+                                                        </li>
+                                                    ))}
+                                                </ul>
                                             </div>
                                         )}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Nutrition Highlights - show when numeric nutrition is not available */}
-                            {selectedRecipe.nutritionHighlights && selectedRecipe.nutritionHighlights.length > 0 &&
-                             selectedRecipe.calories == null && selectedRecipe.protein == null && selectedRecipe.fiber == null && (
-                                <div>
-                                    <h3 className="font-bold text-gray-800 mb-3">Nutrition Highlights</h3>
-                                    <div className="flex flex-wrap gap-2">
-                                        {selectedRecipe.nutritionHighlights.map((highlight, i) => (
-                                            <span key={i} className="text-sm px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-xl font-medium border border-emerald-100">
-                                                {highlight}
-                                            </span>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Allergens */}
-                            {selectedRecipe.allergens && selectedRecipe.allergens.length > 0 && (
-                                <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <AlertTriangle className="w-4 h-4 text-amber-500" />
-                                        <h4 className="font-bold text-amber-800 text-sm">Allergens</h4>
-                                    </div>
-                                    <p className="text-amber-700 text-sm">{selectedRecipe.allergens.join(', ')}</p>
-                                </div>
-                            )}
-
-                            {/* Ingredients */}
-                            <div>
-                                <h3 className="font-bold text-gray-800 mb-3">Ingredients</h3>
-                                <ul className="space-y-2">
-                                    {selectedRecipe.ingredients.map((ing, i) => (
-                                        <li key={i} className="flex items-start gap-2.5 text-gray-600 text-sm">
-                                            <div className="w-2 h-2 bg-emerald-400 rounded-full mt-1.5 flex-shrink-0" />
-                                            {ing}
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-
-                            {/* Instructions */}
-                            <div>
-                                <h3 className="font-bold text-gray-800 mb-3">Instructions</h3>
-                                <ol className="space-y-3">
-                                    {selectedRecipe.steps.map((step, i) => (
-                                        <li key={i} className="flex gap-3">
-                                            <span className="w-7 h-7 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 font-bold text-sm flex-shrink-0">
-                                                {i + 1}
-                                            </span>
-                                            <p className="text-gray-600 text-sm pt-0.5">{step}</p>
-                                        </li>
-                                    ))}
-                                </ol>
-                            </div>
-
-                            {/* Tips */}
-                            {selectedRecipe.tips && selectedRecipe.tips.length > 0 && (
-                                <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <Sparkles className="w-5 h-5 text-emerald-500" />
-                                        <h3 className="font-bold text-emerald-700">Tips</h3>
-                                    </div>
-                                    <ul className="space-y-1">
-                                        {selectedRecipe.tips.map((tip, i) => (
-                                            <li key={i} className="text-emerald-700 text-sm flex items-start gap-2">
-                                                <span className="text-emerald-400 mt-0.5">-</span>
-                                                {tip}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
+                                    </>
+                                );
+                            })()}
                         </div>
                     </div>
                 </div>

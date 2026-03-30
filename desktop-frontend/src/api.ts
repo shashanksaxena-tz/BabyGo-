@@ -81,3 +81,17 @@ export const getResources = (childId: string, params?: { domain?: string; type?:
 /** Regenerate resources for a child */
 export const regenerateResources = (childId: string) =>
     api.post(`/resources/${childId}/regenerate`).then(res => res.data);
+
+// ─── Sarvam language helpers ────────────────────────────────────────────────
+
+/** Translate text to a target language using Sarvam */
+export const translateText = (text: string, targetLanguageCode: string) =>
+    api.post('/sarvam/translate', { text, targetLanguageCode }).then(res => res.data?.translatedText as string | undefined);
+
+/** Generate TTS audio chunks for text in a target language */
+export const getAudio = (text: string, targetLanguageCode: string) =>
+    api.post('/sarvam/tts', { text, targetLanguageCode }).then(res => res.data?.audioChunks as string[] | undefined);
+
+/** Persist preferred language for the current user */
+export const updateUserLanguage = (language: string) =>
+    api.patch('/auth/language', { language }).then(res => res.data);

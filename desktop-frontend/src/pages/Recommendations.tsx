@@ -6,7 +6,8 @@ import {
     ChevronDown, ChevronUp, BookOpen, Info
 } from 'lucide-react';
 import { useChild } from '../contexts/ChildContext';
-import api from '../api';
+import api, { translateText, updateUserLanguage } from '../api';
+import LanguagePicker from '../components/LanguagePicker';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -60,6 +61,19 @@ interface MethodologyStep {
 }
 
 type TabType = 'products' | 'activities' | 'tips';
+
+interface TranslatedActivity {
+    name: string;
+    description: string;
+    materials: string[];
+    skills: string[];
+    steps: string[];
+}
+
+interface TranslatedTip {
+    title: string;
+    content: string;
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -123,6 +137,10 @@ export default function Recommendations() {
     const [expandedTip, setExpandedTip] = useState<number | null>(null);
     const [selectedProductCategory, setSelectedProductCategory] = useState('all');
     const [showSources, setShowSources] = useState(false);
+    const [selectedLanguage, setSelectedLanguage] = useState('en-IN');
+    const [translatedActivities, setTranslatedActivities] = useState<TranslatedActivity[] | null>(null);
+    const [translatedTips, setTranslatedTips] = useState<TranslatedTip[] | null>(null);
+    const [isTranslating, setIsTranslating] = useState(false);
 
     // ------------------------------------------------------------------
     // Data fetching
@@ -157,6 +175,93 @@ export default function Recommendations() {
     useEffect(() => {
         fetchRecommendations();
     }, [fetchRecommendations]);
+
+    useEffect(() => {
+        if (selectedLanguage === 'en-IN') {
+            setTranslatedActivities(null);
+            setTranslatedTips(null);
+            setIsTranslating(false);
+            return;
+        }
+
+        if (activities.length === 0 && tips.length === 0) {
+            setTranslatedActivities(null);
+            setTranslatedTips(null);
+            setIsTranslating(false);
+            return;
+        }
+
+        let cancelled = false;
+
+        const translateContent = async () => {
+            setIsTranslating(true);
+            setTranslatedActivities(null);
+            setTranslatedTips(null);
+
+            const [translatedActs, translatedTipsArr] = await Promise.all([
+                Promise.all(
+                    activities.map(async (activity) => {
+                        const [name, description, materials, skills, steps] = await Promise.all([
+                            translateText(activity.name, selectedLanguage),
+                            translateText(activity.description, selectedLanguage),
+                            activity.materials.length > 0
+                                ? translateText(activity.materials.join('\n'), selectedLanguage)
+                                : Promise.resolve(undefined),
+                            activity.skills.length > 0
+                                ? translateText(activity.skills.join('\n'), selectedLanguage)
+                                : Promise.resolve(undefined),
+                            activity.steps.length > 0
+                                ? translateText(activity.steps.join('\n'), selectedLanguage)
+                                : Promise.resolve(undefined),
+                        ]);
+
+                        return {
+                            name: name || activity.name,
+                            description: description || activity.description,
+                            materials: materials ? materials.split('\n').filter(Boolean) : activity.materials,
+                            skills: skills ? skills.split('\n').filter(Boolean) : activity.skills,
+                            steps: steps ? steps.split('\n').filter(Boolean) : activity.steps,
+                        };
+                    })
+                ),
+                Promise.all(
+                    tips.map(async (tip) => {
+                        const [title, content] = await Promise.all([
+                            translateText(tip.title, selectedLanguage),
+                            translateText(tip.content, selectedLanguage),
+                        ]);
+
+                        return {
+                            title: title || tip.title,
+                            content: content || tip.content,
+                        };
+                    })
+                ),
+            ]);
+
+            if (!cancelled) {
+                setTranslatedActivities(translatedActs);
+                setTranslatedTips(translatedTipsArr);
+                setIsTranslating(false);
+            }
+        };
+
+        translateContent().catch((err) => {
+            if (!cancelled) {
+                console.error('Failed to translate recommendations:', err);
+                setIsTranslating(false);
+            }
+        });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [activities, tips, selectedLanguage]);
+
+    const handleLanguageChange = (language: string) => {
+        setSelectedLanguage(language);
+        updateUserLanguage(language).catch(() => { });
+    };
 
     // ------------------------------------------------------------------
     // Derived data
@@ -195,6 +300,9 @@ export default function Recommendations() {
                 <div className="xl:w-3/4 flex flex-col gap-6">
 
                     {/* Tabs */}
+                    <div className="flex items-center justify-end">
+                        <LanguagePicker value={selectedLanguage} onChange={handleLanguageChange} />
+                    </div>
                     <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-2xl">
                         {TABS.map((tab) => {
                             const Icon = tab.icon;
@@ -214,6 +322,13 @@ export default function Recommendations() {
                             );
                         })}
                     </div>
+
+                    {!loading && isTranslating && (
+                        <div className="flex items-center gap-2 text-sm text-gray-500 bg-purple-50 px-4 py-2 rounded-xl">
+                            <RefreshCw className="w-4 h-4 animate-spin text-purple-500" />
+                            Translating content...
+                        </div>
+                    )}
 
                     {/* Product Category Filter (only visible on products tab) */}
                     {activeTab === 'products' && !loading && !error && products.length > 0 && (
@@ -380,6 +495,12 @@ export default function Recommendations() {
                                     {activities.map((activity, index) => {
                                         const colors = getDomainColor(activity.domain);
                                         const isExpanded = expandedActivity === index;
+                                        const translated = translatedActivities ? translatedActivities[index] : null;
+                                        const activityName = translated?.name || activity.name;
+                                        const activityDescription = translated?.description || activity.description;
+                                        const activityMaterials = translated?.materials || activity.materials;
+                                        const activitySkills = translated?.skills || activity.skills;
+                                        const activitySteps = translated?.steps || activity.steps;
 
                                         return (
                                             <div
@@ -396,7 +517,7 @@ export default function Recommendations() {
                                                             <span className="text-2xl">{activity.emoji}</span>
                                                         </div>
                                                         <div className="flex-1 min-w-0">
-                                                            <h3 className={`font-bold ${colors.text}`}>{activity.name}</h3>
+                                                            <h3 className={`font-bold ${colors.text}`}>{activityName}</h3>
                                                             <div className="flex items-center gap-3 mt-1">
                                                                 <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${colors.bg} ${colors.text} border ${colors.border}`}>
                                                                     {activity.domain}
@@ -414,14 +535,14 @@ export default function Recommendations() {
 
                                                 {/* Activity Body */}
                                                 <div className="p-5">
-                                                    <p className="text-gray-600 text-sm mb-3 leading-relaxed">{activity.description}</p>
+                                                    <p className="text-gray-600 text-sm mb-3 leading-relaxed">{activityDescription}</p>
 
                                                     {/* Materials */}
-                                                    {activity.materials && activity.materials.length > 0 && (
+                                                    {activityMaterials && activityMaterials.length > 0 && (
                                                         <div className="mb-3">
                                                             <p className="text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Materials</p>
                                                             <div className="flex flex-wrap gap-1.5">
-                                                                {activity.materials.map((m, i) => (
+                                                                {activityMaterials.map((m, i) => (
                                                                     <span key={i} className="text-xs px-2.5 py-1 bg-gray-100 text-gray-600 rounded-lg font-medium">
                                                                         {m}
                                                                     </span>
@@ -431,11 +552,11 @@ export default function Recommendations() {
                                                     )}
 
                                                     {/* Skills */}
-                                                    {activity.skills && activity.skills.length > 0 && (
+                                                    {activitySkills && activitySkills.length > 0 && (
                                                         <div className="mb-3">
                                                             <p className="text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Skills Developed</p>
                                                             <div className="flex flex-wrap gap-1.5">
-                                                                {activity.skills.map((s, i) => (
+                                                                {activitySkills.map((s, i) => (
                                                                     <span key={i} className={`text-xs px-2.5 py-1 rounded-lg font-medium ${colors.bg} ${colors.text}`}>
                                                                         {s}
                                                                     </span>
@@ -445,11 +566,11 @@ export default function Recommendations() {
                                                     )}
 
                                                     {/* Steps (expanded) */}
-                                                    {isExpanded && activity.steps && activity.steps.length > 0 && (
+                                                    {isExpanded && activitySteps && activitySteps.length > 0 && (
                                                         <div className="border-t border-gray-100 pt-4 mt-4">
                                                             <p className="text-xs font-bold text-gray-500 mb-3 uppercase tracking-wide">How to Do It</p>
                                                             <ol className="space-y-3">
-                                                                {activity.steps.map((step, i) => (
+                                                                {activitySteps.map((step, i) => (
                                                                     <li key={i} className="flex gap-3 text-sm">
                                                                         <span className={`w-6 h-6 ${colors.bg} ${colors.text} rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0`}>
                                                                             {i + 1}
@@ -482,6 +603,9 @@ export default function Recommendations() {
                                 <div className="space-y-4">
                                     {tips.map((tip, index) => {
                                         const isExpanded = expandedTip === index;
+                                        const translated = translatedTips ? translatedTips[index] : null;
+                                        const tipTitle = translated?.title || tip.title;
+                                        const tipContent = translated?.content || tip.content;
                                         return (
                                             <div
                                                 key={index}
@@ -495,7 +619,7 @@ export default function Recommendations() {
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-start justify-between gap-2">
                                                             <div className="min-w-0">
-                                                                <h3 className="font-bold text-gray-800">{tip.title}</h3>
+                                                                <h3 className="font-bold text-gray-800">{tipTitle}</h3>
                                                                 <span className="inline-block text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full font-semibold mt-1">
                                                                     {tip.category}
                                                                 </span>
@@ -505,7 +629,7 @@ export default function Recommendations() {
                                                             </div>
                                                         </div>
                                                         <p className={`text-gray-600 text-sm mt-3 leading-relaxed ${isExpanded ? '' : 'line-clamp-2'}`}>
-                                                            {tip.description || tip.content}
+                                                            {tip.description || tipContent}
                                                         </p>
                                                         {isExpanded && tip.actionSteps && tip.actionSteps.length > 0 && (
                                                             <div className="mt-3 bg-amber-50 rounded-xl p-3">

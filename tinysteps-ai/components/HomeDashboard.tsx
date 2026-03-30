@@ -78,7 +78,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ child, onNavigate, onStar
       if (data?.milestones) {
         // Get upcoming milestones (those with min age > child's age)
         const upcoming = data.milestones
-          .filter((m: any) => (m.expectedAgeMonths?.min || m.minMonths || 0) > child.ageMonths)
+          .filter((m: any) => (m.typicalMonths || m.ageRangeStartMonths || 0) > child.ageMonths)
           .slice(0, 3);
         setUpcomingMilestones(upcoming);
       }
@@ -226,7 +226,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ child, onNavigate, onStar
                 className="w-24 h-24 relative cursor-pointer hover:scale-105 transition-transform"
                 onClick={() => onNavigate('DEVELOPMENT_INSIGHTS')}
               >
-                <ResponsiveContainer>
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <RadialBarChart innerRadius="75%" outerRadius="100%" data={scoreData} startAngle={90} endAngle={-270}>
                     <RadialBar dataKey="value" cornerRadius={10} />
                   </RadialBarChart>
@@ -419,7 +419,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ child, onNavigate, onStar
                 <div className="flex-1">
                   <p className="font-medium text-gray-800 text-sm">{milestone.title}</p>
                   <p className="text-xs text-gray-500">
-                    Expected: {milestone.expectedAgeMonths.min}-{milestone.expectedAgeMonths.max} months
+                    Expected: {milestone.ageRangeStartMonths}-{milestone.ageRangeEndMonths} months
                   </p>
                 </div>
                 <ChevronRight className="w-5 h-5 text-gray-300" />

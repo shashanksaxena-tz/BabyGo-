@@ -6,7 +6,8 @@ import {
     Plus, MapPin, Zap, User, Camera, Upload
 } from 'lucide-react';
 import { useChild } from '../contexts/ChildContext';
-import api from '../api';
+import api, { translateText, getAudio, updateUserLanguage } from '../api';
+import LanguagePicker from '../components/LanguagePicker';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -153,6 +154,9 @@ export default function Stories() {
     // Text-to-speech
     const [isSpeaking, setIsSpeaking] = useState(false);
     const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+    const [selectedLanguage, setSelectedLanguage] = useState('en-IN');
+    const [translatedPages, setTranslatedPages] = useState<string[] | null>(null);
+    const [isTranslating, setIsTranslating] = useState(false);
 
     // Custom story builder state
     const [customCharacters, setCustomCharacters] = useState<string[]>([]);
@@ -217,6 +221,52 @@ export default function Stories() {
     useEffect(() => {
         stopSpeaking();
     }, [currentPage, readingStory?._id]);
+
+    useEffect(() => {
+        if (!readingStory || selectedLanguage === 'en-IN') {
+            setTranslatedPages(null);
+            setIsTranslating(false);
+            return;
+        }
+
+        if (!readingStory.pages || readingStory.pages.length === 0) {
+            setTranslatedPages(null);
+            setIsTranslating(false);
+            return;
+        }
+
+        let cancelled = false;
+
+        const translatePages = async () => {
+            setIsTranslating(true);
+            setTranslatedPages(null);
+
+            const translated = await Promise.all(
+                readingStory.pages.map(async (page) => {
+                    const text = page?.text || '';
+                    if (!text) return text;
+                    const translatedText = await translateText(text, selectedLanguage);
+                    return translatedText || text;
+                })
+            );
+
+            if (!cancelled) {
+                setTranslatedPages(translated);
+                setIsTranslating(false);
+            }
+        };
+
+        translatePages().catch((err) => {
+            if (!cancelled) {
+                console.error('Failed to translate story pages:', err);
+                setIsTranslating(false);
+            }
+        });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [readingStory?._id, selectedLanguage]);
 
     // ─── Generate themed story ────────────────────────────────────────────
 
@@ -406,28 +456,55 @@ export default function Stories() {
 
     // ─── Text-to-Speech ───────────────────────────────────────────────────
 
-    const speakText = (text: string) => {
-        if (!('speechSynthesis' in window)) return;
-
+    const speakText = async (text: string) => {
         if (isSpeaking) {
             window.speechSynthesis.cancel();
             setIsSpeaking(false);
             return;
         }
 
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 0.9;
-        utterance.pitch = 1.1;
-        utterance.onend = () => setIsSpeaking(false);
-        utterance.onerror = () => setIsSpeaking(false);
-        utteranceRef.current = utterance;
-        window.speechSynthesis.speak(utterance);
+        if (selectedLanguage === 'en-IN') {
+            if (!('speechSynthesis' in window)) return;
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 0.9;
+            utterance.pitch = 1.1;
+            utterance.onend = () => setIsSpeaking(false);
+            utterance.onerror = () => setIsSpeaking(false);
+            utteranceRef.current = utterance;
+            window.speechSynthesis.speak(utterance);
+            setIsSpeaking(true);
+            return;
+        }
+
         setIsSpeaking(true);
+        try {
+            const audioChunks = await getAudio(text, selectedLanguage);
+            if (audioChunks && audioChunks.length > 0) {
+                for (const chunk of audioChunks) {
+                    await new Promise<void>((resolve) => {
+                        const audio = new Audio(`data:audio/mp3;base64,${chunk}`);
+                        audio.onended = () => resolve();
+                        audio.onerror = () => resolve();
+                        audio.play().catch(() => resolve());
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Failed to synthesize story audio:', error);
+        } finally {
+            setIsSpeaking(false);
+        }
     };
 
     const stopSpeaking = () => {
         window.speechSynthesis.cancel();
         setIsSpeaking(false);
+    };
+
+    const handleLanguageChange = (language: string) => {
+        setSelectedLanguage(language);
+        updateUserLanguage(language).catch(() => { });
     };
 
     // ─── PDF Download ─────────────────────────────────────────────────────
@@ -758,6 +835,9 @@ export default function Stories() {
         const isCoverPage = hasCover && currentPage === 0;
         const contentPageIndex = hasCover ? currentPage - 1 : currentPage;
         const page = isCoverPage ? null : pages[contentPageIndex];
+        const pageText = isCoverPage
+            ? ''
+            : translatedPages?.[contentPageIndex] || page?.text || '';
 
         return (
             <>
@@ -776,10 +856,11 @@ export default function Stories() {
                                 <ChevronLeft className="w-5 h-5" /> Back to Library
                             </button>
                             <div className="flex items-center gap-2">
+                                <LanguagePicker value={selectedLanguage} onChange={handleLanguageChange} />
                                 {/* TTS Controls */}
-                                {!isCoverPage && page?.text && (
+                                {!isCoverPage && pageText && (
                                     <button
-                                        onClick={() => speakText(page.text)}
+                                        onClick={() => speakText(pageText)}
                                         className={`p-2 rounded-full transition ${isSpeaking
                                             ? 'bg-amber-100 text-amber-600'
                                             : 'bg-gray-100 text-gray-500 hover:text-purple-500 hover:bg-purple-50'
@@ -885,7 +966,7 @@ export default function Stories() {
                                     {/* Story Text */}
                                     <div className="p-8 flex-1 flex flex-col justify-center">
                                         <p className="text-xl leading-relaxed text-gray-800 font-medium">
-                                            {page?.text || 'Loading...'}
+                                            {isTranslating ? 'Translating story...' : (pageText || 'Loading...')}
                                         </p>
                                     </div>
 
