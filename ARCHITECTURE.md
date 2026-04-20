@@ -49,3 +49,10 @@ graph TD
 - **Authentication**: JWT (JSON Web Tokens) for stateless auth across Web and Mobile.
 - **Environment**: API Keys (Gemini) are kept on the Backend, never exposed to clients.
 - **Database**: MongoDB allows limited access (internal network in Docker).
+
+## Future Architecture Plans
+Following a Product Council review, the frontend architecture will undergo a shift to improve scalability, reduce cognitive load, and enable deep linking:
+- **Routing:** Migration from state-based rendering (`step` variable in `App.tsx`) to `react-router-dom`.
+- **State Management:** Adoption of Context API or Zustand for global state (e.g., authentication, current child profile).
+- **UX Paradigm:** Shift from an "a la carte" quick-action grid to task-based and journey-based workflows (e.g., The Assessment Loop).
+See the `tools/` directory for detailed Council Discussion, Recommendations, UX Improvements, and Architecture Updates.
