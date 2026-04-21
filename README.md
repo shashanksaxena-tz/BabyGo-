@@ -3,7 +3,10 @@
 > A smart parenting assistant to track child development milestones and provide AI-powered insights.
 
 ## What is this?
-TinySteps AI allows parents to track their child's growth, logging metrics like height, weight, and developmental milestones. It leverages Google's Gemini AI to analyze data and provide personalized recommendations and status updates for parents.
+TinySteps AI (the MVP foundation for GrowthTrack AI) allows parents to track their child's growth using guided workflows rather than a disconnected dashboard. It leverages Google's Gemini AI to analyze data and provide personalized recommendations and status updates for parents.
+
+### UX Philosophy
+We believe in a "Guided Path" approach. Parents are busy; the application should present the next logical action (e.g., a monthly check-in) rather than a complex grid of standalone tools.
 
 The system consists of:
 - A **Web Dashboard** for easy access.

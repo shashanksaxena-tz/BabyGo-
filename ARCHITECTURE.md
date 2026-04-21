@@ -49,3 +49,18 @@ graph TD
 - **Authentication**: JWT (JSON Web Tokens) for stateless auth across Web and Mobile.
 - **Environment**: API Keys (Gemini) are kept on the Backend, never exposed to clients.
 - **Database**: MongoDB allows limited access (internal network in Docker).
+
+## 🚀 Proposed Architecture Enhancements (Next Phase)
+To improve performance and UX, the following architectural updates are planned:
+
+### 1. Caching Layer
+- **Implementation**: Introduce Redis (or an in-memory cache for MVP) to store frequently accessed data and cache Gemini AI responses for identical queries.
+- **Benefit**: Reduces API costs, lowers latency, and improves perceived performance for the user.
+
+### 2. Asynchronous AI Processing
+- **Implementation**: Move long-running AI tasks (e.g., generating comprehensive pediatrician reports) to a message queue (like BullMQ or RabbitMQ).
+- **Benefit**: Unblocks the main API thread, prevents UI freezing, and allows the user to continue using the app while the report is generated in the background.
+
+### 3. Workflow-Driven State Management
+- **Implementation**: Refactor frontend state to support step-by-step "wizards" (Check-in flows) rather than isolated screen states.
+- **Benefit**: Supports the new UX paradigm of guided journeys.
