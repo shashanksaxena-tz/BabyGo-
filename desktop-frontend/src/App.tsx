@@ -58,6 +58,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/create-child" element={<ProtectedRoute><CreateChild /></ProtectedRoute>} />
+            <Route path="/children/new" element={<ProtectedRoute><CreateChild /></ProtectedRoute>} />
 
             <Route path="/" element={
               <ProtectedRoute>
@@ -65,12 +66,14 @@ function App() {
               </ProtectedRoute>
             }>
               <Route index element={<Dashboard />} />
+              <Route path="dashboard" element={<Dashboard />} />
               <Route path="insights" element={<Insights />} />
               <Route path="analysis" element={<Analysis />} />
               <Route path="analysis/result" element={<AnalysisResult />} />
               <Route path="milestones" element={<Milestones />} />
               <Route path="timeline" element={<Timeline />} />
               <Route path="growth" element={<GrowthCharts />} />
+              <Route path="growth-charts" element={<GrowthCharts />} />
               <Route path="stories" element={<Stories />} />
               <Route path="recipes" element={<Recipes />} />
               <Route path="recommendations" element={<Recommendations />} />

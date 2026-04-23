@@ -233,7 +233,13 @@ class _HealthHubScreenState extends State<HealthHubScreen> {
                   ),
                   _headerIconButton(
                     icon: Icons.notifications_none_rounded,
-                    onTap: () {},
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('No new notifications right now.'),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),

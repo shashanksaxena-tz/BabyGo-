@@ -534,10 +534,12 @@ export default function Profile() {
                                 <span className="text-xs font-medium text-gray-500">Basic features</span>
                             </div>
                             <button
-                                onClick={() => toast.info('Premium plans coming soon!')}
+                                onClick={() => {
+                                    window.location.href = 'mailto:support@tinysteps.ai?subject=Premium%20Plan%20Inquiry';
+                                }}
                                 className="flex items-center gap-1.5 bg-emerald-500 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-[0_2px_8px_rgba(16,185,129,0.2)] hover:-translate-y-0.5 transition duration-200"
                             >
-                                <Zap className="w-3.5 h-3.5 fill-white" /> Upgrade to Premium
+                                <Zap className="w-3.5 h-3.5 fill-white" /> Contact for Premium
                             </button>
                         </div>
                     </div>

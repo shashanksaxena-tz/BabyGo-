@@ -48,8 +48,9 @@ export default function Login() {
                 </div>
                 <form onSubmit={handleSubmit} className="flex flex-col gap-5">
                     <div className="flex flex-col">
-                        <label className="text-sm font-bold text-gray-800 mb-1.5 px-1">Email Address</label>
+                        <label htmlFor="login-email" className="text-sm font-bold text-gray-800 mb-1.5 px-1">Email Address</label>
                         <input
+                            id="login-email"
                             type="email"
                             required
                             className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition"
@@ -59,8 +60,9 @@ export default function Login() {
                         />
                     </div>
                     <div className="flex flex-col">
-                        <label className="text-sm font-bold text-gray-800 mb-1.5 px-1">Password</label>
+                        <label htmlFor="login-password" className="text-sm font-bold text-gray-800 mb-1.5 px-1">Password</label>
                         <input
+                            id="login-password"
                             type="password"
                             required
                             className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition"

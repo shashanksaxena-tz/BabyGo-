@@ -44,13 +44,17 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
-      if (result['success'] == true) {
-        final token = result['data']?['token'];
-        if (token != null) {
-          // Save token to storage
-          final storage = StorageService();
-          await storage.savePreference('auth_token', token);
-          await storage.setOnboardingComplete(true);
+        if (result['success'] == true) {
+          final token = result['data']?['token'];
+          final userId = result['data']?['user']?['id']?.toString();
+          if (token != null) {
+            // Save token to storage
+            final storage = StorageService();
+            await storage.saveAuthToken(token);
+            if (userId != null && userId.isNotEmpty) {
+              await storage.saveUserId(userId);
+            }
+            await storage.setOnboardingComplete(true);
 
           if (!mounted) return;
           // Navigate to main app - replace entire stack

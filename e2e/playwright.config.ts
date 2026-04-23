@@ -9,6 +9,46 @@ import { defineConfig, devices } from '@playwright/test';
  *  - web-chromium      → web app (port 3005)
  *  - web-mobile        → web app (port 3005) emulated as Pixel 7
  */
+const includeFirefox = process.env.PLAYWRIGHT_INCLUDE_FIREFOX === 'true';
+
+const projects = [
+  /* Desktop app – Chromium */
+  {
+    name: 'desktop-chromium',
+    use: {
+      ...devices['Desktop Chrome'],
+      baseURL: 'http://localhost:5173',
+    },
+  },
+  ...(includeFirefox
+    ? [{
+        name: 'desktop-firefox',
+        use: {
+          ...devices['Desktop Firefox'],
+          baseURL: 'http://localhost:5173',
+        },
+      }]
+    : []),
+
+  /* Web app – Chromium */
+  {
+    name: 'web-chromium',
+    use: {
+      ...devices['Desktop Chrome'],
+      baseURL: 'http://localhost:3005',
+    },
+  },
+
+  /* Web app – Mobile (Pixel 7) */
+  {
+    name: 'web-mobile',
+    use: {
+      ...devices['Pixel 7'],
+      baseURL: 'http://localhost:3005',
+    },
+  },
+];
+
 export default defineConfig({
   testDir: './tests',
 
@@ -49,43 +89,7 @@ export default defineConfig({
     baseURL: 'http://localhost:5173',
   },
 
-  projects: [
-    /* Desktop app – Chromium */
-    {
-      name: 'desktop-chromium',
-      use: {
-        ...devices['Desktop Chrome'],
-        baseURL: 'http://localhost:5173',
-      },
-    },
-
-    /* Desktop app – Firefox */
-    {
-      name: 'desktop-firefox',
-      use: {
-        ...devices['Desktop Firefox'],
-        baseURL: 'http://localhost:5173',
-      },
-    },
-
-    /* Web app – Chromium */
-    {
-      name: 'web-chromium',
-      use: {
-        ...devices['Desktop Chrome'],
-        baseURL: 'http://localhost:3005',
-      },
-    },
-
-    /* Web app – Mobile (Pixel 7) */
-    {
-      name: 'web-mobile',
-      use: {
-        ...devices['Pixel 7'],
-        baseURL: 'http://localhost:3005',
-      },
-    },
-  ],
+  projects,
 
   /* Start the full stack via docker-compose and wait for the backend to be ready.
    * global-setup.ts polls all three service ports (backend + both frontends)

@@ -15,10 +15,17 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
     (response) => response,
     (error) => {
-        if (error.response?.status === 401) {
+        const status = error.response?.status;
+        if (status === 401) {
             localStorage.removeItem('token');
             localStorage.removeItem('refreshToken');
             window.location.href = '/login';
+        }
+        if (status === 403) {
+            error.userMessage = 'You do not have permission to access this resource.';
+        }
+        if (status === 404) {
+            error.userMessage = 'The requested resource was not found.';
         }
         return Promise.reject(error);
     }

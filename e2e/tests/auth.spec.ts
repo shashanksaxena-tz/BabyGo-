@@ -2,6 +2,10 @@ import { test, expect } from '@playwright/test';
 
 const API_BASE = process.env.API_BASE_URL ?? 'http://localhost:3001/api';
 
+
+test.beforeEach(({}, testInfo) => {
+  test.skip(!testInfo.project.name.startsWith('desktop'), 'Desktop frontend only');
+});
 test.describe('Authentication', () => {
   test('register and login flow', async ({ page }) => {
     const uniqueSuffix = Date.now();
@@ -38,9 +42,9 @@ test.describe('Authentication', () => {
     // Submit the form
     await page.getByRole('button', { name: /sign\s*up|register|create account/i }).click();
 
-    // After successful registration, should land on dashboard or home —
-    // assert the positive destination rather than just "not signup".
-    await expect(page).toHaveURL(/\/(dashboard|home)?$/, { timeout: 10_000 });
+    // After successful registration, apps may route to dashboard/home
+    // or first-time child onboarding.
+    await expect(page).toHaveURL(/\/(dashboard|home|create-child)?$/, { timeout: 10_000 });
   });
 
   test('login with valid credentials', async ({ page }) => {

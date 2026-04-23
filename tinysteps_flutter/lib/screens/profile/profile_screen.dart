@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../models/models.dart';
+import '../../services/api_service.dart';
+import '../../services/sarvam_service.dart';
 import '../../services/storage_service.dart';
 import '../../utils/app_theme.dart';
 import '../../animations/custom_animations.dart';
-import '../profile_setup/profile_setup_screen.dart';
+import '../auth/login_screen.dart';
 import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -16,6 +19,8 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   ChildProfile? _child;
   bool _isLoading = true;
+  bool _notificationsEnabled = true;
+  String _selectedLanguage = 'en-IN';
   final _apiKeyController = TextEditingController();
 
   @override
@@ -33,11 +38,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadData() async {
     final storage = StorageService();
     final child = await storage.getCurrentChild();
-    final apiKey = storage.getApiKey();
+    final apiKey = await storage.getApiKey();
+    final notificationsEnabled =
+        await storage.getPreference<bool>('notifications_enabled') ?? true;
+    final selectedLanguage =
+        await storage.getPreference<String>('language') ?? 'en-IN';
 
     setState(() {
       _child = child;
       _apiKeyController.text = apiKey ?? '';
+      _notificationsEnabled = notificationsEnabled;
+      _selectedLanguage = selectedLanguage;
       _isLoading = false;
     });
   }
@@ -297,9 +308,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 12),
           GestureDetector(
-            onTap: () {
-              // Open URL to get API key
-            },
+            onTap: _openApiKeyUrl,
             child: const Text(
               'Get your free API key from Google AI Studio',
               style: TextStyle(
@@ -327,30 +336,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
             icon: Icons.notifications_rounded,
             title: 'Notifications',
             subtitle: 'Reminders and tips',
-            onTap: () {},
+            onTap: () => _setNotifications(!_notificationsEnabled),
             trailing: Switch(
-              value: true,
-              onChanged: (v) {},
+              value: _notificationsEnabled,
+              onChanged: _setNotifications,
               activeColor: AppTheme.primaryGreen,
-            ),
-          ),
-          const Divider(height: 1, indent: 60),
-          _buildSettingsTile(
-            icon: Icons.dark_mode_rounded,
-            title: 'Dark Mode',
-            subtitle: 'Coming soon',
-            onTap: () {},
-            trailing: Switch(
-              value: false,
-              onChanged: null,
             ),
           ),
           const Divider(height: 1, indent: 60),
           _buildSettingsTile(
             icon: Icons.language_rounded,
             title: 'Language',
-            subtitle: 'English',
-            onTap: () {},
+            subtitle: SarvamService.supportedLanguages[_selectedLanguage] ?? 'English',
+            onTap: _showLanguagePicker,
           ),
           const Divider(height: 1, indent: 60),
           _buildSettingsTile(
@@ -515,6 +513,65 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _openApiKeyUrl() async {
+    final uri = Uri.parse('https://aistudio.google.com/app/apikey');
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not open Google AI Studio.'),
+          backgroundColor: AppTheme.error,
+        ),
+      );
+    }
+  }
+
+  Future<void> _setNotifications(bool enabled) async {
+    final storage = StorageService();
+    await storage.savePreference('notifications_enabled', enabled);
+    if (!mounted) return;
+    setState(() => _notificationsEnabled = enabled);
+  }
+
+  Future<void> _setLanguage(String languageCode) async {
+    final storage = StorageService();
+    await storage.savePreference('language', languageCode);
+    if (!mounted) return;
+    setState(() => _selectedLanguage = languageCode);
+  }
+
+  void _showLanguagePicker() {
+    final languages = SarvamService.supportedLanguages.entries.toList();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => SafeArea(
+        child: ListView.separated(
+          shrinkWrap: true,
+          itemCount: languages.length,
+          separatorBuilder: (_, __) => const Divider(height: 1),
+          itemBuilder: (context, index) {
+            final entry = languages[index];
+            final isSelected = entry.key == _selectedLanguage;
+            return ListTile(
+              onTap: () async {
+                await _setLanguage(entry.key);
+                if (context.mounted) Navigator.pop(context);
+              },
+              title: Text(entry.value),
+              trailing: isSelected
+                  ? const Icon(Icons.check_circle_rounded, color: AppTheme.primaryGreen)
+                  : null,
+            );
+          },
+        ),
+      ),
+    );
+  }
+
   void _confirmClearData() {
     showDialog(
       context: context,
@@ -533,11 +590,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onPressed: () async {
               final storage = StorageService();
               await storage.clearAllData();
+              ApiService().clearToken();
               if (mounted) {
                 Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const ProfileSetupScreen(),
+                    builder: (_) => const LoginScreen(),
                   ),
                   (route) => false,
                 );

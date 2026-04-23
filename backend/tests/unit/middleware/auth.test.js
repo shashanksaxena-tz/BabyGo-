@@ -76,7 +76,10 @@ describe('authMiddleware', () => {
 
   beforeEach(() => {
     req = { headers: {} };
-    res = {};
+    res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+    };
     next = jest.fn();
     mockFindById.mockReset();
   });
@@ -96,30 +99,26 @@ describe('authMiddleware', () => {
     expect(next).toHaveBeenCalledTimes(1);
   });
 
-  it('falls back to guest user when no token is provided', async () => {
+  it('returns 401 when no token is provided', async () => {
     await authMiddleware(req, res, next);
 
-    expect(req.user).toMatchObject({
-      _id: '000000000000000000000000',
-      name: 'Guest User',
-    });
-    expect(next).toHaveBeenCalledTimes(1);
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ error: 'Authentication token required' });
+    expect(next).not.toHaveBeenCalled();
   });
 
-  it('falls back to guest user when token is expired', async () => {
+  it('returns 401 when token is expired', async () => {
     const expiredToken = jwt.sign({ userId: 'u1' }, JWT_SECRET, { expiresIn: -1 });
     req.headers.authorization = `Bearer ${expiredToken}`;
 
     await authMiddleware(req, res, next);
 
-    expect(req.user).toMatchObject({
-      _id: '000000000000000000000000',
-      name: 'Guest User',
-    });
-    expect(next).toHaveBeenCalledTimes(1);
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ error: 'Invalid or expired authentication token' });
+    expect(next).not.toHaveBeenCalled();
   });
 
-  it('falls back to guest user when user is not found in database', async () => {
+  it('returns 401 when user is not found in database', async () => {
     mockFindById.mockReturnValue({
       select: jest.fn().mockResolvedValue(null),
     });
@@ -129,11 +128,9 @@ describe('authMiddleware', () => {
 
     await authMiddleware(req, res, next);
 
-    expect(req.user).toMatchObject({
-      _id: '000000000000000000000000',
-      name: 'Guest User',
-    });
-    expect(next).toHaveBeenCalledTimes(1);
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ error: 'Invalid authentication token' });
+    expect(next).not.toHaveBeenCalled();
   });
 
   it('attaches GEMINI_API_KEY from env when user has no geminiApiKey', async () => {

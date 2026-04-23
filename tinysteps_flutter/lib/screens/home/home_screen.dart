@@ -10,6 +10,7 @@ import '../analysis/media_capture_screen.dart';
 import '../stories/bedtime_stories_screen.dart';
 import '../milestones/milestones_screen.dart';
 import '../growth/growth_charts_screen.dart';
+import '../timeline/timeline_screen.dart';
 
 /// V3 Home Dashboard - matches Pencil design nodeId: 39h1m exactly
 /// Layout: Status bar area -> Header -> Child Info Card -> Overall Score Card
@@ -428,7 +429,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             GestureDetector(
               onTap: () {
-                // View all action
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const TimelineScreen()),
+                );
               },
               child: const Text(
                 'View All',

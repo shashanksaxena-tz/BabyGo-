@@ -61,10 +61,11 @@ export default function CreateChild() {
                         <div className="grid md:grid-cols-2 gap-6">
                             {/* Name */}
                             <div className="flex flex-col gap-2">
-                                <label className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                                <label htmlFor="child-name" className="text-sm font-bold text-gray-800 flex items-center gap-2">
                                     <Baby className="w-4 h-4 text-emerald-500" /> Child's Name
                                 </label>
                                 <input
+                                    id="child-name"
                                     type="text"
                                     required
                                     className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition text-gray-900"
@@ -76,10 +77,11 @@ export default function CreateChild() {
 
                             {/* Date of Birth */}
                             <div className="flex flex-col gap-2">
-                                <label className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                                <label htmlFor="child-dob" className="text-sm font-bold text-gray-800 flex items-center gap-2">
                                     <Calendar className="w-4 h-4 text-emerald-500" /> Date of Birth
                                 </label>
                                 <input
+                                    id="child-dob"
                                     type="date"
                                     required
                                     className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition text-gray-900"
@@ -91,7 +93,17 @@ export default function CreateChild() {
 
                         {/* Gender */}
                         <div className="flex flex-col gap-2">
-                            <label className="text-sm font-bold text-gray-800">Gender</label>
+                            <label htmlFor="child-gender" className="text-sm font-bold text-gray-800">Gender</label>
+                            <select
+                                id="child-gender"
+                                aria-label="Gender"
+                                className="sr-only"
+                                value={formData.gender}
+                                onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                            >
+                                <option value="male">Male</option>
+                                <option value="female">Female</option>
+                            </select>
                             <div className="flex gap-4">
                                 {['male', 'female'].map(g => (
                                     <button
@@ -110,10 +122,11 @@ export default function CreateChild() {
                         <div className="grid md:grid-cols-2 gap-6">
                             {/* Weight */}
                             <div className="flex flex-col gap-2">
-                                <label className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                                <label htmlFor="child-weight" className="text-sm font-bold text-gray-800 flex items-center gap-2">
                                     <Scale className="w-4 h-4 text-emerald-500" /> Birth Weight (kg)
                                 </label>
                                 <input
+                                    id="child-weight"
                                     type="number"
                                     required
                                     step="0.01"
@@ -127,10 +140,11 @@ export default function CreateChild() {
 
                             {/* Length */}
                             <div className="flex flex-col gap-2">
-                                <label className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                                <label htmlFor="child-height" className="text-sm font-bold text-gray-800 flex items-center gap-2">
                                     <Ruler className="w-4 h-4 text-emerald-500" /> Birth Length (cm)
                                 </label>
                                 <input
+                                    id="child-height"
                                     type="number"
                                     required
                                     step="0.1"
@@ -145,8 +159,9 @@ export default function CreateChild() {
 
                         {/* Region */}
                         <div className="flex flex-col gap-2">
-                            <label className="text-sm font-bold text-gray-800">Geographic Region</label>
+                            <label htmlFor="child-region" className="text-sm font-bold text-gray-800">Geographic Region</label>
                             <select
+                                id="child-region"
                                 className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition text-gray-900 appearance-none font-medium"
                                 value={formData.region}
                                 onChange={(e) => setFormData({ ...formData, region: e.target.value })}

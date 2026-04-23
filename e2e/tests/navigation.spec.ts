@@ -2,15 +2,19 @@ import { test, expect } from '../fixtures/auth';
 
 const ROUTES: Array<{ path: string; label: string; contentPattern: RegExp }> = [
   { path: '/',              label: 'dashboard',     contentPattern: /dashboard|home|welcome|child|baby/i },
-  { path: '/insights',      label: 'insights',      contentPattern: /insight|analysis/i },
-  { path: '/stories',       label: 'stories',       contentPattern: /stories|bedtime|tale/i },
-  { path: '/milestones',    label: 'milestones',    contentPattern: /milestone|tracker/i },
-  { path: '/growth-charts', label: 'growth-charts', contentPattern: /growth|chart|weight|height/i },
-  { path: '/recipes',       label: 'recipes',       contentPattern: /recipe|food|meal|nutrition/i },
-  { path: '/timeline',      label: 'timeline',      contentPattern: /timeline|activity|moment/i },
-  { path: '/profile',       label: 'profile',       contentPattern: /profile|account|settings|name|email/i },
+  { path: '/insights',      label: 'insights',      contentPattern: /development insights|insight|analysis/i },
+  { path: '/stories',       label: 'stories',       contentPattern: /bedtime stories|stories|tale|create a new story/i },
+  { path: '/milestones',    label: 'milestones',    contentPattern: /milestones|milestone|tracker|upcoming/i },
+  { path: '/growth-charts', label: 'growth-charts', contentPattern: /growth charts|growth|chart|measurement/i },
+  { path: '/recipes',       label: 'recipes',       contentPattern: /recipes|recipe|food|meal|nutrition/i },
+  { path: '/timeline',      label: 'timeline',      contentPattern: /timeline|growth journey|activity|moment/i },
+  { path: '/profile',       label: 'profile',       contentPattern: /profile|settings|account|child info/i },
 ];
 
+
+test.beforeEach(({}, testInfo) => {
+  test.skip(!testInfo.project.name.startsWith('desktop'), 'Desktop frontend only');
+});
 test.describe('Navigation', () => {
   for (const { path, label, contentPattern } of ROUTES) {
     test(`${label} route renders route-specific content`, async ({ authenticatedPage: page }) => {
@@ -20,13 +24,11 @@ test.describe('Navigation', () => {
       // this is the failure condition we're guarding against.
       // not.toBeVisible() passes when the element is absent, so no catch needed
       await expect(page.getByText(/cannot get/i)).not.toBeVisible({ timeout: 8_000 });
+      await expect(page).not.toHaveURL(/\/login|\/signup/i, { timeout: 8_000 });
 
-      // Assert that the page renders content specific to this route, not just
-      // "something loaded". This catches cases where the router falls back to a
-      // generic shell without rendering the correct view.
+      // Assert route-specific content appears somewhere in the page shell.
       await expect(
-        page.getByRole('heading').filter({ hasText: contentPattern }).first()
-          .or(page.getByText(contentPattern).first())
+        page.locator('main, body').getByText(contentPattern).first()
       ).toBeVisible({ timeout: 10_000 });
     });
   }

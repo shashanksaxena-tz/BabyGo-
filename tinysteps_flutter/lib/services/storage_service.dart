@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
 
@@ -11,10 +12,15 @@ class StorageService {
   static const String _measurementsKey = 'measurements';
   static const String _preferencesKey = 'preferences';
   static const String _apiKeyKey = 'gemini_api_key';
+  static const String _legacyAuthTokenPreferenceKey = 'auth_token';
   static const String _onboardingKey = 'onboarding_complete';
   static const String _currentChildKey = 'current_child_id';
+  static const String _secureAuthTokenKey = 'auth_token';
+  static const String _secureApiKeyKey = 'gemini_api_key';
+  static const String _secureUserIdKey = 'user_id';
 
   late SharedPreferences _prefs;
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
   bool _isInitialized = false;
 
   static final StorageService _instance = StorageService._internal();
@@ -24,6 +30,7 @@ class StorageService {
   /// Initialize the storage service
   Future<void> initialize() async {
     _prefs = await SharedPreferences.getInstance();
+    await _migrateLegacySensitiveData();
     _isInitialized = true;
   }
 
@@ -31,11 +38,37 @@ class StorageService {
 
   // API Key Management
   Future<void> saveApiKey(String apiKey) async {
-    await _prefs.setString(_apiKeyKey, apiKey);
+    await _secureStorage.write(key: _secureApiKeyKey, value: apiKey);
   }
 
-  String? getApiKey() {
-    return _prefs.getString(_apiKeyKey);
+  Future<String?> getApiKey() async {
+    return _secureStorage.read(key: _secureApiKeyKey);
+  }
+
+  // Auth token management
+  Future<void> saveAuthToken(String token) async {
+    await _secureStorage.write(key: _secureAuthTokenKey, value: token);
+  }
+
+  Future<String?> getAuthToken() async {
+    return _secureStorage.read(key: _secureAuthTokenKey);
+  }
+
+  Future<void> clearAuthToken() async {
+    await _secureStorage.delete(key: _secureAuthTokenKey);
+  }
+
+  // User identity management
+  Future<void> saveUserId(String userId) async {
+    await _secureStorage.write(key: _secureUserIdKey, value: userId);
+  }
+
+  Future<String?> getUserId() async {
+    return _secureStorage.read(key: _secureUserIdKey);
+  }
+
+  Future<void> clearUserId() async {
+    await _secureStorage.delete(key: _secureUserIdKey);
   }
 
   // Onboarding State
@@ -237,6 +270,14 @@ class StorageService {
 
   // App Preferences
   Future<void> savePreference(String key, dynamic value) async {
+    if (key == _legacyAuthTokenPreferenceKey) {
+      if (value is String && value.isNotEmpty) {
+        await saveAuthToken(value);
+      } else {
+        await clearAuthToken();
+      }
+      return;
+    }
     final prefs = await getPreferences();
     prefs[key] = value;
     await _prefs.setString(_preferencesKey, json.encode(prefs));
@@ -256,5 +297,28 @@ class StorageService {
   // Clear all data
   Future<void> clearAllData() async {
     await _prefs.clear();
+    await _secureStorage.deleteAll();
+  }
+
+  Future<void> _migrateLegacySensitiveData() async {
+    final prefs = await getPreferences();
+    final legacyAuthToken = prefs[_legacyAuthTokenPreferenceKey];
+    var prefsUpdated = false;
+
+    if (legacyAuthToken is String && legacyAuthToken.isNotEmpty) {
+      await saveAuthToken(legacyAuthToken);
+      prefs.remove(_legacyAuthTokenPreferenceKey);
+      prefsUpdated = true;
+    }
+
+    final legacyApiKey = _prefs.getString(_apiKeyKey);
+    if (legacyApiKey != null && legacyApiKey.isNotEmpty) {
+      await saveApiKey(legacyApiKey);
+      await _prefs.remove(_apiKeyKey);
+    }
+
+    if (prefsUpdated) {
+      await _prefs.setString(_preferencesKey, json.encode(prefs));
+    }
   }
 }

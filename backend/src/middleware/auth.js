@@ -15,37 +15,27 @@ export const authMiddleware = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.split(' ')[1];
-      const decoded = jwt.verify(token, JWT_SECRET);
-      const user = await User.findById(decoded.userId).select('-password');
-      if (user) {
-        // Attach geminiApiKey from env if user doesn't have one
-        if (!user.geminiApiKey && process.env.GEMINI_API_KEY) {
-          user.geminiApiKey = process.env.GEMINI_API_KEY;
-        }
-        req.user = user;
-        return next();
-      }
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Authentication token required' });
     }
 
-    // Fallback: no token or invalid token — use guest user for backward compatibility
-    req.user = {
-      _id: '000000000000000000000000',
-      name: 'Guest User',
-      email: 'guest@example.com',
-      geminiApiKey: process.env.GEMINI_API_KEY
-    };
-    next();
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await User.findById(decoded.userId).select('-password');
+
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid authentication token' });
+    }
+
+    // Attach geminiApiKey from env if user doesn't have one
+    if (!user.geminiApiKey && process.env.GEMINI_API_KEY) {
+      user.geminiApiKey = process.env.GEMINI_API_KEY;
+    }
+
+    req.user = user;
+    return next();
   } catch (error) {
-    // Token expired or invalid — fall back to guest
-    req.user = {
-      _id: '000000000000000000000000',
-      name: 'Guest User',
-      email: 'guest@example.com',
-      geminiApiKey: process.env.GEMINI_API_KEY
-    };
-    next();
+    return res.status(401).json({ error: 'Invalid or expired authentication token' });
   }
 };
 

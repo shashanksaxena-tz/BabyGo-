@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../services/api_service.dart';
+import '../../services/storage_service.dart';
 import '../../utils/app_theme.dart';
 
 
@@ -19,6 +20,7 @@ class _CommunityHubScreenState extends State<CommunityHubScreen> {
   List<Map<String, dynamic>> _filteredPosts = [];
   Map<String, dynamic>? _featuredPost;
   List<String> _trendingTopics = [];
+  String? _currentUserId;
   bool _isLoading = true;
 
   @override
@@ -56,6 +58,7 @@ class _CommunityHubScreenState extends State<CommunityHubScreen> {
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
+    _currentUserId = await StorageService().getUserId();
 
     final results = await Future.wait([
       _api.getCommunityPosts(limit: 50),
@@ -1107,8 +1110,9 @@ class _CommunityHubScreenState extends State<CommunityHubScreen> {
 
   bool _isLikedByUser(Map<String, dynamic> post) {
     final likedBy = List<String>.from(post['likedBy'] ?? []);
-    // The auth middleware uses a fixed guest user ID
-    return likedBy.contains('000000000000000000000000');
+    final currentUserId = _currentUserId;
+    if (currentUserId == null || currentUserId.isEmpty) return false;
+    return likedBy.contains(currentUserId);
   }
 
   String _formatTime(String? dateStr) {

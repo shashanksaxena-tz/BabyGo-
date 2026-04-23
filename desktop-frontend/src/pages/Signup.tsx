@@ -49,8 +49,9 @@ export default function Signup() {
                 </div>
                 <form onSubmit={handleSubmit} className="flex flex-col gap-5">
                     <div className="flex flex-col">
-                        <label className="text-sm font-bold text-gray-800 mb-1.5 px-1">Full Name</label>
+                        <label htmlFor="signup-name" className="text-sm font-bold text-gray-800 mb-1.5 px-1">Full Name</label>
                         <input
+                            id="signup-name"
                             type="text"
                             required
                             className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition"
@@ -60,8 +61,9 @@ export default function Signup() {
                         />
                     </div>
                     <div className="flex flex-col">
-                        <label className="text-sm font-bold text-gray-800 mb-1.5 px-1">Email Address</label>
+                        <label htmlFor="signup-email" className="text-sm font-bold text-gray-800 mb-1.5 px-1">Email Address</label>
                         <input
+                            id="signup-email"
                             type="email"
                             required
                             className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition"
@@ -71,8 +73,9 @@ export default function Signup() {
                         />
                     </div>
                     <div className="flex flex-col">
-                        <label className="text-sm font-bold text-gray-800 mb-1.5 px-1">Password</label>
+                        <label htmlFor="signup-password" className="text-sm font-bold text-gray-800 mb-1.5 px-1">Password</label>
                         <input
+                            id="signup-password"
                             type="password"
                             required
                             className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition"

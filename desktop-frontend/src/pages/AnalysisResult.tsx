@@ -381,10 +381,8 @@ export default function AnalysisResult() {
         toast.success('Use "Save as PDF" in the print dialog to download.');
     };
 
-    const handleShareWithPediatrician = () => {
-        toast.info('Share with Pediatrician is coming soon! For now, use "Print Report" to generate a document.', {
-            autoClose: 5000,
-        });
+    const handleShareWithPediatrician = async () => {
+        await handleShareReport();
     };
 
     const handleShareReport = async () => {

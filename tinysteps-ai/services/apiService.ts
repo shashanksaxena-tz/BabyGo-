@@ -42,6 +42,20 @@ class ApiService {
       const data = await response.json();
 
       if (!response.ok) {
+        if (
+          response.status === 401 &&
+          endpoint !== '/auth/login' &&
+          endpoint !== '/auth/register'
+        ) {
+          this.clearToken();
+          return { error: 'Session expired. Please log in again.' };
+        }
+        if (response.status === 403) {
+          return { error: data.error || 'Access denied for this resource.' };
+        }
+        if (response.status === 404) {
+          return { error: data.error || 'Requested resource was not found.' };
+        }
         return { error: data.error || 'Request failed' };
       }
 

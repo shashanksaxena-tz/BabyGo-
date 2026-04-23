@@ -57,9 +57,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
         if (loginResult['success'] == true) {
           final token = loginResult['data']?['token'];
+          final userId = loginResult['data']?['user']?['id']?.toString();
           if (token != null) {
             final storage = StorageService();
-            await storage.savePreference('auth_token', token);
+            await storage.saveAuthToken(token);
+            if (userId != null && userId.isNotEmpty) {
+              await storage.saveUserId(userId);
+            }
             await storage.setOnboardingComplete(true);
 
             if (!mounted) return;

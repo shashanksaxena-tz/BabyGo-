@@ -1,4 +1,6 @@
-/// API Configuration for TinySteps AI
+import 'package:flutter/foundation.dart';
+
+/// API Configuration for TinySteps AI.
 ///
 /// Configure the backend API URL based on your deployment environment.
 class ApiConfig {
@@ -14,13 +16,25 @@ class ApiConfig {
   /// Production URL (replace with your actual deployed backend URL)
   static const String productionUrl = 'https://api.tinysteps.ai/api';
 
-  /// Current environment setting
-  /// Change this to switch between environments
-  static const Environment currentEnvironment = Environment.androidEmulator;
-
   /// Get the API URL for the current environment
   static String get apiUrl {
-    switch (currentEnvironment) {
+    const runtimeOverride = String.fromEnvironment('API_URL', defaultValue: '');
+    if (runtimeOverride.isNotEmpty) {
+      return runtimeOverride;
+    }
+
+    // Safer defaulting: release builds use production API if no override is provided.
+    if (kReleaseMode) {
+      return productionUrl;
+    }
+
+    // Debug/profile default for local mobile development.
+    return androidEmulatorUrl;
+  }
+
+  /// Resolve API URL for explicit environment selection (tests/debug tooling).
+  static String urlForEnvironment(Environment environment) {
+    switch (environment) {
       case Environment.development:
         return developmentUrl;
       case Environment.androidEmulator:

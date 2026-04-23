@@ -95,9 +95,22 @@ class ApiService {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return {'success': true, 'data': data};
       } else {
+        String errorMessage = data['error'] ?? 'Request failed';
+        if (
+          response.statusCode == 401 &&
+          endpoint != '/auth/login' &&
+          endpoint != '/auth/register'
+        ) {
+          clearToken();
+          errorMessage = 'Session expired. Please log in again.';
+        } else if (response.statusCode == 403) {
+          errorMessage = data['error'] ?? 'You do not have permission to access this resource.';
+        } else if (response.statusCode == 404) {
+          errorMessage = data['error'] ?? 'Requested resource was not found.';
+        }
         return {
           'success': false,
-          'error': data['error'] ?? 'Request failed',
+          'error': errorMessage,
         };
       }
     } catch (e) {

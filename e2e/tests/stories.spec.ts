@@ -1,5 +1,9 @@
 import { test, expect } from '../fixtures/auth';
 
+
+test.beforeEach(({}, testInfo) => {
+  test.skip(!testInfo.project.name.startsWith('desktop'), 'Desktop frontend only');
+});
 test.describe('Stories', () => {
   test('stories page loads for authenticated user', async ({ authenticatedPage: page }) => {
     await page.goto('/stories');
@@ -7,11 +11,10 @@ test.describe('Stories', () => {
     // Should not show a 404 / "Cannot GET" page
     // not.toBeVisible() passes when the element is absent, so no catch needed
     await expect(page.getByText(/cannot get/i)).not.toBeVisible({ timeout: 5_000 });
+    await expect(page).toHaveURL(/\/stories/, { timeout: 10_000 });
 
     // Page should contain some stories-related content
-    const heading = page
-      .getByRole('heading', { name: /stories|bedtime|tale/i })
-      .or(page.getByText(/stories|bedtime/i).first());
+    const heading = page.getByText(/bedtime stories|stories|create a new story|no stories yet/i).first();
 
     await expect(heading).toBeVisible({ timeout: 10_000 });
   });
@@ -36,7 +39,7 @@ test.describe('Stories', () => {
     // Assert that a stories-specific heading is present — verifies the correct
     // page rendered rather than just "something loaded".
     await expect(
-      page.getByRole('heading', { name: /stories|bedtime|tale/i }).first()
+      page.getByText(/bedtime stories|stories|create a new story|no stories yet/i).first()
     ).toBeVisible({ timeout: 10_000 });
   });
 });

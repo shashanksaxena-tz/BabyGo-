@@ -47,19 +47,16 @@ void main() async {
   await storage.initialize();
 
   // Check for saved auth token before app starts
-  final prefs = await storage.getPreferences();
-  final savedToken = prefs['auth_token'] as String?;
+  final savedToken = await storage.getAuthToken();
   final hasToken = savedToken != null && savedToken.isNotEmpty;
 
   if (hasToken) {
     ApiService().setToken(savedToken);
   }
 
-  final isOnboarded = storage.isOnboardingComplete();
-
   runApp(TinyStepsApp(
     storage: storage,
-    isAuthenticated: hasToken || isOnboarded,
+    isAuthenticated: hasToken,
   ));
 }
 
@@ -89,7 +86,8 @@ class TinyStepsApp extends StatelessWidget {
             );
           case '/home':
             return MaterialPageRoute(
-              builder: (_) => const MainAppShell(),
+              builder: (_) =>
+                  isAuthenticated ? const MainAppShell() : const LoginScreen(),
             );
           case '/login':
             return MaterialPageRoute(
