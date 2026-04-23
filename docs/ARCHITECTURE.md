@@ -9,32 +9,32 @@ Little Leap is a comprehensive child development tracking platform designed to h
 
 ```mermaid
 graph TB
-    subgraph "Client Layer"
-        WEB[Web Application (React)]
-        MOBILE[Mobile App (Flutter)]
+    subgraph client_layer["Client Layer"]
+        WEB[Web Application (React)];
+        MOBILE[Mobile App (Flutter)];
     end
     
-    subgraph "API Layer"
-        GW[Nginx / API Gateway]
+    subgraph api_layer["API Layer"]
+        GW[Nginx / API Gateway];
     end
     
-    subgraph "Service Layer"
-        BACKEND[Backend Service (Node.js/Express)]
+    subgraph service_layer["Service Layer"]
+        BACKEND[Backend Service (Node.js/Express)];
     end
     
-    subgraph "Data Layer"
-        DB[(MongoDB)]
+    subgraph data_layer["Data Layer"]
+        DB[(MongoDB)];
     end
     
-    subgraph "External Services"
-        GEMINI[Google Gemini AI]
+    subgraph external_services["External Services"]
+        GEMINI[Google Gemini AI];
     end
     
-    WEB --> GW
-    MOBILE --> GW
-    GW --> BACKEND
-    BACKEND --> DB
-    BACKEND --> GEMINI
+    WEB --> GW;
+    MOBILE --> GW;
+    GW --> BACKEND;
+    BACKEND --> DB;
+    BACKEND --> GEMINI;
 ```
 
 ---
