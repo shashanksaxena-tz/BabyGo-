@@ -4,20 +4,20 @@
 
 ```mermaid
 graph TD
-    subgraph Clients
+    subgraph clients["Clients"]
         Web[Web App (React)]
         Mobile[Mobile App (Flutter)]
     end
 
-    subgraph Infrastructure
+    subgraph infrastructure["Infrastructure"]
         LB[Nginx / Docker Proxy]
     end
 
-    subgraph Backend Services
+    subgraph backend_services["Backend Services"]
         API[Backend API (Node.js/Express)]
     end
 
-    subgraph Data & AI
+    subgraph data_ai["Data and AI"]
         DB[(MongoDB)]
         Gemini[Google Gemini AI]
     end
