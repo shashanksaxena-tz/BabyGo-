@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Mic, Square, Loader2 } from 'lucide-react';
-import { transcribeAudio } from '../services/geminiService';
+import apiService from '../services/apiService';
 
 interface RecordButtonProps {
   onTranscription: (text: string) => void;
@@ -29,7 +29,8 @@ const RecordButton: React.FC<RecordButtonProps> = ({ onTranscription }) => {
         const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
         setIsProcessing(true);
         try {
-          const text = await transcribeAudio(audioBlob);
+          const result = await apiService.transcribeAudio(audioBlob);
+          const text = (result as any).data?.transcription || '';
           onTranscription(text);
         } catch (err) {
           console.error("Failed to transcribe", err);
