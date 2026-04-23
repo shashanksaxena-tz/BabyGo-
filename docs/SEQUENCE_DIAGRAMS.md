@@ -1,4 +1,4 @@
-# BabyGo / TinySteps AI Sequence Diagrams
+# Little Leap Sequence Diagrams
 
 ## Overview
 Detailed sequence diagrams for critical system interactions.

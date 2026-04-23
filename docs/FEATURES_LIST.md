@@ -1,4 +1,4 @@
-# BabyGo / TinySteps AI Features List
+# Little Leap Features List
 
 ## Overview
 A comprehensive inventory of features for the child development tracking platform.

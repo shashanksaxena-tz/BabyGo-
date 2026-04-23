@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add 7 layers of tests (unit, integration, E2E, smoke, load, accessibility) covering the entire TinySteps AI stack — backend, desktop-frontend, and tinysteps-ai web app.
+**Goal:** Add 7 layers of tests (unit, integration, E2E, smoke, load, accessibility) covering the entire Little Leap stack — backend, desktop-frontend, and tinysteps-ai web app.
 
 **Architecture:** Each layer is independent and can be built in parallel. Backend tests use Jest + Testcontainers (real MongoDB/MinIO). Frontend tests use Vitest + React Testing Library + MSW. Playwright handles E2E, smoke, and accessibility for both React frontends. k6 handles load testing.
 
@@ -3223,7 +3223,7 @@ test.describe('Smoke Tests @smoke', () => {
     const res = await request.get('http://localhost:3001/api');
     expect(res.ok()).toBe(true);
     const body = await res.json();
-    expect(body.name).toBe('TinySteps AI API');
+    expect(body.name).toBe('Little Leap API');
   });
 
   test('config endpoint returns valid config', async ({ request }) => {
@@ -3306,7 +3306,7 @@ Create `load-tests/package.json`:
 {
   "name": "tinysteps-load-tests",
   "private": true,
-  "description": "k6 load tests for TinySteps AI",
+  "description": "k6 load tests for Little Leap",
   "scripts": {
     "test:config": "k6 run config-endpoint.js",
     "test:auth": "k6 run auth-flow.js",

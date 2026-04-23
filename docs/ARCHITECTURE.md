@@ -1,7 +1,7 @@
-# BabyGo / TinySteps AI System Architecture
+# Little Leap System Architecture
 
 ## Overview
-TinySteps AI (BabyGo) is a comprehensive child development tracking platform designed to help parents monitor their child's growth and milestones. It leverages Google's Gemini AI to provide personalized insights and recommendations based on the child's developmental data.
+Little Leap is a comprehensive child development tracking platform designed to help parents monitor their child's growth and milestones. It leverages Google's Gemini AI to provide personalized insights and recommendations based on the child's developmental data.
 
 ---
 

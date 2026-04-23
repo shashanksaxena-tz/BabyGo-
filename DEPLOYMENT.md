@@ -1,6 +1,6 @@
-# TinySteps AI - Deployment Guide
+# Little Leap - Deployment Guide
 
-Complete deployment guide for the TinySteps AI platform consisting of:
+Complete deployment guide for the Little Leap platform consisting of:
 - **Backend API** (Node.js/Express)
 - **Web Application** (React/TypeScript)
 - **Mobile Applications** (Flutter for Android/iOS)
@@ -9,7 +9,7 @@ Complete deployment guide for the TinySteps AI platform consisting of:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    TinySteps AI Platform                     │
+│                    Little Leap Platform                     │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐   │
@@ -49,7 +49,7 @@ The fastest way to run the backend and web app:
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd BabyGo-
+cd Little Leap-
 
 # Configure environment
 cp backend/.env.example backend/.env

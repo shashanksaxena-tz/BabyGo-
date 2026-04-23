@@ -1,7 +1,7 @@
-# BabyGo / TinySteps AI Data Flow Documentation
+# Little Leap Data Flow Documentation
 
 ## Overview
-This document outlines how data moves through the TinySteps AI system, from user inputs to storage and AI processing.
+This document outlines how data moves through the Little Leap system, from user inputs to storage and AI processing.
 
 ---
 

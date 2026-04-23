@@ -1,11 +1,11 @@
-# TinySteps AI — Expansion Strategy
+# Little Leap — Expansion Strategy
 **Studio Venture | Detailed Growth Playbook | Feb 2026**
 
 ---
 
 ## Vision
 
-TinySteps AI starts as a **parent companion app** and evolves into the **operating system for early childhood** in India — connecting parents, schools, brands, and healthcare providers around every child's unique development journey.
+Little Leap starts as a **parent companion app** and evolves into the **operating system for early childhood** in India — connecting parents, schools, brands, and healthcare providers around every child's unique development journey.
 
 ---
 
@@ -29,7 +29,7 @@ TinySteps AI starts as a **parent companion app** and evolves into the **operati
 ### Pillar 1: Pediatrician & Healthcare Network
 **Status: Active focus. Foundation channel.**
 
-**What**: Partner with pediatricians as trusted referral sources. Pediatricians recommend TinySteps AI to parents at checkups.
+**What**: Partner with pediatricians as trusted referral sources. Pediatricians recommend Little Leap to parents at checkups.
 
 **Why it works**: Highest trust signal for new parents. Creates quality installs, not just downloads.
 
@@ -49,7 +49,7 @@ TinySteps AI starts as a **parent companion app** and evolves into the **operati
 **The Problem for Brands**
 India's baby product brands spend heavily on generic ads. They have no way to know: *Is this parent buying for a 6-month-old or a 2-year-old? Is the child walking yet? Does she need fine motor skill toys or gross motor?*
 
-TinySteps AI knows all of this.
+Little Leap knows all of this.
 
 **What We Offer Brands**
 1. **Contextual product placement** — Recommend the exact right product at the exact right developmental moment
@@ -73,8 +73,8 @@ Brand partnerships monetised through listing fees, performance commissions on co
 
 **Partnership Leverage**
 Brands like FirstCry and DuckDuckBB already have logistics infrastructure. We can explore:
-- **Reverse logistics partnership**: They fulfil our TinySteps Box using their last-mile network
-- **Co-promotion**: TinySteps AI recommended in FirstCry app; FirstCry products featured in TinySteps Box
+- **Reverse logistics partnership**: They fulfil our Little Leap Box using their last-mile network
+- **Co-promotion**: Little Leap recommended in FirstCry app; FirstCry products featured in Little Leap Box
 
 ---
 
@@ -87,12 +87,12 @@ India has 200,000+ preschools and daycares. These institutions are **high-trust 
 **What We Do Through Schools**
 
 1. **Kiosks & Demo Stations at School Events**
-   - Set up TinySteps AI demo booths at parent-teacher days, annual days, admissions open houses
+   - Set up Little Leap demo booths at parent-teacher days, annual days, admissions open houses
    - Let parents try the app with a quick live demo on their own child
    - Hand out branded QR code cards for easy download
 
 2. **Teacher Endorsements**
-   - Train teachers to mention TinySteps AI during parent interactions
+   - Train teachers to mention Little Leap during parent interactions
    - Teachers become trusted recommenders — far more credible than ads
    - Provide teachers with simple talking points: "Track your child's milestones at home too"
 
@@ -103,12 +103,12 @@ India has 200,000+ preschools and daycares. These institutions are **high-trust 
 
 4. **Parent Workshops**
    - Host developmental milestone awareness sessions at schools
-   - Demonstrate how TinySteps AI tracks progress and suggests activities
+   - Demonstrate how Little Leap tracks progress and suggests activities
    - Workshops double as community building and user acquisition events
 
 5. **On-Premise Branding**
    - QR codes on school notice boards and reception areas
-   - TinySteps AI milestone cards included in school welcome kits
+   - Little Leap milestone cards included in school welcome kits
    - Branded parent communication templates for schools to share
 
 **Why Schools Work as Distribution**
@@ -131,7 +131,7 @@ India has 200,000+ preschools and daycares. These institutions are **high-trust 
 
 ---
 
-### Pillar 4: TinySteps Box — Personalised Activity Subscription
+### Pillar 4: Little Leap Box — Personalised Activity Subscription
 **Status: On roadmap. Highest consumer delight potential.**
 
 **Concept**
@@ -151,7 +151,7 @@ Every 3 months, a curated box of 4–6 activities arrives, personalised to:
 | Parent guide | 4-page booklet explaining developmental purpose of each item |
 
 **Personalisation Engine**
-The TinySteps AI backend already generates personalised stories, recipes, and activity recommendations. The Box is the **physical manifestation of the digital experience**.
+The Little Leap backend already generates personalised stories, recipes, and activity recommendations. The Box is the **physical manifestation of the digital experience**.
 
 **Supply Chain Strategy**
 - Partner with baby product brands for co-branded product inclusion (brand pays placement fee AND we include their product — dual revenue)
@@ -223,7 +223,7 @@ Each pillar reinforces the others. The moat is the **data + trust** that accumul
 | Kindertales | School management app (India-built) | AI developmental analysis, parent milestone bridge |
 | Flintobox → Flintoclass | Activity boxes (pivoted to B2B schools) | Development tracking, parent app, brands |
 | FirstCry Parenting | Baby shopping + basic milestone | AI-powered development intelligence, school layer |
-| **TinySteps AI** | **AI-powered development intelligence + brand marketplace + school distribution + physical box** | — |
+| **Little Leap** | **AI-powered development intelligence + brand marketplace + school distribution + physical box** | — |
 
 **On Kinedu specifically**: They are global, not India-built, and have no brand marketplace, no school integration, and no physical product. They are the honest answer when investors ask "who else is doing this?" Our response: "Kinedu is generic and global — we are AI-native, India-first, and building the revenue layers Kinedu deliberately ignored."
 

@@ -1,4 +1,4 @@
-# BabyGo / TinySteps AI Configurable Design Documentation
+# Little Leap Configurable Design Documentation
 
 ## Overview
 This system uses environment variables for configuration across all environments (Dev, Docker, Production).

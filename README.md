@@ -1,9 +1,9 @@
-# TinySteps AI (BabyGo)
+# Little Leap
 
 > A smart parenting assistant to track child development milestones and provide AI-powered insights.
 
 ## What is this?
-TinySteps AI allows parents to track their child's growth, logging metrics like height, weight, and developmental milestones. It leverages Google's Gemini AI to analyze data and provide personalized recommendations and status updates for parents.
+Little Leap allows parents to track their child's growth, logging metrics like height, weight, and developmental milestones. It leverages Google's Gemini AI to analyze data and provide personalized recommendations and status updates for parents.
 
 The system consists of:
 - A **Web Dashboard** for easy access.
@@ -27,7 +27,7 @@ The easiest way to run the full stack (Web + Backend + DB) is via Docker Compose
    The project requires environment variables to run.
    
    **Root / Backend**:
-   Create a `.env` file in the root `BabyGo-/` directory (or inside `backend/` if running manually) with the following content:
+   Create a `.env` file in the root `<repo-root>/` directory (or inside `backend/` if running manually) with the following content:
    ```bash
    PORT=3001
    NODE_ENV=development

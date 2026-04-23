@@ -1,4 +1,4 @@
-# TinySteps AI — Investor Materials
+# Little Leap — Investor Materials
 **Studio Venture Pitch Package | Feb 2026**
 
 ---
@@ -17,9 +17,9 @@
 
 ## The 30-Second Pitch
 
-> TinySteps AI is a child development intelligence platform for Indian parents of 0–6 year olds. The app tracks milestones, growth, stories, and recipes — all personalised per child using Gemini AI. We're live on Web and Mobile, backed by WHO-standard data.
+> Little Leap is a child development intelligence platform for Indian parents of 0–6 year olds. The app tracks milestones, growth, stories, and recipes — all personalised per child using Gemini AI. We're live on Web and Mobile, backed by WHO-standard data.
 >
-> Beyond the app: we're building a **brand marketplace** where baby product companies pay to reach parents at the exact developmental moment their product is needed. We're leveraging **schools and daycares as distribution channels** — kiosks, teacher endorsements, and parent workshops to reach families at scale. And we're launching **TinySteps Box** — a quarterly activity kit personalised to each child's exact stage.
+> Beyond the app: we're building a **brand marketplace** where baby product companies pay to reach parents at the exact developmental moment their product is needed. We're leveraging **schools and daycares as distribution channels** — kiosks, teacher endorsements, and parent workshops to reach families at scale. And we're launching **Little Leap Box** — a quarterly activity kit personalised to each child's exact stage.
 >
 > One platform. Multiple revenue streams. A data flywheel that gets stronger with every child.
 
@@ -47,4 +47,4 @@
 - ✅ Docker deployment — running
 - 🔄 School distribution partnerships — in planning phase
 - 🔄 Brand marketplace — in design phase
-- ⏳ TinySteps Box — pilot Q3 2026
+- ⏳ Little Leap Box — pilot Q3 2026

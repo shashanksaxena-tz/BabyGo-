@@ -1,6 +1,6 @@
-# TinySteps AI - Build Instructions
+# Little Leap - Build Instructions
 
-This document provides step-by-step instructions for building the TinySteps AI app for Android (APK) and iOS.
+This document provides step-by-step instructions for building the Little Leap app for Android (APK) and iOS.
 
 ## Prerequisites
 
@@ -131,7 +131,7 @@ flutter build ios --release
 flutter build ipa --release
 ```
 
-The IPA will be at: `build/ios/ipa/TinySteps AI.ipa`
+The IPA will be at: `build/ios/ipa/Little Leap.ipa`
 
 ### 5. Install on device via Xcode
 

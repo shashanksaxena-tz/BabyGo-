@@ -1,4 +1,4 @@
-# TinySteps AI — Pre-Seeded Content Library + Bug Fixes + FE Parity
+# Little Leap — Pre-Seeded Content Library + Bug Fixes + FE Parity
 
 ## Context
 

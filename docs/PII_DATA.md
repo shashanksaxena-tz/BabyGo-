@@ -1,4 +1,4 @@
-# BabyGo / TinySteps AI PII Data Documentation
+# Little Leap PII Data Documentation
 
 ## Overview
 This system handles sensitive child and parent data. Proper handling of PII (Personally Identifiable Information) is critical for privacy compliance.

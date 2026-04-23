@@ -1,4 +1,4 @@
-# TinySteps AI — Code Review Fixes Plan
+# Little Leap — Code Review Fixes Plan
 
 > **Date:** 2026-02-08
 > **Scope:** Fix all issues identified in the comprehensive code review of branch `7feb-extension`

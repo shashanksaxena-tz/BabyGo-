@@ -1,4 +1,4 @@
-# BabyGo / TinySteps AI Modules List
+# Little Leap Modules List
 
 ## Overview
 Breakdown of the codebase into functional modules.

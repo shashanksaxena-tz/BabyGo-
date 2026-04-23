@@ -1,4 +1,4 @@
-# Comprehensive Test Suite — TinySteps AI
+# Comprehensive Test Suite — Little Leap
 
 **Date:** 2026-03-26
 **Status:** Approved
@@ -511,7 +511,7 @@ expect(accessibilityResults.violations).toEqual([]);
 ## File Structure
 
 ```
-BabyGo-/
+<repo-root>/
 ├── backend/
 │   ├── jest.config.js
 │   ├── tests/

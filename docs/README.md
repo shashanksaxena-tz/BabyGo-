@@ -1,7 +1,7 @@
-# BabyGo / TinySteps AI Documentation Index
+# Little Leap Documentation Index
 
 ## Overview
-Welcome to the technical documentation for TinySteps AI. This directory contains detailed architectural and design documents used by developers and AI agents to understand the system.
+Welcome to the technical documentation for Little Leap. This directory contains detailed architectural and design documents used by developers and AI agents to understand the system.
 
 ---
 

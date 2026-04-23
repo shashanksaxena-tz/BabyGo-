@@ -1,4 +1,4 @@
-# BabyGo / TinySteps AI Data Security Documentation
+# Little Leap Data Security Documentation
 
 ## Overview
 Security architecture focusing on authentication, authorization, and data protection.
