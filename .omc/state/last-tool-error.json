@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd ~/Documents/obsidian-vault && git add 03_Resources/debugging-journal/DEBUG-013-silent-mongoose-validation-missing-required-field.md 03_Resources/debugging-journal/DEBUG-014-jest-esm-moc...",
+  "error": "Exit code 1\nOn branch main\nYour branch is ahead of 'origin/main' by 19 commits.\n  (use \"git push\" to publish your local commits)\n\nChanges not staged for commit:\n  (use \"git add <file>...\" to update what will be committed)\n  (use \"git restore <file>...\" to discard changes in working directory)\n\tmodified:   .obsidian/graph.json\n\nno changes added to commit (use \"git add\" and/or \"git commit -a\")",
+  "timestamp": "2026-03-30T07:36:17.502Z",
+  "retry_count": 1
+}

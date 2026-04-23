@@ -1,0 +1,351 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1774842718773,
+  "projectRoot": "/Users/shashanksaxena/Documents/Personal/Code/BabyGo-",
+  "techStack": {
+    "languages": [
+      {
+        "name": "C/C++",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "Makefile"
+        ]
+      }
+    ],
+    "frameworks": [],
+    "packageManager": null,
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": "make build",
+    "testCommand": "make test",
+    "lintCommand": null,
+    "devCommand": null,
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "app",
+      "components",
+      "docs",
+      "src"
+    ],
+    "gitBranches": {
+      "defaultBranch": "main",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "Nexus-BE": {
+      "path": "Nexus-BE",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1774842718754,
+      "keyFiles": []
+    },
+    "app": {
+      "path": "app",
+      "purpose": "Application code",
+      "fileCount": 0,
+      "lastAccessed": 1774842718755,
+      "keyFiles": []
+    },
+    "backend": {
+      "path": "backend",
+      "purpose": null,
+      "fileCount": 8,
+      "lastAccessed": 1774842718758,
+      "keyFiles": [
+        "CLAUDE.md",
+        "Dockerfile",
+        "jest.config.js",
+        "package-lock.json",
+        "package.json"
+      ]
+    },
+    "components": {
+      "path": "components",
+      "purpose": "UI components",
+      "fileCount": 1,
+      "lastAccessed": 1774842718758,
+      "keyFiles": [
+        "CLAUDE.md"
+      ]
+    },
+    "data": {
+      "path": "data",
+      "purpose": "Data files",
+      "fileCount": 1,
+      "lastAccessed": 1774842718759,
+      "keyFiles": [
+        "CLAUDE.md"
+      ]
+    },
+    "designs": {
+      "path": "designs",
+      "purpose": null,
+      "fileCount": 3,
+      "lastAccessed": 1774842718760,
+      "keyFiles": [
+        "CLAUDE.md",
+        "tinystepsv2.pen",
+        "untitled.pen"
+      ]
+    },
+    "desktop-frontend": {
+      "path": "desktop-frontend",
+      "purpose": null,
+      "fileCount": 16,
+      "lastAccessed": 1774842718762,
+      "keyFiles": [
+        "CLAUDE.md",
+        "Dockerfile",
+        "README.md",
+        "eslint.config.js",
+        "index.html"
+      ]
+    },
+    "docs": {
+      "path": "docs",
+      "purpose": "Documentation",
+      "fileCount": 12,
+      "lastAccessed": 1774842718762,
+      "keyFiles": [
+        "ARCHITECTURE.md",
+        "CLAUDE.md",
+        "CONFIGURABLE_DESIGN.md",
+        "DATA_FLOW.md",
+        "DATA_SECURITY.md"
+      ]
+    },
+    "e2e": {
+      "path": "e2e",
+      "purpose": null,
+      "fileCount": 5,
+      "lastAccessed": 1774842718762,
+      "keyFiles": [
+        "global-setup.ts",
+        "package-lock.json",
+        "package.json",
+        "playwright.config.ts",
+        "tsconfig.json"
+      ]
+    },
+    "frontend": {
+      "path": "frontend",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1774842718763,
+      "keyFiles": [
+        "CLAUDE.md"
+      ]
+    },
+    "hooks": {
+      "path": "hooks",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1774842718763,
+      "keyFiles": [
+        "CLAUDE.md"
+      ]
+    },
+    "images": {
+      "path": "images",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1774842718763,
+      "keyFiles": [
+        "generated-1770558116771.png"
+      ]
+    },
+    "load-tests": {
+      "path": "load-tests",
+      "purpose": null,
+      "fileCount": 4,
+      "lastAccessed": 1774842718764,
+      "keyFiles": [
+        "auth-flow.js",
+        "config-endpoint.js",
+        "mixed-workload.js",
+        "package.json"
+      ]
+    },
+    "src": {
+      "path": "src",
+      "purpose": "Source code",
+      "fileCount": 1,
+      "lastAccessed": 1774842718764,
+      "keyFiles": [
+        "CLAUDE.md"
+      ]
+    },
+    "tinysteps-ai": {
+      "path": "tinysteps-ai",
+      "purpose": null,
+      "fileCount": 18,
+      "lastAccessed": 1774842718764,
+      "keyFiles": [
+        "App.tsx",
+        "CLAUDE.md",
+        "Dockerfile",
+        "README.md",
+        "index.css"
+      ]
+    },
+    "tinysteps_flutter": {
+      "path": "tinysteps_flutter",
+      "purpose": null,
+      "fileCount": 10,
+      "lastAccessed": 1774842718765,
+      "keyFiles": [
+        "BUILD_INSTRUCTIONS.md",
+        "CLAUDE.md",
+        "README.md",
+        "analysis_options.yaml",
+        "pubspec.lock"
+      ]
+    },
+    "Nexus-BE/src": {
+      "path": "Nexus-BE/src",
+      "purpose": "Source code",
+      "fileCount": 0,
+      "lastAccessed": 1774842718765,
+      "keyFiles": []
+    },
+    "app/api": {
+      "path": "app/api",
+      "purpose": "API routes",
+      "fileCount": 0,
+      "lastAccessed": 1774842718765,
+      "keyFiles": []
+    },
+    "backend/docs": {
+      "path": "backend/docs",
+      "purpose": "Documentation",
+      "fileCount": 0,
+      "lastAccessed": 1774842718765,
+      "keyFiles": []
+    },
+    "backend/node_modules": {
+      "path": "backend/node_modules",
+      "purpose": "Dependencies",
+      "fileCount": 1,
+      "lastAccessed": 1774842718769,
+      "keyFiles": []
+    },
+    "desktop-frontend/dist": {
+      "path": "desktop-frontend/dist",
+      "purpose": "Distribution/build output",
+      "fileCount": 2,
+      "lastAccessed": 1774842718770,
+      "keyFiles": [
+        "index.html",
+        "vite.svg"
+      ]
+    },
+    "e2e/fixtures": {
+      "path": "e2e/fixtures",
+      "purpose": "Test fixtures",
+      "fileCount": 1,
+      "lastAccessed": 1774842718771,
+      "keyFiles": [
+        "auth.ts"
+      ]
+    },
+    "e2e/node_modules": {
+      "path": "e2e/node_modules",
+      "purpose": "Dependencies",
+      "fileCount": 1,
+      "lastAccessed": 1774842718771,
+      "keyFiles": []
+    },
+    "e2e/tests": {
+      "path": "e2e/tests",
+      "purpose": "Test files",
+      "fileCount": 4,
+      "lastAccessed": 1774842718771,
+      "keyFiles": [
+        "auth.spec.ts",
+        "child-management.spec.ts",
+        "navigation.spec.ts"
+      ]
+    },
+    "frontend/src": {
+      "path": "frontend/src",
+      "purpose": "Source code",
+      "fileCount": 1,
+      "lastAccessed": 1774842718771,
+      "keyFiles": [
+        "CLAUDE.md"
+      ]
+    },
+    "src/app": {
+      "path": "src/app",
+      "purpose": "Application code",
+      "fileCount": 1,
+      "lastAccessed": 1774842718772,
+      "keyFiles": [
+        "CLAUDE.md"
+      ]
+    },
+    "src/config": {
+      "path": "src/config",
+      "purpose": "Configuration files",
+      "fileCount": 1,
+      "lastAccessed": 1774842718772,
+      "keyFiles": [
+        "CLAUDE.md"
+      ]
+    },
+    "src/lib": {
+      "path": "src/lib",
+      "purpose": "Library code",
+      "fileCount": 1,
+      "lastAccessed": 1774842718773,
+      "keyFiles": [
+        "CLAUDE.md"
+      ]
+    },
+    "src/middleware": {
+      "path": "src/middleware",
+      "purpose": "Middleware",
+      "fileCount": 1,
+      "lastAccessed": 1774842718773,
+      "keyFiles": [
+        "CLAUDE.md"
+      ]
+    },
+    "src/services": {
+      "path": "src/services",
+      "purpose": "Business logic services",
+      "fileCount": 1,
+      "lastAccessed": 1774842718773,
+      "keyFiles": [
+        "CLAUDE.md"
+      ]
+    },
+    "tinysteps-ai/components": {
+      "path": "tinysteps-ai/components",
+      "purpose": "UI components",
+      "fileCount": 25,
+      "lastAccessed": 1774842718773,
+      "keyFiles": [
+        "AnalysisView.tsx",
+        "AuthScreen.tsx",
+        "BedtimeStories.tsx"
+      ]
+    }
+  },
+  "hotPaths": [],
+  "userDirectives": []
+}
