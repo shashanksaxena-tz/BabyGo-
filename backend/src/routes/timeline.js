@@ -20,7 +20,8 @@ router.get('/:childId', authMiddleware, async (req, res) => {
 
     const entries = await TimelineEntry.find({ childId: String(child._id) })
       .sort({ date: -1 })
-      .limit(100);
+      .limit(100)
+      .lean(); // ⚡ Bolt: Optimize read-only query
 
     res.json({ entries });
   } catch (error) {
@@ -159,7 +160,8 @@ router.get('/measurements/:childId', authMiddleware, async (req, res) => {
     }
 
     const measurements = await Measurement.find({ childId: String(child._id) })
-      .sort({ date: 1 });
+      .sort({ date: 1 })
+      .lean(); // ⚡ Bolt: Optimize read-only query
 
     res.json({ measurements });
   } catch (error) {
