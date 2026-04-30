@@ -96,7 +96,7 @@ router.get('/:childId', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Child not found' });
     }
 
-    const stories = await Story.find({ childId: String(child._id) })
+    const stories = await Story.find({ childId: String(child._id) }).lean()
       .sort({ createdAt: -1 })
       .limit(50);
 

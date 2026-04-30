@@ -237,7 +237,7 @@ async function generateReportPDF(report) {
 router.get('/:childId', authMiddleware, async (req, res) => {
   try {
     // Use the childId string directly — Report.childId is now a String field
-    const reports = await Report.find({ childId: req.params.childId })
+    const reports = await Report.find({ childId: req.params.childId }).lean()
       .sort({ createdAt: -1 })
       .limit(20);
 
