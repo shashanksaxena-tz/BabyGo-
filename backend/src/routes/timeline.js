@@ -18,7 +18,7 @@ router.get('/:childId', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Child not found' });
     }
 
-    const entries = await TimelineEntry.find({ childId: String(child._id) })
+    const entries = await TimelineEntry.find({ childId: String(child._id) }).lean()
       .sort({ date: -1 })
       .limit(100);
 
@@ -158,7 +158,7 @@ router.get('/measurements/:childId', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Child not found' });
     }
 
-    const measurements = await Measurement.find({ childId: String(child._id) })
+    const measurements = await Measurement.find({ childId: String(child._id) }).lean()
       .sort({ date: 1 });
 
     res.json({ measurements });
