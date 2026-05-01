@@ -237,9 +237,11 @@ async function generateReportPDF(report) {
 router.get('/:childId', authMiddleware, async (req, res) => {
   try {
     // Use the childId string directly — Report.childId is now a String field
+    // Performance optimization: using .lean() for read-only queries to bypass document hydration
     const reports = await Report.find({ childId: req.params.childId })
       .sort({ createdAt: -1 })
-      .limit(20);
+      .limit(20)
+      .lean();
 
     res.json({ reports });
   } catch (error) {

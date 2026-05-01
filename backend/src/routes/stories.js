@@ -96,9 +96,11 @@ router.get('/:childId', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Child not found' });
     }
 
+    // Performance optimization: using .lean() for read-only queries to bypass document hydration
     const stories = await Story.find({ childId: String(child._id) })
       .sort({ createdAt: -1 })
-      .limit(50);
+      .limit(50)
+      .lean();
 
     res.json({ stories });
   } catch (error) {

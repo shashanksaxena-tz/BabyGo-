@@ -26,7 +26,8 @@ router.get('/:childId', authMiddleware, async (req, res) => {
       filter.type = type;
     }
 
-    const resources = await Resource.find(filter).sort({ priority: 1, createdAt: -1 });
+    // Performance optimization: using .lean() for read-only queries to bypass document hydration
+    const resources = await Resource.find(filter).sort({ priority: 1, createdAt: -1 }).lean();
 
     // Get domain and type counts via aggregation
     const [domainCounts, typeCounts] = await Promise.all([
