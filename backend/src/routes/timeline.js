@@ -18,9 +18,11 @@ router.get('/:childId', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Child not found' });
     }
 
+    // Performance optimization: using .lean() for read-only queries to bypass document hydration
     const entries = await TimelineEntry.find({ childId: String(child._id) })
       .sort({ date: -1 })
-      .limit(100);
+      .limit(100)
+      .lean();
 
     res.json({ entries });
   } catch (error) {
@@ -158,8 +160,10 @@ router.get('/measurements/:childId', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Child not found' });
     }
 
+    // Performance optimization: using .lean() for read-only queries to bypass document hydration
     const measurements = await Measurement.find({ childId: String(child._id) })
-      .sort({ date: 1 });
+      .sort({ date: 1 })
+      .lean();
 
     res.json({ measurements });
   } catch (error) {

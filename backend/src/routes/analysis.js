@@ -420,9 +420,11 @@ router.post('/', authMiddleware, upload.array('media', 10), geminiInit, async (r
 // Get analyses for child
 router.get('/:childId', authMiddleware, async (req, res) => {
   try {
+    // Performance optimization: using .lean() for read-only queries to bypass document hydration
     const analyses = await Analysis.find({ childId: req.params.childId })
       .sort({ createdAt: -1 })
-      .limit(50);
+      .limit(50)
+      .lean();
 
     res.json({ analyses });
   } catch (error) {
