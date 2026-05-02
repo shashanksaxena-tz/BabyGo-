@@ -1,0 +1,3 @@
+## 2026-05-02 - Use .lean() for read-only Mongoose queries
+**Learning:** By default, Mongoose returns hydrated documents which carry significant overhead for memory and CPU. For read-only operations where we only need the data (and don't need to `save()` or use virtuals/methods), this hydration is a bottleneck.
+**Action:** Always append `.lean()` to Mongoose `.find()`, `.findOne()`, or `.findById()` queries when the result is just being returned to the client or used as plain data. However, be careful not to use it when the code relies on Mongoose virtual fields (e.g., `displayAge` computed by Mongoose) or document methods (e.g., `.save()`).

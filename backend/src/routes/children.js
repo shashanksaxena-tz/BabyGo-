@@ -42,7 +42,7 @@ const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id) && String(ne
 // Get all children for user
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const children = await Child.find({ userId: String(req.user._id) }).sort({ createdAt: 1 });
+    const children = await Child.find({ userId: String(req.user._id) }).sort({ createdAt: 1 }).lean();
     res.json({ children: children.map(enrichChildWithAge) });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch children' });
@@ -86,7 +86,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
   try {
     const child = await Child.findOne({
       _id: req.params.id
-    });
+    }).lean();
 
     if (!child) {
       return res.status(404).json({ error: 'Child not found' });
