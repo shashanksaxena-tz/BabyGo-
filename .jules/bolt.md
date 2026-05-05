@@ -1,0 +1,3 @@
+## 2024-05-24 - Missing .lean() on read-only Mongoose queries
+**Learning:** Found a performance anti-pattern in `backend/src/routes/doctors.js` where read-only Mongoose queries lack the `.lean()` modifier. This forces expensive Mongoose document hydration. The codebase sometimes compensates by explicitly mapping the results with `.toObject()` (e.g., `doctors.map(d => d.toObject())` and `const doctorObj = doctor.toObject()`), taking unnecessary CPU time.
+**Action:** Always append `.lean()` to Mongoose read queries where document methods or virtual fields aren't required, and remove unnecessary `.toObject()` calls, avoiding CPU bottlenecks and lowering response times.
