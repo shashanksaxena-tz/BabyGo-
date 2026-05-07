@@ -422,7 +422,8 @@ router.get('/:childId', authMiddleware, async (req, res) => {
   try {
     const analyses = await Analysis.find({ childId: req.params.childId })
       .sort({ createdAt: -1 })
-      .limit(50);
+      .limit(50)
+      .lean();
 
     res.json({ analyses });
   } catch (error) {
