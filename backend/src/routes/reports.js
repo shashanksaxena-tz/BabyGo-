@@ -239,7 +239,8 @@ router.get('/:childId', authMiddleware, async (req, res) => {
     // Use the childId string directly — Report.childId is now a String field
     const reports = await Report.find({ childId: req.params.childId })
       .sort({ createdAt: -1 })
-      .limit(20);
+      .limit(20)
+      .lean(); // Optimization: Bypasses Mongoose document hydration for faster read performance and lower memory usage.
 
     res.json({ reports });
   } catch (error) {

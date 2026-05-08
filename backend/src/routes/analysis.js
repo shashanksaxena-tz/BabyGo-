@@ -422,7 +422,8 @@ router.get('/:childId', authMiddleware, async (req, res) => {
   try {
     const analyses = await Analysis.find({ childId: req.params.childId })
       .sort({ createdAt: -1 })
-      .limit(50);
+      .limit(50)
+      .lean(); // Optimization: Bypasses Mongoose document hydration for faster read performance and lower memory usage.
 
     res.json({ analyses });
   } catch (error) {
