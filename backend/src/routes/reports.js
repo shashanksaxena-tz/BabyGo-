@@ -239,7 +239,8 @@ router.get('/:childId', authMiddleware, async (req, res) => {
     // Use the childId string directly — Report.childId is now a String field
     const reports = await Report.find({ childId: req.params.childId })
       .sort({ createdAt: -1 })
-      .limit(20);
+      .limit(20)
+      .lean();
 
     res.json({ reports });
   } catch (error) {
@@ -355,7 +356,7 @@ router.get('/:childId/:id', authMiddleware, async (req, res) => {
     const report = await Report.findOne({
       _id: req.params.id,
       childId: req.params.childId,
-    });
+    }).lean();
 
     if (!report) {
       return res.status(404).json({ error: 'Report not found' });
