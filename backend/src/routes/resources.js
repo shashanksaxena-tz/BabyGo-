@@ -26,7 +26,8 @@ router.get('/:childId', authMiddleware, async (req, res) => {
       filter.type = type;
     }
 
-    const resources = await Resource.find(filter).sort({ priority: 1, createdAt: -1 });
+    // ⚡ Bolt: Added .lean() to bypass Mongoose hydration for read-only data, improving performance
+    const resources = await Resource.find(filter).sort({ priority: 1, createdAt: -1 }).lean();
 
     // Get domain and type counts via aggregation
     const [domainCounts, typeCounts] = await Promise.all([
