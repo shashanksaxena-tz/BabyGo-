@@ -420,9 +420,11 @@ router.post('/', authMiddleware, upload.array('media', 10), geminiInit, async (r
 // Get analyses for child
 router.get('/:childId', authMiddleware, async (req, res) => {
   try {
+    // ⚡ Bolt: Added .lean() to bypass Mongoose hydration for read-only data, improving performance
     const analyses = await Analysis.find({ childId: req.params.childId })
       .sort({ createdAt: -1 })
-      .limit(50);
+      .limit(50)
+      .lean();
 
     res.json({ analyses });
   } catch (error) {
