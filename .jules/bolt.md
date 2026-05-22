@@ -1,0 +1,3 @@
+## 2025-02-07 - [Optimization - Mongoose lean()]
+**Learning:** For read-only operations using Mongoose `.find()`, adding `.lean()` returns plain JavaScript objects instead of full Mongoose Document instances. This significantly improves performance and reduces memory consumption. Avoid using `.lean()` if the codebase relies heavily on Mongoose virtual fields or document methods for that specific model.
+**Action:** When working on performance enhancements for data retrieval, verify if the query results are only read or serialized directly. If so, apply `.lean()` and remove any redundant `.toObject()` conversions.
