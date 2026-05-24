@@ -20,7 +20,7 @@ router.get('/', authMiddleware, async (req, res) => {
       filter.specialty = { $regex: specialty, $options: 'i' };
     }
 
-    const doctors = await Doctor.find(filter).sort({ rating: -1 });
+    const doctors = await Doctor.find(filter).sort({ rating: -1 }).lean();
 
     res.json({ doctors });
   } catch (error) {
@@ -37,13 +37,13 @@ router.get('/recommended/:childId', authMiddleware, async (req, res) => {
     const child = await Child.findByAnyId(req.params.childId);
     if (!child) {
       // Child not in DB (e.g., web app local ID not synced) — fallback to all doctors
-      const doctors = await Doctor.find({ isActive: true }).sort({ rating: -1 });
+      const doctors = await Doctor.find({ isActive: true }).sort({ rating: -1 }).lean();
       return res.json({
         flaggedDomains: [],
         domainScores: {},
         childName: '',
         recommended: [],
-        others: doctors.map(d => d.toObject()),
+        others: doctors,
       });
     }
 
@@ -53,13 +53,13 @@ router.get('/recommended/:childId', authMiddleware, async (req, res) => {
 
     if (!latestAnalysis) {
       // No analysis yet - return all doctors without recommendations
-      const doctors = await Doctor.find({ isActive: true }).sort({ rating: -1 });
+      const doctors = await Doctor.find({ isActive: true }).sort({ rating: -1 }).lean();
       return res.json({
         flaggedDomains: [],
         domainScores: {},
         childName: child.name,
         recommended: [],
-        others: doctors.map(d => d.toObject()),
+        others: doctors,
       });
     }
 
@@ -87,14 +87,14 @@ router.get('/recommended/:childId', authMiddleware, async (req, res) => {
     }
 
     // 4. Get all active doctors
-    const allDoctors = await Doctor.find({ isActive: true }).sort({ rating: -1 });
+    const allDoctors = await Doctor.find({ isActive: true }).sort({ rating: -1 }).lean();
 
     // 5. Split into recommended and others
     const recommended = [];
     const others = [];
 
     for (const doctor of allDoctors) {
-      const doctorObj = doctor.toObject();
+      const doctorObj = doctor;
       const matchingDomains = (doctor.domains || []).filter(d => flaggedDomains.includes(d));
 
       if (matchingDomains.length > 0) {
