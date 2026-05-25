@@ -20,7 +20,8 @@ router.get('/', authMiddleware, async (req, res) => {
       filter.specialty = { $regex: specialty, $options: 'i' };
     }
 
-    const doctors = await Doctor.find(filter).sort({ rating: -1 });
+    // ⚡ Bolt: Using .lean() to bypass Mongoose document hydration for faster read performance
+    const doctors = await Doctor.find(filter).sort({ rating: -1 }).lean();
 
     res.json({ doctors });
   } catch (error) {
@@ -37,13 +38,14 @@ router.get('/recommended/:childId', authMiddleware, async (req, res) => {
     const child = await Child.findByAnyId(req.params.childId);
     if (!child) {
       // Child not in DB (e.g., web app local ID not synced) — fallback to all doctors
-      const doctors = await Doctor.find({ isActive: true }).sort({ rating: -1 });
+      // ⚡ Bolt: Using .lean() directly instead of mapping with .toObject()
+      const doctors = await Doctor.find({ isActive: true }).sort({ rating: -1 }).lean();
       return res.json({
         flaggedDomains: [],
         domainScores: {},
         childName: '',
         recommended: [],
-        others: doctors.map(d => d.toObject()),
+        others: doctors,
       });
     }
 
@@ -53,13 +55,14 @@ router.get('/recommended/:childId', authMiddleware, async (req, res) => {
 
     if (!latestAnalysis) {
       // No analysis yet - return all doctors without recommendations
-      const doctors = await Doctor.find({ isActive: true }).sort({ rating: -1 });
+      // ⚡ Bolt: Using .lean() directly instead of mapping with .toObject()
+      const doctors = await Doctor.find({ isActive: true }).sort({ rating: -1 }).lean();
       return res.json({
         flaggedDomains: [],
         domainScores: {},
         childName: child.name,
         recommended: [],
-        others: doctors.map(d => d.toObject()),
+        others: doctors,
       });
     }
 
@@ -87,14 +90,14 @@ router.get('/recommended/:childId', authMiddleware, async (req, res) => {
     }
 
     // 4. Get all active doctors
-    const allDoctors = await Doctor.find({ isActive: true }).sort({ rating: -1 });
+    // ⚡ Bolt: Using .lean() to bypass Mongoose document hydration
+    const allDoctors = await Doctor.find({ isActive: true }).sort({ rating: -1 }).lean();
 
     // 5. Split into recommended and others
     const recommended = [];
     const others = [];
 
     for (const doctor of allDoctors) {
-      const doctorObj = doctor.toObject();
       const matchingDomains = (doctor.domains || []).filter(d => flaggedDomains.includes(d));
 
       if (matchingDomains.length > 0) {
@@ -103,12 +106,12 @@ router.get('/recommended/:childId', authMiddleware, async (req, res) => {
           return `${d} development is ${assessment.status.replace('_', ' ')} (score: ${assessment.score}/100)`;
         });
 
-        doctorObj.isRecommended = true;
-        doctorObj.recommendationReason = `Recommended because your child's ${reasons.join('; ')}. Dr. ${doctor.name} specializes in ${doctor.specialty} with expertise in ${matchingDomains.join(', ')} development.`;
-        recommended.push(doctorObj);
+        doctor.isRecommended = true;
+        doctor.recommendationReason = `Recommended because your child's ${reasons.join('; ')}. Dr. ${doctor.name} specializes in ${doctor.specialty} with expertise in ${matchingDomains.join(', ')} development.`;
+        recommended.push(doctor);
       } else {
-        doctorObj.isRecommended = false;
-        others.push(doctorObj);
+        doctor.isRecommended = false;
+        others.push(doctor);
       }
     }
 
