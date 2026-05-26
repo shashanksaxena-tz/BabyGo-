@@ -1,0 +1,3 @@
+## 2024-11-20 - Mongoose .lean() optimizations and .toObject() removal
+**Learning:** When using `.lean()` on Mongoose queries to bypass document hydration and return POJOs for better performance, any subsequent `.toObject()` calls in mapping loops will throw a `TypeError`. This applies to backend routes like `doctors.js`. Also, avoid using `.lean()` when the code relies on virtual fields like `totalReadingTimeSeconds` on `Story`.
+**Action:** When adding `.lean()` to `.find()` or `.findOne()`, always trace the data flow to ensure redundant `.toObject()` calls are removed. Check models for virtual fields before applying `.lean()`.
