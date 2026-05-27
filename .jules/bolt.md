@@ -1,0 +1,3 @@
+## 2024-05-27 - [Backend] Optimize read-only Mongoose queries with `.lean()`
+**Learning:** When using `.lean()` on Mongoose queries to bypass document hydration and improve performance, the returned results are Plain Old JavaScript Objects (POJOs), not Mongoose Documents. This means subsequent calls to `.toObject()` or document methods on the results will cause a `TypeError: d.toObject is not a function`.
+**Action:** Always ensure to remove redundant `.toObject()` calls in mapping or processing loops when applying `.lean()` optimizations to Mongoose queries. Verify the models being queried do not rely on Mongoose virtual fields or document methods before applying `.lean()`.
