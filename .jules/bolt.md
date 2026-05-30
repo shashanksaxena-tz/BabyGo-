@@ -1,0 +1,3 @@
+## 2024-05-30 - [Added Mongoose .lean() optimization]
+**Learning:** For read-only endpoints (like fetching timeline entries or measurements), Mongoose's document hydration adds unnecessary overhead. Using `.lean()` returns plain JSON objects, which significantly improves query execution speed and reduces memory footprint in this backend architecture. We have verified this works well specifically for `GET /:childId` and `GET /measurements/:childId` in `backend/src/routes/timeline.js`. Always consider if virtuals or document methods are needed before applying it, but it's a solid pattern here.
+**Action:** Apply `.lean()` for all simple list/read endpoints where document methods are not invoked before serialization.
