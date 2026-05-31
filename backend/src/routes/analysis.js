@@ -420,7 +420,7 @@ router.post('/', authMiddleware, upload.array('media', 10), geminiInit, async (r
 // Get analyses for child
 router.get('/:childId', authMiddleware, async (req, res) => {
   try {
-    const analyses = await Analysis.find({ childId: req.params.childId })
+    const analyses = await Analysis.find({ childId: req.params.childId }).lean()
       .sort({ createdAt: -1 })
       .limit(50);
 

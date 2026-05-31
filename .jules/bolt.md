@@ -1,0 +1,3 @@
+## 2024-05-19 - Mongoose .lean() Optimization
+**Learning:** Applying `.lean()` to Mongoose `.find()` queries for read-only operations significantly improves performance by bypassing document hydration (creation of full Mongoose Document objects). It returns Plain Old JavaScript Objects (POJOs), saving memory and CPU.
+**Action:** Use `.lean()` whenever retrieving documents purely for reading (e.g., returning JSON to the client), but ensure it is not used when the route logic depends on Mongoose virtual fields (like `displayAge` or `totalReadingTimeSeconds`) or instance methods (like `.save()`).
