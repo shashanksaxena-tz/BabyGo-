@@ -211,15 +211,16 @@ router.post('/custom', authMiddleware, geminiInit, async (req, res) => {
     if (!child) return res.status(404).json({ error: 'Child not found' });
 
     // Describe uploaded character images via Vision
-    const characterDescriptions = [];
-    for (const img of characterImages) {
-      try {
-        const desc = await geminiService.describeImage(img.base64, img.mimeType || 'image/jpeg');
-        characterDescriptions.push(desc);
-      } catch {
-        characterDescriptions.push(''); // non-fatal
-      }
-    }
+    // ⚡ Bolt: Parallelize external API calls with Promise.all to reduce latency
+    const characterDescriptions = await Promise.all(
+      characterImages.map(async (img) => {
+        try {
+          return await geminiService.describeImage(img.base64, img.mimeType || 'image/jpeg');
+        } catch {
+          return ''; // non-fatal
+        }
+      })
+    );
 
     // Describe child's story avatar if provided, or fall back to profile photo
     let childAvatarDescription = '';
@@ -329,28 +330,32 @@ router.get('/:childId/:id', authMiddleware, async (req, res) => {
           if (apiKey) {
             geminiService.initialize(apiKey);
 
-            let successCount = 0;
-            for (const page of pagesNeedingIllustration) {
-              try {
-                const imageResult = await geminiService.generateIllustration(page.illustrationPrompt);
-                if (imageResult) {
-                  const buffer = Buffer.from(imageResult.data, 'base64');
-                  const { url } = await storageService.uploadBuffer(
-                    BUCKETS.STORIES,
-                    buffer,
-                    imageResult.mimeType || 'image/png',
-                    `story-${story._id}-page-${page.pageNumber}.png`
-                  );
-                  page.illustrationUrl = url;
-                  successCount++;
+            // ⚡ Bolt: Parallelize independent I/O-bound external API calls (Gemini and Storage) with Promise.all
+            const illustrationResults = await Promise.all(
+              pagesNeedingIllustration.map(async (page) => {
+                try {
+                  const imageResult = await geminiService.generateIllustration(page.illustrationPrompt);
+                  if (imageResult) {
+                    const buffer = Buffer.from(imageResult.data, 'base64');
+                    const { url } = await storageService.uploadBuffer(
+                      BUCKETS.STORIES,
+                      buffer,
+                      imageResult.mimeType || 'image/png',
+                      `story-${story._id}-page-${page.pageNumber}.png`
+                    );
+                    page.illustrationUrl = url;
+                    return true;
+                  }
+                } catch (illustrationErr) {
+                  // Individual illustration failure is non-blocking, skip this page
+                  console.warn(`Failed to generate illustration for page ${page.pageNumber}:`, illustrationErr.message);
                 }
-              } catch (illustrationErr) {
-                // Individual illustration failure is non-blocking, skip this page
-                console.warn(`Failed to generate illustration for page ${page.pageNumber}:`, illustrationErr.message);
-              }
-            }
+                return false;
+              })
+            );
 
             // Only mark as done if all illustrations succeeded
+            const successCount = illustrationResults.filter(Boolean).length;
             if (successCount === pagesNeedingIllustration.length) {
               story.illustrationsGenerated = true;
             }
