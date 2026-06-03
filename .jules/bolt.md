@@ -1,0 +1,3 @@
+## 2024-05-18 - Mongoose Promise.all Pagination
+**Learning:** Using `Promise.all` for a `find().skip().limit()` alongside `countDocuments()` avoids sequential queries in Mongoose and improves API response time significantly, which is an ideal small optimization for endpoints like `/api/community/posts`. Avoid changing unrelated logic or logic that breaks expected existing behavior (like date math in `Child.js` that causes tests to fail in the first place but was unrelated to my task).
+**Action:** Identify sequence database queries for pagination and rewrite using `Promise.all`. Be mindful of scope when making optimizations.
