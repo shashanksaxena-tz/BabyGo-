@@ -182,13 +182,14 @@ router.get('/recipes/:childId', authMiddleware, async (req, res) => {
         query.allergens = { $nin: allergenList };
       }
 
-      const recipes = await Recipe.find(query).lean();
+      // ⚡ Bolt: Parallelize independent DB queries to reduce latency for recipe recommendations
+      const [recipes, favoriteRecords] = await Promise.all([
+        Recipe.find(query).lean(),
+        UserRecipeFavorite.find({ userId: String(req.user._id), childId: String(child._id) }, { recipeId: 1 }).lean()
+      ]);
 
       // Enrich with favorite status
-      const favoriteIds = new Set(
-        (await UserRecipeFavorite.find({ userId: String(req.user._id), childId: String(child._id) }, { recipeId: 1 }).lean())
-          .map((f) => String(f.recipeId))
-      );
+      const favoriteIds = new Set(favoriteRecords.map((f) => String(f.recipeId)));
       const enriched = recipes.map((r) => ({ ...r, isFavorited: favoriteIds.has(String(r._id)) }));
 
       return res.json({ childAge: age, recipes: enriched });
