@@ -43,13 +43,17 @@ router.get('/posts', authMiddleware, async (req, res) => {
       ? { likes: -1, createdAt: -1 }
       : { createdAt: -1 };
 
-    const posts = await Post.find(filter)
-      .sort(sortOption)
-      .skip(Number(offset))
-      .limit(Number(limit))
-      .lean();
-
-    const total = await Post.countDocuments(filter);
+    // ⚡ Bolt Performance Optimization
+    // Run independent database queries concurrently to reduce overall request latency.
+    // Impact: Reduces sequential blocking on list posts API by executing fetch and count in parallel.
+    const [posts, total] = await Promise.all([
+      Post.find(filter)
+        .sort(sortOption)
+        .skip(Number(offset))
+        .limit(Number(limit))
+        .lean(),
+      Post.countDocuments(filter)
+    ]);
 
     res.json({ posts, total, limit: Number(limit), offset: Number(offset) });
   } catch (error) {
@@ -105,14 +109,19 @@ router.get('/topics', authMiddleware, async (req, res) => {
 // GET /api/community/posts/:id - Get post with comments
 router.get('/posts/:id', authMiddleware, async (req, res) => {
   try {
-    const post = await Post.findById(req.params.id).lean();
+    // ⚡ Bolt Performance Optimization
+    // Parallelize Post and Comment fetch for faster load times.
+    // Impact: Speeds up post details page load by running queries concurrently.
+    const [post, comments] = await Promise.all([
+      Post.findById(req.params.id).lean(),
+      Comment.find({ postId: req.params.id })
+        .sort({ createdAt: 1 })
+        .lean()
+    ]);
+
     if (!post) {
       return res.status(404).json({ error: 'Post not found' });
     }
-
-    const comments = await Comment.find({ postId: req.params.id })
-      .sort({ createdAt: 1 })
-      .lean();
 
     res.json({ post, comments });
   } catch (error) {
