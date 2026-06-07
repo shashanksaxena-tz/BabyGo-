@@ -1,0 +1,3 @@
+## 2026-06-07 - Parallelize Paginated Database Queries
+**Learning:** Sequential execution of independent database operations (e.g., fetching records with `.find()` and calculating total counts with `.countDocuments()` for pagination) creates unnecessary latency blocks. Using Mongoose, these queries do not depend on each other and can be executed concurrently without altering the application logic.
+**Action:** When implementing or refactoring pagination logic, always wrap independent queries like `Model.find()` and `Model.countDocuments()` in a `Promise.all()` to reduce sequential blocking and overall response time.
