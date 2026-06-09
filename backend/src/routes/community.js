@@ -43,13 +43,16 @@ router.get('/posts', authMiddleware, async (req, res) => {
       ? { likes: -1, createdAt: -1 }
       : { createdAt: -1 };
 
-    const posts = await Post.find(filter)
-      .sort(sortOption)
-      .skip(Number(offset))
-      .limit(Number(limit))
-      .lean();
-
-    const total = await Post.countDocuments(filter);
+    // ⚡ Bolt: Parallelize independent DB queries (fetch and count) using Promise.all()
+    // This reduces the overall latency by executing them concurrently.
+    const [posts, total] = await Promise.all([
+      Post.find(filter)
+        .sort(sortOption)
+        .skip(Number(offset))
+        .limit(Number(limit))
+        .lean(),
+      Post.countDocuments(filter),
+    ]);
 
     res.json({ posts, total, limit: Number(limit), offset: Number(offset) });
   } catch (error) {
