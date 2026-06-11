@@ -10,17 +10,26 @@ const router = express.Router();
 // Get timeline entries for child
 router.get('/:childId', authMiddleware, async (req, res) => {
   try {
-    const child = await Child.findOne({
-      _id: req.params.childId
-    });
+    const childId = req.params.childId;
 
-    if (!child) {
+    // Performance optimization: Parallelize independent database queries
+    // Use .exists() instead of fetching full document when we just need to verify existence
+    // Use .lean() to bypass Mongoose hydration for read-only timeline entries
+    const [childExists, entries] = await Promise.all([
+      Child.exists({ _id: childId }),
+      TimelineEntry.find({ childId })
+        .sort({ date: -1 })
+        .limit(100)
+        .lean()
+    ]);
+
+    if (!childExists) {
       return res.status(404).json({ error: 'Child not found' });
     }
 
-    const entries = await TimelineEntry.find({ childId: String(child._id) })
-      .sort({ date: -1 })
-      .limit(100);
+    // Remap _id to id if frontend expects standard id pattern
+    // Since lean() removes virtuals, we add id manually if needed,
+    // though the frontend uses _id for timeline in this codebase.
 
     res.json({ entries });
   } catch (error) {
@@ -150,16 +159,19 @@ router.post('/measurement', authMiddleware, [
 // Get growth measurements for child
 router.get('/measurements/:childId', authMiddleware, async (req, res) => {
   try {
-    const child = await Child.findOne({
-      _id: req.params.childId
-    });
+    const childId = req.params.childId;
 
-    if (!child) {
+    // Performance optimization: Parallelize queries and use .lean()
+    const [childExists, measurements] = await Promise.all([
+      Child.exists({ _id: childId }),
+      Measurement.find({ childId })
+        .sort({ date: 1 })
+        .lean()
+    ]);
+
+    if (!childExists) {
       return res.status(404).json({ error: 'Child not found' });
     }
-
-    const measurements = await Measurement.find({ childId: String(child._id) })
-      .sort({ date: 1 });
 
     res.json({ measurements });
   } catch (error) {
