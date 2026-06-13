@@ -1,0 +1,3 @@
+## 2024-06-13 - Parallelizing Parent Existence Checks with Promise.all
+**Learning:** The codebase frequently uses `Model.findOne()` to check if a parent document (e.g., `Child`) exists before querying related data (e.g., `TimelineEntry`), which blocks the subsequent query and increases endpoint latency. Furthermore, using `findOne()` instantiates a full Mongoose document unnecessarily.
+**Action:** Use `Model.exists()` instead of `Model.findOne()` for lower memory footprint when validating parent existence, and parallelize this check with the related data query using `Promise.all()` to eliminate sequential blocking. Use `.lean()` on the read-only query to bypass hydration.
