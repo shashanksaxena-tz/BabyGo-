@@ -1,0 +1,3 @@
+## 2024-06-16 - Parallelize exists checks with lean queries
+**Learning:** Checking for parent document existence using findOne() sequentially before querying related collections causes sequential blocking and slow queries. Using Model.exists() alongside the target query using Promise.all() removes sequential delays. Additionally, returning MongoDB documents using .lean() saves hydration memory. Note: Be careful with the virtual _id field when using .lean() but since frontend seems to rely on _id directly as per desktop-frontend/src/pages/Timeline.tsx this should be fine.
+**Action:** When validating existence before a read-only query, prefer parallel Model.exists() + Model.find().lean() instead of sequential Model.findOne() -> Model.find().
