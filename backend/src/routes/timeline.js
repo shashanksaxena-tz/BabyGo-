@@ -10,19 +10,25 @@ const router = express.Router();
 // Get timeline entries for child
 router.get('/:childId', authMiddleware, async (req, res) => {
   try {
-    const child = await Child.findOne({
-      _id: req.params.childId
-    });
+    const [childExists, entries] = await Promise.all([
+      Child.exists({ _id: req.params.childId }),
+      TimelineEntry.find({ childId: req.params.childId })
+        .sort({ date: -1 })
+        .limit(100)
+        .lean()
+    ]);
 
-    if (!child) {
+    if (!childExists) {
       return res.status(404).json({ error: 'Child not found' });
     }
 
-    const entries = await TimelineEntry.find({ childId: String(child._id) })
-      .sort({ date: -1 })
-      .limit(100);
+    // Map _id to id for frontend compatibility since .lean() drops virtuals
+    const mappedEntries = entries.map(entry => {
+      entry.id = entry._id.toString();
+      return entry;
+    });
 
-    res.json({ entries });
+    res.json({ entries: mappedEntries });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch timeline' });
   }
@@ -150,18 +156,24 @@ router.post('/measurement', authMiddleware, [
 // Get growth measurements for child
 router.get('/measurements/:childId', authMiddleware, async (req, res) => {
   try {
-    const child = await Child.findOne({
-      _id: req.params.childId
-    });
+    const [childExists, measurements] = await Promise.all([
+      Child.exists({ _id: req.params.childId }),
+      Measurement.find({ childId: req.params.childId })
+        .sort({ date: 1 })
+        .lean()
+    ]);
 
-    if (!child) {
+    if (!childExists) {
       return res.status(404).json({ error: 'Child not found' });
     }
 
-    const measurements = await Measurement.find({ childId: String(child._id) })
-      .sort({ date: 1 });
+    // Map _id to id for frontend compatibility since .lean() drops virtuals
+    const mappedMeasurements = measurements.map(measurement => {
+      measurement.id = measurement._id.toString();
+      return measurement;
+    });
 
-    res.json({ measurements });
+    res.json({ measurements: mappedMeasurements });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch measurements' });
   }
