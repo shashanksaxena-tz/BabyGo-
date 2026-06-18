@@ -1,0 +1,3 @@
+## 2024-05-18 - [Parallelized DB Checks and Data Fetching]
+**Learning:** Checking for the existence of a parent document (e.g., `Child.exists`) can be run in parallel with fetching its related entries (e.g., `TimelineEntry.find()`) using `Promise.all()`, effectively eliminating sequential database blocking in APIs. Also, `.exists()` is more lightweight than `.findOne()`.
+**Action:** When validating a parent document before returning a list of child records, do not use `Model.findOne()` followed by `Model.find()`. Instead, use `Model.exists()` and execute it alongside the primary data fetch using `Promise.all()`.
