@@ -10,17 +10,23 @@ const router = express.Router();
 // Get timeline entries for child
 router.get('/:childId', authMiddleware, async (req, res) => {
   try {
-    const child = await Child.findOne({
-      _id: req.params.childId
-    });
+    const [childExists, entriesData] = await Promise.all([
+      Child.exists({ _id: req.params.childId }),
+      TimelineEntry.find({ childId: req.params.childId })
+        .sort({ date: -1 })
+        .limit(100)
+        .lean()
+    ]);
 
-    if (!child) {
+    if (!childExists) {
       return res.status(404).json({ error: 'Child not found' });
     }
 
-    const entries = await TimelineEntry.find({ childId: String(child._id) })
-      .sort({ date: -1 })
-      .limit(100);
+    // Map _id to id to support frontend expectations after .lean()
+    const entries = entriesData.map(entry => ({
+      ...entry,
+      id: String(entry._id)
+    }));
 
     res.json({ entries });
   } catch (error) {
@@ -150,16 +156,22 @@ router.post('/measurement', authMiddleware, [
 // Get growth measurements for child
 router.get('/measurements/:childId', authMiddleware, async (req, res) => {
   try {
-    const child = await Child.findOne({
-      _id: req.params.childId
-    });
+    const [childExists, measurementsData] = await Promise.all([
+      Child.exists({ _id: req.params.childId }),
+      Measurement.find({ childId: req.params.childId })
+        .sort({ date: 1 })
+        .lean()
+    ]);
 
-    if (!child) {
+    if (!childExists) {
       return res.status(404).json({ error: 'Child not found' });
     }
 
-    const measurements = await Measurement.find({ childId: String(child._id) })
-      .sort({ date: 1 });
+    // Map _id to id to support frontend expectations after .lean()
+    const measurements = measurementsData.map(m => ({
+      ...m,
+      id: String(m._id)
+    }));
 
     res.json({ measurements });
   } catch (error) {
