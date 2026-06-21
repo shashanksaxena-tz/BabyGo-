@@ -211,15 +211,16 @@ router.post('/custom', authMiddleware, geminiInit, async (req, res) => {
     if (!child) return res.status(404).json({ error: 'Child not found' });
 
     // Describe uploaded character images via Vision
-    const characterDescriptions = [];
-    for (const img of characterImages) {
-      try {
-        const desc = await geminiService.describeImage(img.base64, img.mimeType || 'image/jpeg');
-        characterDescriptions.push(desc);
-      } catch {
-        characterDescriptions.push(''); // non-fatal
-      }
-    }
+    // ⚡ Bolt: Parallelize independent I/O-bound vision API calls to reduce total latency.
+    const characterDescriptions = await Promise.all(
+      characterImages.map(async (img) => {
+        try {
+          return await geminiService.describeImage(img.base64, img.mimeType || 'image/jpeg');
+        } catch {
+          return ''; // non-fatal
+        }
+      })
+    );
 
     // Describe child's story avatar if provided, or fall back to profile photo
     let childAvatarDescription = '';
