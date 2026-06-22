@@ -10,19 +10,28 @@ const router = express.Router();
 // Get timeline entries for child
 router.get('/:childId', authMiddleware, async (req, res) => {
   try {
-    const child = await Child.findOne({
-      _id: req.params.childId
-    });
+    const childId = req.params.childId;
 
-    if (!child) {
+    // ⚡ Bolt Optimization: Parallelize existence check and lean data fetch
+    const [childExists, entries] = await Promise.all([
+      Child.exists({ _id: childId }),
+      TimelineEntry.find({ childId })
+        .sort({ date: -1 })
+        .limit(100)
+        .lean()
+    ]);
+
+    if (!childExists) {
       return res.status(404).json({ error: 'Child not found' });
     }
 
-    const entries = await TimelineEntry.find({ childId: String(child._id) })
-      .sort({ date: -1 })
-      .limit(100);
+    // Remap _id to id if frontend expects id (Mongoose virtual is removed by lean())
+    const formattedEntries = entries.map(entry => {
+      entry.id = entry._id.toString();
+      return entry;
+    });
 
-    res.json({ entries });
+    res.json({ entries: formattedEntries });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch timeline' });
   }
@@ -150,18 +159,27 @@ router.post('/measurement', authMiddleware, [
 // Get growth measurements for child
 router.get('/measurements/:childId', authMiddleware, async (req, res) => {
   try {
-    const child = await Child.findOne({
-      _id: req.params.childId
-    });
+    const childId = req.params.childId;
 
-    if (!child) {
+    // ⚡ Bolt Optimization: Parallelize existence check and lean data fetch
+    const [childExists, measurements] = await Promise.all([
+      Child.exists({ _id: childId }),
+      Measurement.find({ childId })
+        .sort({ date: 1 })
+        .lean()
+    ]);
+
+    if (!childExists) {
       return res.status(404).json({ error: 'Child not found' });
     }
 
-    const measurements = await Measurement.find({ childId: String(child._id) })
-      .sort({ date: 1 });
+    // Remap _id to id if frontend expects id
+    const formattedMeasurements = measurements.map(measurement => {
+      measurement.id = measurement._id.toString();
+      return measurement;
+    });
 
-    res.json({ measurements });
+    res.json({ measurements: formattedMeasurements });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch measurements' });
   }
