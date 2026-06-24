@@ -1,0 +1,3 @@
+## 2024-06-24 - Parallelize existence checks and database queries for related documents
+**Learning:** For endpoints needing to query related entries (e.g. `TimelineEntry.find({ childId })`) but only if the parent exists, replacing sequential calls (`Child.findOne()` followed by the find) with a concurrent check (`Child.exists()` and `.find()`) using `Promise.all` effectively reduces endpoint latency by saving a round trip and bypassing unnecessary parent document parsing.
+**Action:** When querying child data elements, use `Model.exists` and `Promise.all` instead of sequential lookup of parent models when the parent document isn't directly needed in the response.
