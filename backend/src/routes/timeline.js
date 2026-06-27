@@ -10,17 +10,21 @@ const router = express.Router();
 // Get timeline entries for child
 router.get('/:childId', authMiddleware, async (req, res) => {
   try {
-    const child = await Child.findOne({
-      _id: req.params.childId
-    });
+    // ⚡ Bolt: Parallelize parent existence check with children query and use .lean() to bypass hydration
+    const [childExists, rawEntries] = await Promise.all([
+      Child.exists({ _id: req.params.childId }),
+      TimelineEntry.find({ childId: req.params.childId })
+        .sort({ date: -1 })
+        .limit(100)
+        .lean()
+    ]);
 
-    if (!child) {
+    if (!childExists) {
       return res.status(404).json({ error: 'Child not found' });
     }
 
-    const entries = await TimelineEntry.find({ childId: String(child._id) })
-      .sort({ date: -1 })
-      .limit(100);
+    // Map ._id to .id since .lean() drops Mongoose virtuals
+    const entries = rawEntries.map(e => ({ ...e, id: e._id.toString() }));
 
     res.json({ entries });
   } catch (error) {
@@ -42,16 +46,15 @@ router.post('/', authMiddleware, [
 
     const { childId, type, title, description, data, date } = req.body;
 
-    const child = await Child.findOne({
-      _id: childId
-    });
+    // ⚡ Bolt: Use .exists() instead of .findOne() to bypass hydrating full Child document
+    const childExists = await Child.exists({ _id: childId });
 
-    if (!child) {
+    if (!childExists) {
       return res.status(404).json({ error: 'Child not found' });
     }
 
     const entry = new TimelineEntry({
-      childId: String(child._id),
+      childId: String(childId),
       userId: String(req.user._id),
       type,
       date: date || new Date(),
@@ -150,16 +153,20 @@ router.post('/measurement', authMiddleware, [
 // Get growth measurements for child
 router.get('/measurements/:childId', authMiddleware, async (req, res) => {
   try {
-    const child = await Child.findOne({
-      _id: req.params.childId
-    });
+    // ⚡ Bolt: Parallelize parent existence check with children query and use .lean() to bypass hydration
+    const [childExists, rawMeasurements] = await Promise.all([
+      Child.exists({ _id: req.params.childId }),
+      Measurement.find({ childId: req.params.childId })
+        .sort({ date: 1 })
+        .lean()
+    ]);
 
-    if (!child) {
+    if (!childExists) {
       return res.status(404).json({ error: 'Child not found' });
     }
 
-    const measurements = await Measurement.find({ childId: String(child._id) })
-      .sort({ date: 1 });
+    // Map ._id to .id since .lean() drops Mongoose virtuals
+    const measurements = rawMeasurements.map(m => ({ ...m, id: m._id.toString() }));
 
     res.json({ measurements });
   } catch (error) {
