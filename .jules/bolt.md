@@ -1,0 +1,3 @@
+## 2024-06-29 - Parallelized API queries in Timeline routes
+**Learning:** Using `Child.findOne()` just to verify existence before querying a related table (like TimelineEntry or Measurement) creates a sequential bottleneck and hydrates a full mongoose document needlessly when we only need a boolean exists check. The frontend also only requires `_id`, so `.lean()` is perfectly safe and saves more parsing time for the large collections being queried.
+**Action:** Replaced sequential `Child.findOne()` with `Child.exists()` and ran it in parallel with `TimelineEntry.find()` and `Measurement.find()` using `Promise.all()`. Also added `.lean()` to the find queries to bypass document hydration and improve API performance since virtuals aren't heavily used by timeline display.
