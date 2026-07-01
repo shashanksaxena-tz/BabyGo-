@@ -10,17 +10,28 @@ const router = express.Router();
 // Get timeline entries for child
 router.get('/:childId', authMiddleware, async (req, res) => {
   try {
-    const child = await Child.findOne({
-      _id: req.params.childId
-    });
+    const childId = req.params.childId;
 
-    if (!child) {
+    // Parallelize existence check and fetching
+    // Use .exists() for parent to avoid parsing the full document
+    // Use .lean() to avoid document hydration overhead
+    const [childExists, rawEntries] = await Promise.all([
+      Child.exists({ _id: childId }),
+      TimelineEntry.find({ childId })
+        .sort({ date: -1 })
+        .limit(100)
+        .lean()
+    ]);
+
+    if (!childExists) {
       return res.status(404).json({ error: 'Child not found' });
     }
 
-    const entries = await TimelineEntry.find({ childId: String(child._id) })
-      .sort({ date: -1 })
-      .limit(100);
+    // Map _id to id for frontend compatibility since .lean() skips virtuals
+    const entries = rawEntries.map(e => {
+      e.id = e._id;
+      return e;
+    });
 
     res.json({ entries });
   } catch (error) {
@@ -150,16 +161,27 @@ router.post('/measurement', authMiddleware, [
 // Get growth measurements for child
 router.get('/measurements/:childId', authMiddleware, async (req, res) => {
   try {
-    const child = await Child.findOne({
-      _id: req.params.childId
-    });
+    const childId = req.params.childId;
 
-    if (!child) {
+    // Parallelize existence check and fetching
+    // Use .exists() for parent to avoid parsing the full document
+    // Use .lean() to avoid document hydration overhead
+    const [childExists, rawMeasurements] = await Promise.all([
+      Child.exists({ _id: childId }),
+      Measurement.find({ childId })
+        .sort({ date: 1 })
+        .lean()
+    ]);
+
+    if (!childExists) {
       return res.status(404).json({ error: 'Child not found' });
     }
 
-    const measurements = await Measurement.find({ childId: String(child._id) })
-      .sort({ date: 1 });
+    // Map _id to id for frontend compatibility since .lean() skips virtuals
+    const measurements = rawMeasurements.map(m => {
+      m.id = m._id;
+      return m;
+    });
 
     res.json({ measurements });
   } catch (error) {
