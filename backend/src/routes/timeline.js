@@ -10,19 +10,20 @@ const router = express.Router();
 // Get timeline entries for child
 router.get('/:childId', authMiddleware, async (req, res) => {
   try {
-    const child = await Child.findOne({
-      _id: req.params.childId
-    });
+    const childId = req.params.childId;
 
-    if (!child) {
+    // Bolt: Parallelize parent existence check and related data query using .lean()
+    const [childExists, entries] = await Promise.all([
+      Child.exists({ _id: childId }),
+      TimelineEntry.find({ childId }).sort({ date: -1 }).limit(100).lean()
+    ]);
+
+    if (!childExists) {
       return res.status(404).json({ error: 'Child not found' });
     }
 
-    const entries = await TimelineEntry.find({ childId: String(child._id) })
-      .sort({ date: -1 })
-      .limit(100);
-
-    res.json({ entries });
+    // Bolt: Map _id to id to preserve frontend compatibility when using .lean()
+    res.json({ entries: entries.map(e => ({ ...e, id: String(e._id) })) });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch timeline' });
   }
@@ -150,18 +151,20 @@ router.post('/measurement', authMiddleware, [
 // Get growth measurements for child
 router.get('/measurements/:childId', authMiddleware, async (req, res) => {
   try {
-    const child = await Child.findOne({
-      _id: req.params.childId
-    });
+    const childId = req.params.childId;
 
-    if (!child) {
+    // Bolt: Parallelize parent existence check and related data query using .lean()
+    const [childExists, measurements] = await Promise.all([
+      Child.exists({ _id: childId }),
+      Measurement.find({ childId }).sort({ date: 1 }).lean()
+    ]);
+
+    if (!childExists) {
       return res.status(404).json({ error: 'Child not found' });
     }
 
-    const measurements = await Measurement.find({ childId: String(child._id) })
-      .sort({ date: 1 });
-
-    res.json({ measurements });
+    // Bolt: Map _id to id to preserve frontend compatibility when using .lean()
+    res.json({ measurements: measurements.map(m => ({ ...m, id: String(m._id) })) });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch measurements' });
   }
