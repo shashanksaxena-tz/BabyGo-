@@ -1,0 +1,3 @@
+## 2024-07-03 - Mongoose .lean() with missing virtual fields
+**Learning:** When using `.lean()` in Mongoose to speed up query execution and reduce memory parsing, Mongoose will bypass document instantiation. This means the default `id` virtual (which mirrors the underlying `_id` field as a string) is not generated. The frontend heavily relies on this `id` field for React `key` props and related data fetching.
+**Action:** When implementing `.lean()` on array results, ensure that `id` mapping is explicitly performed on the returned objects (e.g. `.map(e => ({ ...e, id: String(e._id) }))`) to maintain the expected API contract with the frontend UI, otherwise breaking component behavior.
