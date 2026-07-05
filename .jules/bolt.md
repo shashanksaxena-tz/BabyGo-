@@ -1,0 +1,3 @@
+## 2024-05-14 - Parallelize existence check and related data fetch
+**Learning:** When validating the existence of a parent document before querying related records (e.g., verifying a Child exists before fetching TimelineEntries), sequential DB calls block and add latency. `Model.exists()` is more memory-efficient than `Model.findOne()`, but running them sequentially still causes N+1 query patterns where each loop triggers a separate DB call.
+**Action:** Use `Model.exists()` instead of `Model.findOne()` when only existence check is needed, and parallelize this check with the related data queries using `Promise.all()` to eliminate sequential blocking and reduce endpoint latency.

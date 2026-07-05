@@ -10,19 +10,30 @@ const router = express.Router();
 // Get timeline entries for child
 router.get('/:childId', authMiddleware, async (req, res) => {
   try {
-    const child = await Child.findOne({
-      _id: req.params.childId
-    });
+    const childIdStr = String(req.params.childId);
 
-    if (!child) {
+    // Parallelize existence check and entries fetch using lean()
+    const [childExists, entries] = await Promise.all([
+      Child.exists({ _id: childIdStr }),
+      TimelineEntry.find({ childId: childIdStr })
+        .sort({ date: -1 })
+        .limit(100)
+        .lean()
+    ]);
+
+    if (!childExists) {
       return res.status(404).json({ error: 'Child not found' });
     }
 
-    const entries = await TimelineEntry.find({ childId: String(child._id) })
-      .sort({ date: -1 })
-      .limit(100);
+    // Map _id to id if frontend expects it, lean doesn't include virtuals
+    const formattedEntries = entries.map(entry => {
+      if (entry._id) {
+         entry.id = entry._id.toString();
+      }
+      return entry;
+    });
 
-    res.json({ entries });
+    res.json({ entries: formattedEntries });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch timeline' });
   }
@@ -150,18 +161,29 @@ router.post('/measurement', authMiddleware, [
 // Get growth measurements for child
 router.get('/measurements/:childId', authMiddleware, async (req, res) => {
   try {
-    const child = await Child.findOne({
-      _id: req.params.childId
-    });
+    const childIdStr = String(req.params.childId);
 
-    if (!child) {
+    // Parallelize existence check and measurements fetch using lean()
+    const [childExists, measurements] = await Promise.all([
+      Child.exists({ _id: childIdStr }),
+      Measurement.find({ childId: childIdStr })
+        .sort({ date: 1 })
+        .lean()
+    ]);
+
+    if (!childExists) {
       return res.status(404).json({ error: 'Child not found' });
     }
 
-    const measurements = await Measurement.find({ childId: String(child._id) })
-      .sort({ date: 1 });
+    // Map _id to id if frontend expects it, lean doesn't include virtuals
+    const formattedMeasurements = measurements.map(measurement => {
+      if (measurement._id) {
+         measurement.id = measurement._id.toString();
+      }
+      return measurement;
+    });
 
-    res.json({ measurements });
+    res.json({ measurements: formattedMeasurements });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch measurements' });
   }
