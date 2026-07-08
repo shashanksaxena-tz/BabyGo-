@@ -1,0 +1,3 @@
+## 2025-02-20 - Parallelizing External API Calls in Story Generation
+**Learning:** Sequential external API calls (like fetching image descriptions from Gemini via a `for...of` loop) unnecessarily block each other, causing the cumulative latency to be the sum of all requests.
+**Action:** Always parallelize independent, external I/O-bound requests using `Promise.all` combined with `Array.prototype.map`. Ensure that individual rejections are caught within the map callback so that partial success remains possible without failing the entire batch, which is especially important for non-critical features like character image descriptions in custom stories.
