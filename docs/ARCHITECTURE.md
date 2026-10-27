@@ -1,95 +1,122 @@
 # Little Leap System Architecture
 
 ## Overview
-Little Leap is a comprehensive child development tracking platform designed to help parents monitor their child's growth and milestones. It leverages Google's Gemini AI to provide personalized insights and recommendations based on the child's developmental data.
+Little Leap is currently a modular monolith backend with multiple clients and external integrations.
 
----
+- Backend runtime: `Node.js + Express` (single API service)
+- Primary database: `MongoDB`
+- Object storage: `MinIO` (S3-compatible)
+- AI integrations: `Google Gemini`, `Sarvam` (optional routes)
+- Clients: React web app, React desktop frontend, Flutter mobile app
 
-## High-Level Architecture Diagram
+## Service Inventory
+
+| Layer | Service | Port | Purpose |
+|---|---|---:|---|
+| Client | Web App (`tinysteps-ai`) | 3005 | Parent-facing web UI |
+| Client | Desktop Frontend (`desktop-frontend`) | 5173 | Desktop-first web UI |
+| Client | Flutter App (`tinysteps_flutter`) | n/a | Mobile app consuming API |
+| API | Backend (`backend`) | 3001 | Auth, child profiles, analysis, stories, timeline, recommendations, reports, uploads |
+| Data | MongoDB | 27017 | Persistent application data |
+| Data | MinIO | 9010/9011 | Files: profile photos, story images, report PDFs |
+| External | Gemini API | external | AI generation and analysis |
+| External | Sarvam API | external | Translation/TTS endpoints |
+
+## Microservice Reality
+
+- **Microservices in backend**: `0`
+- **Current architecture**: `1` backend API service (modular monolith)
+- **Containerized runtime services in compose**: `5` (`backend`, `web`, `desktop-frontend`, `mongo`, `minio`)
+
+## Runtime Topology
 
 ```mermaid
 graph TB
-    subgraph client_layer["Client Layer"]
-        WEB[Web Application (React)];
-        MOBILE[Mobile App (Flutter)];
-    end
-    
-    subgraph api_layer["API Layer"]
-        GW[Nginx / API Gateway];
-    end
-    
-    subgraph service_layer["Service Layer"]
-        BACKEND[Backend Service (Node.js/Express)];
-    end
-    
-    subgraph data_layer["Data Layer"]
-        DB[(MongoDB)];
-    end
-    
-    subgraph external_services["External Services"]
-        GEMINI[Google Gemini AI];
-    end
-    
-    WEB --> GW;
-    MOBILE --> GW;
-    GW --> BACKEND;
-    BACKEND --> DB;
-    BACKEND --> GEMINI;
+    WEB[Web App React Vite 3005]
+    DESKTOP[Desktop Frontend React Vite 5173]
+    MOBILE[Flutter Mobile App]
+    WEB_NGINX[Web Nginx]
+    DESKTOP_NGINX[Desktop Nginx]
+    API[Backend API Node Express 3001]
+    MONGO[MongoDB]
+    MINIO[MinIO Object Storage]
+    GEMINI[Google Gemini API]
+    SARVAM[Sarvam API]
+    WEB --> WEB_NGINX
+    DESKTOP --> DESKTOP_NGINX
+    WEB_NGINX --> API
+    DESKTOP_NGINX --> API
+    MOBILE --> API
+    API --> MONGO
+    API --> MINIO
+    API --> GEMINI
+    API --> SARVAM
 ```
 
----
-
-## Technology Stack
-
-### Application Layer
-| Component | Technology | Version |
-|-----------|------------|---------|
-| Web Framework | React / Vite | 18.x / 5.x |
-| Mobile Framework | Flutter | 3.x |
-| Backend Runtime | Node.js | >=18.0.0 |
-| Backend Framework | Express | 4.18.2 |
-| Database | MongoDB | 7.0 |
-
----
-
-## Service Catalog
-
-| Service | Port | Primary Responsibilities |
-|---------|------|-------------------------|
-| Backend API | 3001 | REST API, Auth, Data Persistence, AI Integration |
-| Web App | 3000 | Frontend User Interface |
-| MongoDB | 27017 | Data Storage (Users, Milestones, Growth Logs) |
-
----
-
-## Deployment Architecture
-
-The system is containerized using Docker Compose for local development and simplified deployment.
+## Backend API Surface Map
 
 ```mermaid
-graph TD
-    Host[Host Machine]
-    subgraph "Docker Network (tinysteps_network)"
-        Proxy[Nginx Proxy]
-        API[Backend Container]
-        Web[Web Container]
-        Mongo[Mongo Container]
-        Vol[Mongo Volume]
-    end
-    
-    Host -- Port 3000 --> Proxy
-    Host -- Port 3001 --> API
-    Host -- Port 27017 --> Mongo
-    
-    Proxy --> Web
-    API --> Mongo
-    Mongo --> Vol
+graph TB
+    API[Backend API 3001]
+    AUTH[api auth]
+    CHILDREN[api children]
+    ANALYSIS[api analysis]
+    STORIES[api stories]
+    TIMELINE[api timeline]
+    RECS[api recommendations]
+    DOCTORS[api doctors]
+    RESOURCES[api resources]
+    REPORTS[api reports]
+    COMMUNITY[api community]
+    UPLOAD[api upload]
+    CONFIG[api config]
+    SARVAM_ROUTE[api sarvam]
+    API --> AUTH
+    API --> CHILDREN
+    API --> ANALYSIS
+    API --> STORIES
+    API --> TIMELINE
+    API --> RECS
+    API --> DOCTORS
+    API --> RESOURCES
+    API --> REPORTS
+    API --> COMMUNITY
+    API --> UPLOAD
+    API --> CONFIG
+    API --> SARVAM_ROUTE
 ```
 
----
+## Data and Storage Boundaries
 
-## Version History
+```mermaid
+graph LR
+    USERS[User Auth Data]
+    CHILD_DATA[Child Profiles Milestones Timeline]
+    CONTENT[Recipes Tips Products Activities Doctors Reports Metadata]
+    MEDIA[Profile Photos Story Images Report PDFs]
+    MONGO[MongoDB]
+    MINIO[MinIO]
+    USERS --> MONGO
+    CHILD_DATA --> MONGO
+    CONTENT --> MONGO
+    MEDIA --> MINIO
+```
 
-| Version | Date | Changes |
-|---------|------|---------|
-| 1.0 | 2024-02-04 | Initial documentation and system setup |
+## Internal Backend Modules (Single Service)
+
+| Module Group | Key Files | Responsibility |
+|---|---|---|
+| App bootstrap | `backend/src/index.js` | Middleware, route mounting, health check, startup |
+| Routing layer | `backend/src/routes/*.js` | Route-level request handling |
+| Models | `backend/src/models/*.js` | Mongo schemas/data modeling |
+| Services | `backend/src/services/*.js` | AI, storage, migrations, domain logic |
+| Middleware | `backend/src/middleware/*.js` | Auth, Gemini init, validation flow |
+| Migrations/seed | `backend/src/migrations/*`, `backend/src/seeds/*` | Startup migration + optional realistic seed |
+
+## Security and Ops Notes
+
+- JWT-based authentication for API requests.
+- CORS controlled by `WEB_APP_URL` and `MOBILE_APP_URL`.
+- Rate limiting controlled by `RATE_LIMIT_WINDOW_MS` and `RATE_LIMIT_MAX`.
+- Migrations run at backend startup via migration runner.
+- MinIO is optional at startup, but upload/report media endpoints require it.
